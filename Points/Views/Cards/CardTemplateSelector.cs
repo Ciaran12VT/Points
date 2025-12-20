@@ -1,0 +1,29 @@
+﻿using Points.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Points.Views.Cards
+{
+    public class CardTemplateSelector : DataTemplateSelector
+    {
+        public DataTemplate? TatTemplate { get; set; }
+        public DataTemplate? ScTemplate { get; set; }
+        public DataTemplate? MissionTemplate { get; set; }
+        public DataTemplate? BudgetTemplate { get; set; }
+
+        protected override DataTemplate OnSelectTemplate(object item, BindableObject container)
+        {
+            return item switch
+            {
+                BudgetCardModel => BudgetTemplate ?? TatTemplate!,
+                MissionCardModel => MissionTemplate ?? TatTemplate!,
+                ScCardModel => ScTemplate ?? TatTemplate!,
+                TatCardModel => TatTemplate!,
+                _ => TatTemplate!
+            };
+        }
+    }
+}

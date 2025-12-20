@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Details.ScDetailsPage"
+             Title="SC Details">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="14">
+
+                <!-- Title -->
+                <Label Text="Title" FontAttributes="Bold"/>
+                <Entry Text="{Binding Title}" Placeholder="Enter title"/>
+
+                <!-- Status (read-only) -->
+                <Label Text="Status" FontAttributes="Bold"/>
+                <Label Text="{Binding Status}" TextColor="Gray"/>
+
+                <!-- Tags -->
+                <Label Text="Tags" FontAttributes="Bold"/>
+                <Entry Text="{Binding Tags}" Placeholder="e.g. PRO SC Other"/>
+
+                <!-- Current accrued value (read-only) -->
+                <Label Text="Current Accrued Value" FontAttributes="Bold"/>
+                <Label Text="{Binding CurrentAccruedValueText}"
+                       TextColor="{Binding CurrentAccruedValueColor}" />
+
+                <!-- Positive/Negative toggle -->
+                <Label Text="Value Sign" FontAttributes="Bold"/>
+                <Button Text="{Binding SignToggleText}"
+                        Command="{Binding ToggleSignCommand}" />
+
+                <!-- Active time (read-only) -->
+                <Label Text="Active Time" FontAttributes="Bold"/>
+                <Label Text="{Binding ActiveTimeText}" TextColor="Orange"/>
+
+                <!-- Description -->
+                <Label Text="Description" FontAttributes="Bold"/>
+                <Editor AutoSize="TextChanges"
+                        Text="{Binding Description}"
+                        Placeholder="Optional notes..."
+                        HeightRequest="120"/>
+
+                <!-- Step list -->
+                <Label Text="Steps" FontAttributes="Bold"/>
+
+                <CollectionView ItemsSource="{Binding Steps}"
+                                SelectionMode="None"
+                                Margin="0,4,0,0">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Padding="10"
+                                   Margin="0,6"
+                                   CornerRadius="10"
+                                   HasShadow="True">
+                                <Grid ColumnDefinitions="40,*,80,40,40"
+                                      RowDefinitions="Auto,Auto"
+                                      ColumnSpacing="10"
+                                      RowSpacing="6">
+
+                                    <!-- Order -->
+                                    <Label Grid.Row="0" Grid.Column="0"
+                                           Text="{Binding Order}"
+                                           VerticalOptions="Center"
+                                           TextColor="Gray"/>
+
+                                    <!-- Step title -->
+                                    <Entry Grid.Row="0" Grid.Column="1"
+                                           Text="{Binding Title}"
+                                           Placeholder="Step title"/>
+
+                                    <!-- Step value -->
+                                    <Entry Grid.Row="0" Grid.Column="2"
+                                           Keyboard="Numeric"
+                                           Text="{Binding StepValue}"
+                                           Placeholder="Value"/>
+
+                                    <!-- Decrement -->
+                                    <Button Grid.Row="0" Grid.Column="3"
+                                            Text="-"
+                                            Command="{Binding DecrementCommand}"
+                                            WidthRequest="36"
+                                            HeightRequest="36"
+                                            CornerRadius="8"
+                                            Padding="0"/>
+
+                                    <!-- Increment -->
+                                    <Button Grid.Row="0" Grid.Column="4"
+                                            Text="+"
+                                            Command="{Binding IncrementCommand}"
+                                            WidthRequest="36"
+                                            HeightRequest="36"
+                                            CornerRadius="8"
+                                            Padding="0"/>
+
+                                    <!-- Count label -->
+                                    <Label Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2"
+                                           Text="{Binding Count, StringFormat='Count: {0}'}"
+                                           HorizontalTextAlignment="End"
+                                           TextColor="Black"/>
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Button Text="Add Step"
+                        Command="{Binding AddStepCommand}"
+                        Margin="0,8,0,0"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button Grid.Row="1"
+                Text="Save"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48"/>
+    </Grid>
+</ContentPage>

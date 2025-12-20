@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:Points.Converters;assembly=Points"
+             x:Class="Points.Views.Cards.BudgetCardView">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <converters:BudgetProgressConverter x:Key="BudgetProgressConverter" />
+            <converters:BudgetPercentRemainingTextConverter x:Key="BudgetPercentRemainingTextConverter" />
+            <converters:BudgetGlobalRemainingTextConverter x:Key="BudgetGlobalRemainingTextConverter" />
+            <converters:BudgetCurrencyRemainingTextConverter x:Key="BudgetCurrencyRemainingTextConverter" />
+            <converters:BudgetCashedInValueTextConverter x:Key="BudgetCashedInValueTextConverter" />
+            <converters:BudgetNextTopUpCountdownTextConverter x:Key="BudgetNextTopUpCountdownTextConverter" />
+            <converters:BudgetNextTopUpAmountTextConverter x:Key="BudgetNextTopUpAmountTextConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Frame Margin="12,8"
+           Padding="12,12,8,12"
+           CornerRadius="12"
+           HasShadow="True">
+
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+              ColumnDefinitions="*,Auto,Auto"
+              RowSpacing="10"
+              ColumnSpacing="8">
+
+            <!-- Row 0: Title (left) + Spend (mid) + Cash-in (right) -->
+            <Label Grid.Row="0" Grid.Column="0"
+                   Text="{Binding Title}"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   VerticalOptions="Center" />
+
+            <Button Grid.Row="0" Grid.Column="1"
+                    Text="-"
+                    WidthRequest="44"
+                    HeightRequest="36"
+                    CornerRadius="8"
+                    Padding="0"
+                    Margin="0"
+                    TextColor="Red"
+                    Clicked="OnSpendClicked" />
+
+            <Button Grid.Row="0" Grid.Column="2"
+                    Text="$"
+                    WidthRequest="44"
+                    HeightRequest="36"
+                    CornerRadius="8"
+                    Padding="0"
+                    Margin="0"
+                    TextColor="Green"
+                    Clicked="OnCashInClicked" />
+
+            <!-- Row 1: Status (left) + Tags (right spanning 2 cols) -->
+            <Label Grid.Row="1" Grid.Column="0"
+                   Text="{Binding Status, StringFormat='Status: {0}'}"
+                   FontSize="13"
+                   TextColor="Gray" />
+
+            <Label Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                   Text="{Binding Tags, StringFormat='Tags: {0}'}"
+                   FontSize="13"
+                   TextColor="Gray"
+                   HorizontalTextAlignment="End" />
+
+            <!-- Row 2: Progress bar -->
+            <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
+             HeightRequest="18">
+                <ProgressBar.Progress>
+                    <MultiBinding Converter="{StaticResource BudgetProgressConverter}">
+                        <Binding Path="." />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                     Path="BindingContext.RangeEnd" />
+                    </MultiBinding>
+                </ProgressBar.Progress>
+            </ProgressBar>
+
+
+            <!-- Row 3: Left = % / $ / currency ; Right = Value cashed-in -->
+            <HorizontalStackLayout Grid.Row="3" Grid.Column="0" Spacing="18">
+                <Label FontSize="14">
+                    <Label.Text>
+                        <MultiBinding Converter="{StaticResource BudgetPercentRemainingTextConverter}">
+                            <Binding Path="." />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                         Path="BindingContext.RangeEnd" />
+                        </MultiBinding>
+                    </Label.Text>
+                </Label>
+
+                <Label FontSize="14">
+                    <Label.Text>
+                        <MultiBinding Converter="{StaticResource BudgetGlobalRemainingTextConverter}">
+                            <Binding Path="." />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                         Path="BindingContext.RangeEnd" />
+                        </MultiBinding>
+                    </Label.Text>
+                </Label>
+
+                <Label FontSize="14">
+                    <Label.Text>
+                        <MultiBinding Converter="{StaticResource BudgetCurrencyRemainingTextConverter}">
+                            <Binding Path="." />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                         Path="BindingContext.RangeEnd" />
+                        </MultiBinding>
+                    </Label.Text>
+                </Label>
+            </HorizontalStackLayout>
+
+
+            <Label Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
+               FontSize="16"
+               TextColor="Green"
+               HorizontalTextAlignment="End">
+                <Label.Text>
+                    <MultiBinding Converter="{StaticResource BudgetCashedInValueTextConverter}">
+                        <Binding Path="." />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                     Path="BindingContext.RangeStart" />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                     Path="BindingContext.RangeEnd" />
+                    </MultiBinding>
+                </Label.Text>
+            </Label>
+
+
+            <!-- Row 4: Next top-up countdown (left) and next top-up value (right) -->
+            <Label Grid.Row="4" Grid.Column="0"
+               FontSize="14"
+               TextColor="Orange">
+                <Label.Text>
+                    <MultiBinding Converter="{StaticResource BudgetNextTopUpCountdownTextConverter}">
+                        <Binding Path="." />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                     Path="BindingContext.RangeEnd" />
+                    </MultiBinding>
+                </Label.Text>
+            </Label>
+
+            <Label Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
+               FontSize="14"
+               TextColor="Orange"
+               HorizontalTextAlignment="End">
+                <Label.Text>
+                    <MultiBinding Converter="{StaticResource BudgetNextTopUpAmountTextConverter}">
+                        <Binding Path="." />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                     Path="BindingContext.RangeEnd" />
+                    </MultiBinding>
+                </Label.Text>
+            </Label>
+
+
+        </Grid>
+    </Frame>
+</ContentView>

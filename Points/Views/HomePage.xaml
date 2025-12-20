@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Points.ViewModels"
+             xmlns:cards="clr-namespace:Points.Views.Cards;assembly=Points"
+             xmlns:views="clr-namespace:Points.Views.Cards;assembly=Points"
+             x:Class="Points.Views.HomePage"
+             Title="Points">
+
+    <ContentPage.BindingContext>
+        <vm:HomeViewModel />
+    </ContentPage.BindingContext>
+
+    <!-- TOP TOOLBAR (in the actual top title bar area) -->
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="*,Auto" Padding="12,0" VerticalOptions="Center">
+            <Label Text="Points"
+                   FontSize="18"
+                   VerticalOptions="Center" />
+
+            <Label Grid.Column="1"
+                   Text="{Binding TopRightValue, StringFormat='{0:F2}'}"
+                   FontSize="16"
+                   VerticalOptions="Center"
+                   HorizontalOptions="End" />
+        </Grid>
+    </Shell.TitleView>
+
+    <!-- PAGE CONTENT: carousel + bottom toolbar -->
+    <Grid RowDefinitions="*,Auto">
+
+        <!-- Carousel -->
+        <CarouselView Grid.Row="0"
+                      ItemsSource="{Binding Pages}"
+                      Position="{Binding Position, Mode=TwoWay}"
+                      IsSwipeEnabled="True">
+
+            <CarouselView.ItemTemplate>
+                <DataTemplate>
+                    <Grid RowDefinitions="Auto,*" Padding="12,8">
+                         <!--Pane title--> 
+                        <Label Grid.Row="0"
+                           Text="{Binding Name}"
+                           FontSize="18"
+                           Margin="0,0,0,8" />
+
+                         <!--Cards list-->
+                        <CollectionView Grid.Row="1" ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource CardTemplateSelector}">
+                            <!--<CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <cards:TatCardView />
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>-->
+                        </CollectionView>
+                    </Grid>
+                </DataTemplate>
+            </CarouselView.ItemTemplate>
+
+
+        </CarouselView>
+
+        <!-- BOTTOM TOOLBAR -->
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,Auto"
+              Padding="12"
+              BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
+
+            <Label Text="Bottom toolbar"
+                   VerticalOptions="Center"
+                   Opacity="0.7" />
+
+            <Button Grid.Column="1"
+                    Text="Add"
+                    Clicked="OnAddClicked" />
+        </Grid>
+
+    </Grid>
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <cards:CardTemplateSelector x:Key="CardTemplateSelector">
+                
+                <cards:CardTemplateSelector.TatTemplate>
+                    <DataTemplate>
+                        <cards:TatCardView />
+                    </DataTemplate>
+                </cards:CardTemplateSelector.TatTemplate>
+
+                <cards:CardTemplateSelector.ScTemplate>
+                    <DataTemplate>
+                        <cards:ScCardView />
+                    </DataTemplate>
+                </cards:CardTemplateSelector.ScTemplate>
+
+                <cards:CardTemplateSelector.MissionTemplate>
+                    <DataTemplate>
+                        <cards:MissionCardView />
+                    </DataTemplate>
+                </cards:CardTemplateSelector.MissionTemplate>
+
+                <cards:CardTemplateSelector.BudgetTemplate>
+                    <DataTemplate>
+                        <cards:BudgetCardView />
+                    </DataTemplate>
+                </cards:CardTemplateSelector.BudgetTemplate>
+
+
+            </cards:CardTemplateSelector>
+
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+
+</ContentPage>

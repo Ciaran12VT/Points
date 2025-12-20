@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:Points.Converters;assembly=Points"
+             x:Class="Points.Views.Cards.MissionCardView">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <converters:MissionCurrentValueTextConverter x:Key="MissionCurrentValueTextConverter" />
+            <converters:MissionCurrentValueColorConverter x:Key="MissionCurrentValueColorConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+
+    <Frame Margin="12,8"
+           Padding="12,12,8,12"
+           CornerRadius="12"
+           HasShadow="True">
+
+        <Frame.Triggers>
+            <!-- Grey out when complete -->
+            <DataTrigger TargetType="Frame" Binding="{Binding IsComplete}" Value="True">
+                <Setter Property="Opacity" Value="0.55" />
+            </DataTrigger>
+
+            <!-- Grey out when not available yet -->
+            <DataTrigger TargetType="Frame" Binding="{Binding IsAvailable}" Value="False">
+                <Setter Property="Opacity" Value="0.55" />
+            </DataTrigger>
+        </Frame.Triggers>
+
+        <Grid RowDefinitions="Auto,Auto,Auto"
+          ColumnDefinitions="*,Auto"
+          RowSpacing="6">
+
+            <Grid.Triggers>
+                <!-- Disable when complete -->
+                <DataTrigger TargetType="Grid" Binding="{Binding IsComplete}" Value="True">
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
+
+                <!-- Disable when not available -->
+                <DataTrigger TargetType="Grid" Binding="{Binding IsAvailable}" Value="False">
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
+            </Grid.Triggers>
+
+            <!-- Row 0: Title -->
+            <Label Grid.Row="0" Grid.Column="0"
+               Text="{Binding Title}"
+               FontSize="16"
+               VerticalOptions="Center" />
+
+            <!-- Row 0: Completion button (top-right) -->
+            <Grid Grid.Row="0" Grid.Column="1" HorizontalOptions="End">
+
+                <Button Text="✓"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Green"
+                HorizontalOptions="End"
+                VerticalOptions="Center"
+                Command="{Binding CompleteCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsComplete}" Value="True">
+                            <Setter Property="BackgroundColor" Value="Gray" />
+                            <Setter Property="Text" Value="✓" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+
+            </Grid>
+
+            <!-- Row 1: Status (left, grey) -->
+            <Label Grid.Row="1" Grid.Column="0"
+               Text="{Binding Status, StringFormat='Status: {0}'}"
+               FontSize="13"
+               TextColor="Gray" />
+
+            <!-- Row 1: Tags (right, grey) -->
+            <Label Grid.Row="1" Grid.Column="1"
+               Text="{Binding Tags, StringFormat='Tags: {0}'}"
+               FontSize="13"
+               TextColor="Gray"
+               HorizontalTextAlignment="End" />
+
+            <!-- Row 2: SubType (left, orange) -->
+            <Label Grid.Row="2" Grid.Column="0"
+               Text="{Binding SubType}"
+               FontSize="14"
+               TextColor="Orange" />
+
+            <!-- Row 2: Value (right, green) -->
+            <Label Grid.Row="2" Grid.Column="1"
+               FontSize="14"
+               HorizontalTextAlignment="End">
+                <Label.Text>
+                    <MultiBinding Converter="{StaticResource MissionCurrentValueTextConverter}">
+                        <!-- the card -->
+                        <Binding Path="." />
+                        <!-- current time -->
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                     Path="BindingContext.RangeEnd" />
+                    </MultiBinding>
+                </Label.Text>
+                <Label.TextColor>
+                    <MultiBinding Converter="{StaticResource MissionCurrentValueColorConverter}">
+                        <Binding Path="." />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                 Path="BindingContext.RangeEnd" />
+                    </MultiBinding>
+                </Label.TextColor>
+            </Label>
+
+
+        </Grid>
+
+    </Frame>
+</ContentView>

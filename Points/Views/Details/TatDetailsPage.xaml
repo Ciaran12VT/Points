@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Details.TatDetailsPage"
+             Title="TAT Details">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <!-- Scrollable content -->
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="14">
+
+                <!-- Title -->
+                <Label Text="Title" FontAttributes="Bold"/>
+                <Entry Text="{Binding Title}" Placeholder="Enter title"/>
+
+                <!-- Status (read-only) -->
+                <Label Text="Status" FontAttributes="Bold"/>
+                <Label Text="{Binding Status}" TextColor="Gray"/>
+
+                <!-- Tags -->
+                <Label Text="Tags" FontAttributes="Bold"/>
+                <Entry Text="{Binding Tags}" Placeholder="e.g. PRO TAT Other"/>
+
+                <!-- Value per minute -->
+                <Label Text="Value Per Minute" FontAttributes="Bold"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Entry Grid.Column="0"
+                           Keyboard="Numeric"
+                           Text="{Binding ValuePerMinuteText}"
+                           Placeholder="e.g. 1.25"/>
+                    <Button Grid.Column="1"
+                            Text="{Binding SignToggleText}"
+                            Command="{Binding ToggleSignCommand}"/>
+                </Grid>
+
+                <!-- Current accrued value (read-only) -->
+                <Label Text="Current Accrued Value" FontAttributes="Bold"/>
+                <Label Text="{Binding CurrentAccruedValueText}" TextColor="Green"/>
+
+                <!-- Active time (read-only) -->
+                <Label Text="Active Time" FontAttributes="Bold"/>
+                <Label Text="{Binding ActiveTimeText}" TextColor="Orange"/>
+
+                <!-- Description -->
+                <Label Text="Description" FontAttributes="Bold"/>
+                <Editor AutoSize="TextChanges"
+                        Text="{Binding Description}"
+                        Placeholder="Optional notes..."
+                        HeightRequest="120"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Save button pinned to bottom -->
+        <Button Grid.Row="1"
+                Text="Save"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48"/>
+    </Grid>
+</ContentPage>
