@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Details.MissionDetailsPage"
+             Title="Mission Details">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="14">
+
+                <!-- Title -->
+                <Label Text="Title" FontAttributes="Bold" />
+                <Entry Text="{Binding Title}" Placeholder="Enter title" IsReadOnly="{Binding IsReadOnly}"/>
+
+                <!-- Status (read-only) -->
+                <Label Text="Status" FontAttributes="Bold" />
+                <Label Text="{Binding Status}" TextColor="Gray"/>
+
+                <!-- Tags -->
+                <Label Text="Tags" FontAttributes="Bold" />
+                <Entry Text="{Binding Tags}" Placeholder="e.g. #Work, #Errands" IsReadOnly="{Binding IsReadOnly}"/>
+
+                <!-- SubType -->
+                <Label Text="SubType" FontAttributes="Bold" />
+                <Picker Title="Select subtype"
+                        ItemsSource="{Binding SubTypeOptions}"
+                        SelectedItem="{Binding SelectedSubType}" 
+                        IsEnabled="{Binding CanEdit}"/>
+
+                <!-- Value -->
+                <Label Text="Value" FontAttributes="Bold" />
+                <Entry Text="{Binding ValueText}" Keyboard="Numeric"  Placeholder="e.g. 25" IsReadOnly="{Binding IsReadOnly}"/>
+
+                <!-- Created Date (read-only) -->
+                <Label Text="Created Date" FontAttributes="Bold" />
+                <Label Text="{Binding CreatedDateText}" TextColor="Gray" />
+
+                <!-- Available From -->
+                <Label Text="Available From" FontAttributes="Bold" />
+                <DatePicker Date="{Binding AvailableFromDate}" IsEnabled="{Binding CanEdit}"/>
+                <TimePicker Time="{Binding AvailableFromTime}" IsEnabled="{Binding CanEdit}"/>
+
+                <!-- Due By -->
+                <Label Text="Due By" FontAttributes="Bold" />
+                <DatePicker Date="{Binding DueDate}" IsEnabled="{Binding CanEdit}"/>
+                <TimePicker Time="{Binding DueTime}" IsEnabled="{Binding CanEdit}"/>
+
+                <!-- Description -->
+                <Label Text="Description" FontAttributes="Bold" />
+                <Editor AutoSize="TextChanges"
+                        Text="{Binding Description}"
+                        Placeholder="Optional notes..."
+                        HeightRequest="120" 
+                        IsReadOnly="{Binding IsReadOnly}"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button Grid.Row="1"
+                Text="Save"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48"
+                IsVisible="{Binding CanEdit}"/>
+    </Grid>
+</ContentPage>

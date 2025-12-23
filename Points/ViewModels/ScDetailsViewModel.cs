@@ -1,4 +1,5 @@
-﻿using Points.Models;
+﻿using Points.Global;
+using Points.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -11,21 +12,31 @@ namespace Points.ViewModels
 {
     public class ScDetailsViewModel : ObservableObject
     {
-        private readonly ScCardModel _model;
-        private readonly DateTime _rangeStart;
-        private readonly DateTime _rangeEnd;
+        private ScCardModel _model;
+        private Action<ScCardModel> _onSaved;
 
         public ObservableCollection<ScStepModel> Steps { get; } = new();
 
-        public ScDetailsViewModel(ScCardModel model, DateTime rangeStart, DateTime rangeEnd)
+        public ScDetailsViewModel(ScCardModel model)
         {
-            _model = model;
-            _rangeStart = rangeStart;
-            _rangeEnd = rangeEnd;
-
             ToggleSignCommand = new Command(ToggleSign);
             AddStepCommand = new Command(AddStep);
             SaveCommand = new Command(async () => await SaveAsync());
+            BuildModel(model);
+        }
+
+        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved)
+        {
+            ToggleSignCommand = new Command(ToggleSign);
+            AddStepCommand = new Command(AddStep);
+            SaveCommand = new Command(async () => await SaveAsync());
+            _onSaved = onSaved;
+            BuildModel(model);
+        }
+
+        private void BuildModel(ScCardModel model)
+        {
+            _model = model;
 
             // Load editable fields
             Title = _model.Title;
@@ -49,6 +60,30 @@ namespace Points.ViewModels
             RaiseComputed();
         }
 
+        private DateTime _rangeStart = GlobalVariables.RangeStart;
+        public DateTime RangeStart
+        {
+            get => _rangeStart;
+            set
+            {
+                if (_rangeStart == value) return;
+                _rangeStart = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        private DateTime _rangeEnd = GlobalVariables.RangeEnd;
+        public DateTime RangeEnd
+        {
+            get => _rangeEnd;
+            set
+            {
+                if (_rangeEnd == value) return;
+                _rangeEnd = value;
+                RaisePropertyChanged();
+            }
+        }
+
         // Editable fields
         private string _title = "";
         public string Title { get => _title; set => SetProperty(ref _title, value); }
@@ -63,13 +98,13 @@ namespace Points.ViewModels
         public string Status => _model.Status;
 
         public string ActiveTimeText
-            => _model.GetActiveTime(_rangeStart, _rangeEnd).ToString(@"hh\:mm\:ss");
+            => _model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString(@"hh\:mm\:ss");
 
         public string CurrentAccruedValueText
         {
             get
             {
-                var sum = Steps.Sum(s => s.StepValue * s.Count);
+                var sum = Steps.Sum(s => s.StepValue * s.Count(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
                 var signed = (_isNegative ? -1 : 1) * sum;
                 return signed.ToString("F2", CultureInfo.InvariantCulture);
             }
@@ -87,7 +122,7 @@ namespace Points.ViewModels
 
         // Sign toggle
         private bool _isNegative;
-        public string SignToggleText => _isNegative ? "Negative" : "Positive";
+        public string SignToggleText => _isNegative ? "-" : "+";
 
         public Command ToggleSignCommand { get; }
         private void ToggleSign()
@@ -129,9 +164,11 @@ namespace Points.ViewModels
                     Order = order++,
                     Title = s.Title,
                     StepValue = s.StepValue,
-                    Count = s.Count
+                    Reps = s.Reps
                 });
             }
+
+            if(_onSaved != null) _onSaved(_model);
 
             await Shell.Current.Navigation.PopAsync();
         }

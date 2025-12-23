@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:Points.Converters"
              x:Class="Points.Views.Details.ScDetailsPage"
              Title="SC Details">
 
-    <Grid RowDefinitions="*,Auto" Padding="12">
+    <Grid RowDefinitions="*,Auto" Padding="12" Margin="0,0,0,24">
 
         <ScrollView Grid.Row="0">
             <VerticalStackLayout Spacing="14">
@@ -27,9 +28,28 @@
                        TextColor="{Binding CurrentAccruedValueColor}" />
 
                 <!-- Positive/Negative toggle -->
-                <Label Text="Value Sign" FontAttributes="Bold"/>
-                <Button Text="{Binding SignToggleText}"
-                        Command="{Binding ToggleSignCommand}" />
+                <Grid ColumnDefinitions="*,Auto"
+                      VerticalOptions="Center"
+                      Margin="0,0,0,4">
+
+                    <Label Text="Value Sign"
+                       FontAttributes="Bold"
+                       VerticalOptions="Center"/>
+
+                    <Button Grid.Column="1"
+                        Text="{Binding SignToggleText}" 
+                        Command="{Binding ToggleSignCommand}"
+                        BackgroundColor="Green"
+                        TextColor="White"
+                        FontAttributes="Bold"
+                        Padding="6,0"
+                        HeightRequest="30"
+                        MinimumWidthRequest="30"
+                        CornerRadius="8"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                </Grid>
+
 
                 <!-- Active time (read-only) -->
                 <Label Text="Active Time" FontAttributes="Bold"/>
@@ -43,71 +63,109 @@
                         HeightRequest="120"/>
 
                 <!-- Step list -->
-                <Label Text="Steps" FontAttributes="Bold"/>
+                <Grid ColumnDefinitions="*,Auto"
+                      VerticalOptions="Center"
+                      Margin="0,0,0,4">
+                    
+                    <Label Text="Steps"
+                       FontAttributes="Bold"
+                       VerticalOptions="Center"/>
+
+                    <Button Grid.Column="1"
+                        Text="+"
+                        Command="{Binding AddStepCommand}"
+                        BackgroundColor="Green"
+                        TextColor="White"
+                        FontAttributes="Bold"
+                        Padding="6,0"
+                        HeightRequest="30"
+                        MinimumWidthRequest="30"
+                        CornerRadius="8"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                </Grid>
 
                 <CollectionView ItemsSource="{Binding Steps}"
-                                SelectionMode="None"
-                                Margin="0,4,0,0">
+                SelectionMode="None"
+                Margin="0,4,0,0">
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <Frame Padding="10"
-                                   Margin="0,6"
-                                   CornerRadius="10"
-                                   HasShadow="True">
-                                <Grid ColumnDefinitions="40,*,80,40,40"
-                                      RowDefinitions="Auto,Auto"
-                                      ColumnSpacing="10"
-                                      RowSpacing="6">
+                               Margin="0,6"
+                               CornerRadius="10"
+                               HasShadow="True">
+                                <Grid ColumnDefinitions="10,*,50,40,40,40"
+                                  RowDefinitions="Auto"
+                                  ColumnSpacing="10">
 
                                     <!-- Order -->
                                     <Label Grid.Row="0" Grid.Column="0"
-                                           Text="{Binding Order}"
-                                           VerticalOptions="Center"
-                                           TextColor="Gray"/>
+                                       Text="{Binding Order}"
+                                       VerticalOptions="Center"
+                                       TextColor="Gray"/>
 
                                     <!-- Step title -->
                                     <Entry Grid.Row="0" Grid.Column="1"
-                                           Text="{Binding Title}"
-                                           Placeholder="Step title"/>
+                                       Text="{Binding Title}"
+                                       Placeholder="Step title"/>
 
-                                    <!-- Step value -->
+                                    <!-- Step value (narrower) -->
                                     <Entry Grid.Row="0" Grid.Column="2"
-                                           Keyboard="Numeric"
-                                           Text="{Binding StepValue}"
-                                           Placeholder="Value"/>
+                                       Keyboard="Numeric"
+                                       Text="{Binding StepValue}"
+                                       Placeholder="Value"
+                                       HorizontalTextAlignment="End"/>
+
+                                    <!-- Count (moved into freed space) -->
+                                    <Label Grid.Row="0" Grid.Column="3"
+                                       HorizontalTextAlignment="End"
+                                       VerticalTextAlignment="Center"
+                                       TextColor="Gray">
+                                        <Label.Text>
+                                            <MultiBinding Converter="{StaticResource ScStepCountTextConverter}">
+                                                <!-- the step -->
+                                                <Binding Path="." />
+
+                                                <!-- range from parent VM -->
+                                                <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                                                    Path="BindingContext.RangeStart" />
+                                                <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                                                    Path="BindingContext.RangeEnd" />
+
+                                                <!-- changes when reps change, forcing converter to rerun -->
+                                                <Binding Path="RepsVersion" />
+                                            </MultiBinding>
+                                        </Label.Text>
+                                    </Label>
+
 
                                     <!-- Decrement -->
-                                    <Button Grid.Row="0" Grid.Column="3"
-                                            Text="-"
-                                            Command="{Binding DecrementCommand}"
-                                            WidthRequest="36"
-                                            HeightRequest="36"
-                                            CornerRadius="8"
-                                            Padding="0"/>
+                                    <Button Grid.Row="0" Grid.Column="4"
+                                        Text="-"
+                                        Command="{Binding DecrementCommand}"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="8"
+                                        Padding="0"/>
 
                                     <!-- Increment -->
-                                    <Button Grid.Row="0" Grid.Column="4"
-                                            Text="+"
-                                            Command="{Binding IncrementCommand}"
-                                            WidthRequest="36"
-                                            HeightRequest="36"
-                                            CornerRadius="8"
-                                            Padding="0"/>
-
-                                    <!-- Count label -->
-                                    <Label Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2"
-                                           Text="{Binding Count, StringFormat='Count: {0}'}"
-                                           HorizontalTextAlignment="End"
-                                           TextColor="Black"/>
+                                    <Button Grid.Row="0" Grid.Column="5"
+                                        Text="+"
+                                        Command="{Binding IncrementCommand}"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="8"
+                                        Padding="0"/>
                                 </Grid>
                             </Frame>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <Button Text="Add Step"
+
+                <!--<Button Text="Add Step"
                         Command="{Binding AddStepCommand}"
-                        Margin="0,8,0,0"/>
+                        Margin="0,8,0,0"/>-->
 
             </VerticalStackLayout>
         </ScrollView>
@@ -117,4 +175,11 @@
                 Command="{Binding SaveCommand}"
                 HeightRequest="48"/>
     </Grid>
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:ScStepCountTextConverter x:Key="ScStepCountTextConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
 </ContentPage>

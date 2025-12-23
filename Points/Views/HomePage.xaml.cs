@@ -1,3 +1,5 @@
+using Points.Helpers;
+using Points.Models;
 using Points.ViewModels;
 
 namespace Points.Views;
@@ -10,7 +12,52 @@ public partial class HomePage : ContentPage
     public HomePage()
 	{
 		InitializeComponent();
-	}
+        if (BindingContext is HomeViewModel vm)
+        {
+            vm.ScrollToCardRequested = ScrollToCard;
+        }
+    }
+
+    private void ScrollToCard(ICardModel card)
+    {
+        // Find the CollectionView in the currently visible page
+        var collectionView = this
+            .FindDescendants<CollectionView>()
+            .FirstOrDefault();
+
+        if (collectionView == null)
+            return;
+
+        if (BindingContext is HomeViewModel vm)
+        {
+            vm.ScrollMainQuestIntoView();
+
+            // If filtered out, clear filters first
+            if (!collectionView.ItemsSource.Cast<object>().Contains(card))
+            {
+                vm.ClearFiltersCommand.Execute(null);
+            }
+        }
+
+        collectionView.ScrollTo(card, position: ScrollToPosition.Center, animate: true);
+    }
+
+    private async void OnTextSearchClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is not HomeViewModel vm) return;
+
+        var input = await Shell.Current.DisplayPromptAsync(
+            "Search",
+            $"Filter Titles and Tags by:",
+            accept: "OK",
+            cancel: "Cancel",
+            placeholder: "e.g. Education",
+            keyboard: Keyboard.Text);
+
+        if (string.IsNullOrWhiteSpace(input)) return;
+
+        vm.FilterCardsBySearchTerm(input);
+    }
 
     protected override void OnAppearing()
     {
@@ -24,18 +71,6 @@ public partial class HomePage : ContentPage
         base.OnDisappearing();
     }
 
-    private async void OnAddClicked(object sender, EventArgs e)
-    {
-        if (BindingContext is HomeViewModel vm)
-            vm.AddCardToCurrentPage();
-
-        await Task.CompletedTask;
-    }
-
-    private async void OnCardTapped(object sender, TappedEventArgs e)
-    {
-        await DisplayAlert("Tapped", "Card tapped!", "OK");
-    }
 
     private void StartTicker()
     {

@@ -11,7 +11,7 @@ namespace Points.Models
     {
         string Id { get; }
         string Title { get; }
-
+        string Tags { get; }
         double GetValue(DateTime start, DateTime end);
     }
 }

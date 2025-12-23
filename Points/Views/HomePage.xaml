@@ -4,33 +4,99 @@
              xmlns:vm="clr-namespace:Points.ViewModels"
              xmlns:cards="clr-namespace:Points.Views.Cards;assembly=Points"
              xmlns:views="clr-namespace:Points.Views.Cards;assembly=Points"
+             xmlns:converters="clr-namespace:Points.Converters"
              x:Class="Points.Views.HomePage"
              Title="Points">
 
     <ContentPage.BindingContext>
         <vm:HomeViewModel />
     </ContentPage.BindingContext>
+    
 
     <!-- TOP TOOLBAR (in the actual top title bar area) -->
     <Shell.TitleView>
-        <Grid ColumnDefinitions="*,Auto" Padding="12,0" VerticalOptions="Center">
-            <Label Text="Points"
-                   FontSize="18"
-                   VerticalOptions="Center" />
+        <Grid ColumnDefinitions="*,Auto,Auto"
+          Padding="12,0"
+          VerticalOptions="Center"
+          ColumnSpacing="6">
+
+            <Label Grid.Column="0"
+               Text="Points"
+               FontSize="18"
+               VerticalOptions="Center" 
+               HorizontalOptions="Start"/>
 
             <Label Grid.Column="1"
-                   Text="{Binding TopRightValue, StringFormat='{0:F2}'}"
-                   FontSize="16"
-                   VerticalOptions="Center"
-                   HorizontalOptions="End" />
+               Text="!"
+               TextColor="Red"
+               FontSize="26"
+               FontAttributes="Bold"
+               IsVisible="{Binding HasNegativeAvailableMission}"
+               VerticalOptions="Center" />
+
+            <Label Grid.Column="2"
+               Text="{Binding TopRightValue, StringFormat='{0:F2}'}"
+               FontSize="26"
+               VerticalOptions="Center"
+               HorizontalOptions="End"
+               TextColor="{Binding TopRightValue, Converter={StaticResource GlobalValueColorConverter}}" />
         </Grid>
     </Shell.TitleView>
 
-    <!-- PAGE CONTENT: carousel + bottom toolbar -->
-    <Grid RowDefinitions="*,Auto">
+
+    <!-- PAGE CONTENT: top toolbar + carousel + bottom toolbar -->
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- TOP (IN-PAGE) TOOLBAR -->
+        <Grid Grid.Row="0"
+              ColumnDefinitions="*,Auto"
+              Padding="12"
+              BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
+
+            <!-- Left-hand button group -->
+            <HorizontalStackLayout Grid.Column="0" Spacing="8" VerticalOptions="Center">
+
+                <!-- Achievements -->
+                <Button Text="🏆"
+                    Command="{Binding OpenAchievementsCommand}"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    VerticalOptions="Center"/>
+
+
+                <!-- Date Range -->
+                <Button Text="📅"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                VerticalOptions="Center"/>
+
+            </HorizontalStackLayout>
+
+            <!-- Right-hand Settings button -->
+            <Button Grid.Column="1"
+            Text="⚙️"
+            WidthRequest="36"
+            HeightRequest="36"
+            CornerRadius="18"
+            Padding="0"
+            Margin="0"
+            TextColor="White"
+            BackgroundColor="Black"
+            VerticalOptions="Center"/>
+        </Grid>
 
         <!-- Carousel -->
-        <CarouselView Grid.Row="0"
+        <CarouselView Grid.Row="1"
                       ItemsSource="{Binding Pages}"
                       Position="{Binding Position, Mode=TwoWay}"
                       IsSwipeEnabled="True">
@@ -45,7 +111,7 @@
                            Margin="0,0,0,8" />
 
                          <!--Cards list-->
-                        <CollectionView Grid.Row="1" ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource CardTemplateSelector}">
+                        <CollectionView Grid.Row="1" ItemsSource="{Binding VisibleCards}" ItemTemplate="{StaticResource CardTemplateSelector}">
                             <!--<CollectionView.ItemTemplate>
                                 <DataTemplate>
                                     <cards:TatCardView />
@@ -60,19 +126,129 @@
         </CarouselView>
 
         <!-- BOTTOM TOOLBAR -->
-        <Grid Grid.Row="1"
-              ColumnDefinitions="*,Auto"
-              Padding="12"
-              BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
+        <Grid Grid.Row="2"
+      ColumnDefinitions="*,Auto"
+      Padding="12"
+      BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
 
-            <Label Text="Bottom toolbar"
-                   VerticalOptions="Center"
-                   Opacity="0.7" />
+            <!-- Left-hand button group -->
+            <HorizontalStackLayout Grid.Column="0"
+                           Spacing="8"
+                           VerticalOptions="Center">
 
+                <Button Text="*"
+                Command="{Binding ClearFiltersCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+
+                <Button Text="A"
+                    Command="{Binding ScrollToActiveCardCommand}"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0"
+                    BackgroundColor="Black"
+                    VerticalOptions="Center">
+
+                    <Button.Triggers>
+                        <!-- No active card -->
+                        <DataTrigger TargetType="Button"
+                     Binding="{Binding HasActiveCard}"
+                     Value="False">
+                            <Setter Property="TextColor" Value="Gray" />
+                        </DataTrigger>
+
+                        <!-- Active card exists -->
+                        <DataTrigger TargetType="Button"
+                     Binding="{Binding HasActiveCard}"
+                     Value="True">
+                            <Setter Property="TextColor" Value="DodgerBlue" />
+                        </DataTrigger>
+                    </Button.Triggers>
+
+                </Button>
+
+
+                <Button Text="🕑"
+                Command="{Binding SortByLastActiveCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+
+                <Button Text="-"
+                Command="{Binding FilterNegativeCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+
+                <Button Text="+"
+                Command="{Binding FilterPositiveCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+
+                <Button Text="#"
+                Command="{Binding FilterByTagCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+
+                <Button Text="🔎"
+                Clicked="OnTextSearchClicked"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+
+            </HorizontalStackLayout>
+
+            <!-- Right-hand Add button -->
             <Button Grid.Column="1"
-                    Text="Add"
-                    Clicked="OnAddClicked" />
+            Text="Add"
+            Command="{Binding AddCardCommand}"
+            VerticalOptions="Center"
+            TextColor="White"
+            BackgroundColor="Green"/>
+
         </Grid>
+
 
     </Grid>
 
@@ -107,6 +283,8 @@
 
             </cards:CardTemplateSelector>
 
+            <converters:GlobalValueColorConverter x:Key="GlobalValueColorConverter" />
+            
         </ResourceDictionary>
     </ContentPage.Resources>
 

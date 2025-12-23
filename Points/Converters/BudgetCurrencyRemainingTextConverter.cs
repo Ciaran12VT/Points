@@ -15,7 +15,7 @@ namespace Points.Converters
             if (values is null || values.Length < 2) return "--: --";
 
             var cardObj = values[0];
-            var nowObj = values[1];
+            var nowObj = values[2];
 
             if (cardObj is null || cardObj == BindableProperty.UnsetValue) return "--: --";
             if (nowObj is null || nowObj == BindableProperty.UnsetValue) return "--: --";

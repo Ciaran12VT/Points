@@ -128,7 +128,7 @@ namespace Points.Models
             foreach (var period in Activity)
             {
                 var aStart = period.Item1;
-                var aEnd = period.Item2 == DateTime.MinValue ? end : period.Item2;
+                var aEnd = period.Item2 == DateTime.MinValue ? Min(end,DateTime.Now) : period.Item2;
 
                 var overlapStart = aStart > start ? aStart : start;
                 var overlapEnd = aEnd < end ? aEnd : end;
@@ -146,5 +146,15 @@ namespace Points.Models
             return active.TotalMinutes * ValuePerMinute;
         }
 
+        DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
+
+        public virtual DateTime GetLastActiveTime()
+        {
+            if (IsActive) return DateTime.Now;
+
+            if (Activity.Count == 0) return DateTime.MinValue;
+
+            return Activity.Select(x => x.Item2).Max();
+        }
     }
 }

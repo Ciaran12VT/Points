@@ -21,7 +21,7 @@ namespace Points.Models
         public string Status
         {
             get => _status;
-            private set => SetProperty(ref _status, value);
+            set => SetProperty(ref _status, value);
         }
 
         private string _tags = "#Test, #Other";
@@ -29,6 +29,13 @@ namespace Points.Models
         {
             get => _tags;
             set => SetProperty(ref _tags, value);
+        }
+
+        private string _description = "";
+        public string Description
+        {
+            get => _description;
+            set => SetProperty(ref _description, value);
         }
 
         private MissionSubType _subType = MissionSubType.Stable;
@@ -149,7 +156,7 @@ namespace Points.Models
             // Rot: ongoing penalty once overdue until completion (or end)
             // No penalty before DueDate
             var penaltyStart = Max(start, DueDate);
-            var penaltyEnd = Min(effectiveEnd, end);
+            var penaltyEnd = CompletedDate != null ? CompletedDate.Value : DateTime.Now;
 
             if (penaltyEnd <= penaltyStart) return 0;
 

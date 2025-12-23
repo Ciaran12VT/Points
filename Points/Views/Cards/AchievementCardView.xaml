@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Cards.AchievementCardView">
+
+    <Frame Margin="12,8"
+           Padding="12"
+           CornerRadius="12"
+           HasShadow="True">
+
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+              ColumnDefinitions="*,Auto"
+              RowSpacing="6">
+
+            <!-- Row 1: Title -->
+            <Label Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                   Text="{Binding Title}"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   VerticalOptions="Center" />
+
+            <!-- Row 2: Status + Tags -->
+            <Label Grid.Row="1" Grid.Column="0"
+                   Text="{Binding Status, StringFormat='Status: {0}'}"
+                   FontSize="13"
+                   TextColor="Gray" />
+
+            <Label Grid.Row="1" Grid.Column="1"
+                   Text="{Binding Tags, StringFormat='Tags: {0}'}"
+                   FontSize="13"
+                   TextColor="Gray"
+                   HorizontalTextAlignment="End" />
+
+            <!-- Row 3: ProgressBar -->
+            <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                         HeightRequest="18"
+                         Progress="{Binding Progress}" />
+
+            <!-- Row 4: Active Time (L) + Goal Type (R) -->
+            <Label Grid.Row="3" Grid.Column="0"
+                   Text="{Binding ActiveTimeText}"
+                   FontSize="14"
+                   TextColor="Orange" />
+
+            <Label Grid.Row="3" Grid.Column="1"
+                   Text="{Binding GoalTypeText}"
+                   FontSize="14"
+                   TextColor="Gray"
+                   HorizontalTextAlignment="End" />
+
+            <!-- Row 5: Current Value (L) + Target (R) -->
+            <Label Grid.Row="4" Grid.Column="0"
+                   Text="{Binding CurrentValueText}"
+                   FontSize="14" />
+
+            <Label Grid.Row="4" Grid.Column="1"
+                   Text="{Binding TargetText}"
+                   FontSize="14"
+                   HorizontalTextAlignment="End" />
+
+            <!-- Row 6: Completion Time -->
+            <Label Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                   Text="{Binding CompletionTimeText}"
+                   FontSize="13"
+                   TextColor="Gray" />
+
+        </Grid>
+
+        <Frame.GestureRecognizers>
+            <TapGestureRecognizer Tapped="OnCardTapped" />
+        </Frame.GestureRecognizers>
+
+    </Frame>
+</ContentView>

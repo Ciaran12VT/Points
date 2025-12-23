@@ -18,5 +18,21 @@ namespace Points.Helpers
             }
             return null;
         }
+
+        public static IEnumerable<T> FindDescendants<T>(this Element element) where T : Element
+        {
+            if (element is T t)
+                yield return t;
+
+            foreach (var child in element.LogicalChildren)
+            {
+                if (child is Element e)
+                {
+                    foreach (var match in e.FindDescendants<T>())
+                        yield return match;
+                }
+            }
+        }
+
     }
 }

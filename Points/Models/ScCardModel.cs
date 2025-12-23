@@ -16,9 +16,18 @@ namespace Points.Models
         // We’ll use ValuePerMinute’s sign as the “Positive/Negative toggle”, but treat its magnitude as irrelevant.
         public override double GetValue(DateTime start, DateTime end)
         {
-            var sum = Steps.Sum(s => s.StepValue * s.Count);
+            var sum = Steps.Sum(s => s.StepValue * s.Count(start, end));
             var sign = ValuePerMinute < 0 ? -1 : 1;
             return sign * sum;
+        }
+
+        public override DateTime GetLastActiveTime()
+        {
+            var defaulValue = base.GetLastActiveTime();
+
+            var lastRep = Steps.Count == 0 ? DateTime.MinValue : Steps.SelectMany(x => x.Reps).Max();
+
+            return defaulValue < lastRep ? defaulValue : lastRep;
         }
     }
 }

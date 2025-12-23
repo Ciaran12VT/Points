@@ -35,22 +35,24 @@
 
             <Button Grid.Row="0" Grid.Column="1"
                     Text="-"
-                    WidthRequest="44"
+                    WidthRequest="36"
                     HeightRequest="36"
-                    CornerRadius="8"
+                    CornerRadius="18"
                     Padding="0"
                     Margin="0"
-                    TextColor="Red"
+                    TextColor="White"
+                    BackgroundColor="Red"
                     Clicked="OnSpendClicked" />
 
             <Button Grid.Row="0" Grid.Column="2"
                     Text="$"
-                    WidthRequest="44"
+                    WidthRequest="36"
                     HeightRequest="36"
-                    CornerRadius="8"
+                    CornerRadius="18"
                     Padding="0"
                     Margin="0"
-                    TextColor="Green"
+                    TextColor="White"
+                    BackgroundColor="Green"
                     Clicked="OnCashInClicked" />
 
             <!-- Row 1: Status (left) + Tags (right spanning 2 cols) -->
@@ -71,8 +73,9 @@
                 <ProgressBar.Progress>
                     <MultiBinding Converter="{StaticResource BudgetProgressConverter}">
                         <Binding Path="." />
-                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
-                     Path="BindingContext.RangeEnd" />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
+                        <!-- force refresh every second -->
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
                     </MultiBinding>
                 </ProgressBar.Progress>
             </ProgressBar>
@@ -84,8 +87,9 @@
                     <Label.Text>
                         <MultiBinding Converter="{StaticResource BudgetPercentRemainingTextConverter}">
                             <Binding Path="." />
-                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
-                         Path="BindingContext.RangeEnd" />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
+                            <!-- force refresh every second -->
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
                         </MultiBinding>
                     </Label.Text>
                 </Label>
@@ -94,8 +98,9 @@
                     <Label.Text>
                         <MultiBinding Converter="{StaticResource BudgetGlobalRemainingTextConverter}">
                             <Binding Path="." />
-                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
-                         Path="BindingContext.RangeEnd" />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
+                            <!-- force refresh every second -->
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
                         </MultiBinding>
                     </Label.Text>
                 </Label>
@@ -104,8 +109,9 @@
                     <Label.Text>
                         <MultiBinding Converter="{StaticResource BudgetCurrencyRemainingTextConverter}">
                             <Binding Path="." />
-                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
-                         Path="BindingContext.RangeEnd" />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
+                            <!-- force refresh every second -->
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
                         </MultiBinding>
                     </Label.Text>
                 </Label>
@@ -119,10 +125,10 @@
                 <Label.Text>
                     <MultiBinding Converter="{StaticResource BudgetCashedInValueTextConverter}">
                         <Binding Path="." />
-                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
-                     Path="BindingContext.RangeStart" />
-                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
-                     Path="BindingContext.RangeEnd" />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeStart" />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
+                        <!-- force refresh every second -->
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
                     </MultiBinding>
                 </Label.Text>
             </Label>
@@ -135,8 +141,9 @@
                 <Label.Text>
                     <MultiBinding Converter="{StaticResource BudgetNextTopUpCountdownTextConverter}">
                         <Binding Path="." />
-                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
-                     Path="BindingContext.RangeEnd" />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
+                        <!-- force refresh every second -->
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
                     </MultiBinding>
                 </Label.Text>
             </Label>
@@ -148,13 +155,19 @@
                 <Label.Text>
                     <MultiBinding Converter="{StaticResource BudgetNextTopUpAmountTextConverter}">
                         <Binding Path="." />
-                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
-                     Path="BindingContext.RangeEnd" />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
+                        <!-- force refresh every second -->
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
                     </MultiBinding>
                 </Label.Text>
             </Label>
 
 
         </Grid>
+
+        <Frame.GestureRecognizers>
+            <TapGestureRecognizer Tapped="OnCardTapped" />
+        </Frame.GestureRecognizers>
+
     </Frame>
 </ContentView>

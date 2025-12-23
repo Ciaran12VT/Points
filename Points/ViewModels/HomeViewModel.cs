@@ -9,16 +9,92 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Points.Models;
 using Microsoft.VisualBasic;
+using Points.Global;
 
 namespace Points.ViewModels
 {
     public class HomeViewModel : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler? PropertyChanged;
-        public Command<IActiveCardModel> ActivateCardCommand { get; }
-        public ObservableCollection<HomePageModel> Pages { get; } = new();
 
+        #region Commands
+        public Command<IActiveCardModel> ActivateCardCommand { get; }
+        public Command AddCardCommand { get; }
+        public Command ScrollToActiveCardCommand { get; }
+        public Command FilterByTagCommand { get; }
+        public Action<ICardModel>? ScrollToCardRequested;
+        public Command FilterPositiveCommand { get; }
+        public Command FilterNegativeCommand { get; }
+        public Command ClearFiltersCommand { get; }
+        public Command SortByLastActiveCommand { get; }
+        public Command OpenAchievementsCommand { get; }
+
+
+        #endregion
+
+        #region Fields
+
+        public bool HasActiveCard => _activeCard != null;
+        public ObservableCollection<HomePageModel> Pages { get; } = new();
         private HomePageModel CurrentPage => Pages[Math.Clamp(Position, 0, Pages.Count - 1)];
+
+        public DateTime _now = DateTime.Now;
+        public DateTime Now
+        {
+            get => _now;
+            set
+            {
+                if (_now == value) return;
+                _now = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private enum MainQuestFilterMode
+        {
+            None,
+            PositiveOnly,
+            NegativeOnly
+        }
+
+        private MainQuestFilterMode _mainQuestFilterMode = MainQuestFilterMode.None;
+
+        public Color GlobalValueColor
+        {
+            get
+            {
+                if (TopRightValue < 0) return Colors.Red;
+                if (TopRightValue < 100) return Colors.Orange;
+                return Colors.Green;
+            }
+        }
+
+        public bool HasNegativeAvailableMission
+        {
+            get
+            {
+                var now = DateTime.Now;
+
+                // Adjust this to match how your pages are stored.
+                var missionPage = Pages.FirstOrDefault(p => p.Name == "Mission");
+                if (missionPage == null) return false;
+
+                foreach (var m in missionPage.AllCards.OfType<MissionCardModel>())
+                {
+                    // Available = not complete AND now >= AvailableFromDate
+                    if (m.IsComplete) continue;
+                    if (now < m.AvailableFromDate) continue;
+
+                    // "current value" means "what would it be worth if frozen now"
+                    var current = m.GetCurrentValue(now);
+
+                    if (current < 0)
+                        return true;
+                }
+
+                return false;
+            }
+        }
 
         private int _position;
         public int Position
@@ -29,6 +105,7 @@ namespace Points.ViewModels
                 if (_position == value) return;
                 _position = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(CurrentPage));
             }
         }
 
@@ -41,10 +118,13 @@ namespace Points.ViewModels
                 if (Math.Abs(_topRightValue - value) < 0.0000001) return;
                 _topRightValue = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(GlobalValueColor));
+                OnPropertyChanged(nameof(HasNegativeAvailableMission));
+                OnPropertyChanged(nameof(TopRightValue));
             }
         }
 
-        private DateTime _rangeStart = DateTime.Today;
+        private DateTime _rangeStart = GlobalVariables.RangeStart;
         public DateTime RangeStart
         {
             get => _rangeStart;
@@ -56,7 +136,7 @@ namespace Points.ViewModels
             }
         }
 
-        private DateTime _rangeEnd = DateTime.Now;
+        private DateTime _rangeEnd = GlobalVariables.RangeEnd;
         public DateTime RangeEnd
         {
             get => _rangeEnd;
@@ -65,48 +145,41 @@ namespace Points.ViewModels
                 if (_rangeEnd == value) return;
                 _rangeEnd = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(GlobalValueColor));
+                OnPropertyChanged(nameof(HasNegativeAvailableMission));
             }
         }
-
-
 
         private IActiveCardModel? _activeCard;
 
-        public void RequestActivate(IActiveCardModel card)
-        {
-            if (card == null) return;
-
-            // If tapping the same active card: allow it to toggle off
-            if (ReferenceEquals(_activeCard, card))
-            {
-                card.StopActivity();
-                _activeCard = null;
-                return;
-            }
-
-            // Deactivate previous
-            _activeCard?.StopActivity();
-
-            // Activate new
-            // We only have ToggleActivityCommand publicly, so call it to start.
-            if (!card.IsActive && card.ToggleActivityCommand.CanExecute(null))
-                card.ToggleActivityCommand.Execute(null);
-
-            _activeCard = card;
-        }
+        #endregion
 
         public HomeViewModel()
         {
+            #region Commands
+
             ActivateCardCommand = new Command<IActiveCardModel>(RequestActivate);
+            AddCardCommand = new Command(async () => await AddCardAsync());
+            FilterPositiveCommand = new Command(ApplyPositiveFilter);
+            FilterNegativeCommand = new Command(ApplyNegativeFilter);
+            ClearFiltersCommand = new Command(ClearFilters);
+            ScrollToActiveCardCommand = new Command(RequestScrollToActiveCard);
+            SortByLastActiveCommand = new Command(SortCardsByLastActive);
+            FilterByTagCommand = new Command(async () => await FilterCardsByTag());
+            OpenAchievementsCommand = new Command(async () => await OpenAchievementsAsync());
+
+            #endregion
+
+            #region Add Cards
 
             Pages.Add(new HomePageModel("Main Quest", new ICardModel[]
-                   {
-                        new TatCardModel { Title = "TAT 1", ValuePerMinute = 1.25 },
-                        new ScCardModel  { Title = "SC 1",  ValuePerMinute = 1.00 },
-                        new TatCardModel { Title = "TAT 2", ValuePerMinute = 0.75 },
-                        new TatCardModel { Title = "TAT 3", ValuePerMinute = -1.00 },
-
-                   }));
+            {
+                             new TatCardModel { Title = "TAT 1", ValuePerMinute = 1.25 },
+                             new ScCardModel  { Title = "SC 1",  ValuePerMinute = 1.00 },
+                             new TatCardModel { Title = "TAT 2", ValuePerMinute = 0.75 },
+                             new TatCardModel { Title = "TAT 3", ValuePerMinute = -1.00 },
+            
+            }));
 
             var today = DateTime.Today;
             var now = DateTime.Now;
@@ -252,50 +325,294 @@ namespace Points.ViewModels
 
             // Start on Main Quest
             Position = 0;
+
+            #endregion
         }
 
-        public bool AddCardToCurrentPage()
+        #region Methods
+
+        public void RequestActivate(IActiveCardModel card)
+        {
+            if (card == null) return;
+
+            // If tapping the same active card: allow it to toggle off
+            if (ReferenceEquals(_activeCard, card))
+            {
+                card.StopActivity();
+                _activeCard = null;
+                OnPropertyChanged(nameof(HasActiveCard));
+                return;
+            }
+
+            // Deactivate previous
+            _activeCard?.StopActivity();
+
+            // Activate new
+            // We only have ToggleActivityCommand publicly, so call it to start.
+            if (!card.IsActive && card.ToggleActivityCommand.CanExecute(null))
+                card.ToggleActivityCommand.Execute(null);
+
+            _activeCard = card;
+            OnPropertyChanged(nameof(HasActiveCard));
+        }
+
+        private async Task AddCardAsync()
         {
             var page = CurrentPage;
 
-            // For now: allow TAT only on Main Quest (example rule)
-            if (page.Name != "Main Quest")
-                return false;
+            if (page.Name == "Main Quest")
+            {
+                var choice = await Shell.Current.DisplayActionSheet(
+                    "Add Card",
+                    "Cancel",
+                    null,
+                    "Time-At-Task",
+                    "Step-Completion");
 
-            page.Cards.Add(new TatCardModel { Title = "New TAT", ValuePerMinute = 1.00 });
-            return true;
+                if (choice == "Time-At-Task")
+                    await CreateTatAsync(page);
+                else if (choice == "Step-Completion")
+                    await CreateScAsync(page);
+
+                return;
+            }
+
+            if (page.Name == "Mission")
+            {
+                await CreateMissionAsync(page);
+                return;
+            }
+
+            if (page.Name == "Budgets")
+            {
+                await CreateBudgetAsync(page);
+                return;
+            }
         }
 
-        public void Tick()
+        private async Task CreateTatAsync(HomePageModel page)
         {
-            // Test range: "today so far"
-            RangeStart = DateTime.Today;   // stable, but fine to keep explicit
-            RangeEnd = DateTime.Now;
+            var model = new TatCardModel
+            {
+                Title = "New TAT",
+                Status = "In-Progress",
+                Tags = "",
+                Description = "",
+                ValuePerMinute = 1.0
+            };
 
-            foreach (var page in Pages)
-                foreach (var card in page.Cards.OfType<Points.Models.MissionCardModel>())
-                    card.NotifyTimeChanged();
-
-            SortMissionCards();
-
-            double total = 0;
-            foreach (var page in Pages)
-                foreach (var card in page.Cards)
-                    total += card.GetValue(RangeStart, RangeEnd);
-                             
-            TopRightValue = total;
-
-            OnPropertyChanged(nameof(RangeEnd));
+            await Shell.Current.Navigation.PushAsync(
+                new Points.Views.Details.TatDetailsPage(model, saved =>
+                {
+                    page.AddCard(saved);
+                })
+            );
         }
 
-        private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        private async Task CreateScAsync(HomePageModel page)
+        {
+            var model = new ScCardModel
+            {
+                Title = "New SC",
+                Status = "In-Progress",
+                Tags = "",
+                Description = "",
+                ValuePerMinute = 1.0
+            };
 
+            await Shell.Current.Navigation.PushAsync(
+                new Points.Views.Details.ScDetailsPage(model, saved => { page.AddCard(saved); })
+            );
+        }
+
+        private async Task CreateMissionAsync(HomePageModel page)
+        {
+            var now = DateTime.Now;
+
+            var model = new MissionCardModel
+            {
+                Title = "New Mission",
+                Status = "In-Progress",                 // non-editable in form
+                Tags = "",
+                SubType = MissionSubType.Stable,
+                Value = 0,
+                CreatedDate = now,                      // auto-set to now
+                AvailableFromDate = now,                // default now
+                DueDate = now.AddDays(1),               // default now + 1 day
+                Description = ""
+            };
+
+            await Shell.Current.Navigation.PushAsync(
+                new Points.Views.Details.MissionDetailsPage(model, saved =>
+                {
+                    page.AddCard(saved);
+                    // If you have mission sorting, call it here if needed
+                    // SortMissionCards();
+                })
+            );
+        }
+
+        private async Task CreateBudgetAsync(HomePageModel page)
+        {
+            var model = new BudgetCardModel
+            {
+                Title = "New Budget",
+                Status = "In-Progress",
+                Tags = "",
+                Currency = "Kcal",
+                ExchangeRate = 0.01,
+                StartDate = DateTime.Now,
+                InitialBalance = 0
+            };
+
+            await Shell.Current.Navigation.PushAsync(
+                new Points.Views.Details.BudgetDetailsPage(model, saved =>
+                {
+                    page.AllCards.Add(saved);
+                })
+            );
+        }
+
+        private void ApplyPositiveFilter()
+        {
+            var page = CurrentPage;
+            if (page.Name != "Main Quest") return;
+
+            // Toggle behavior: pressing + again turns filter off
+            _mainQuestFilterMode =
+                _mainQuestFilterMode == MainQuestFilterMode.PositiveOnly
+                    ? MainQuestFilterMode.None
+                    : MainQuestFilterMode.PositiveOnly;
+
+            ApplyMainQuestFilter(page);
+        }
+
+        private void ApplyNegativeFilter()
+        {
+            var page = CurrentPage;
+            if (page.Name != "Main Quest") return;
+
+            // Toggle behavior: pressing - again turns filter off
+            _mainQuestFilterMode =
+                _mainQuestFilterMode == MainQuestFilterMode.NegativeOnly
+                    ? MainQuestFilterMode.None
+                    : MainQuestFilterMode.NegativeOnly;
+
+            ApplyMainQuestFilter(page);
+        }
+
+        private void ApplyMainQuestFilter(HomePageModel page)
+        {
+            switch (_mainQuestFilterMode)
+            {
+                case MainQuestFilterMode.None:
+                    page.ResetVisible();
+                    break;
+
+                case MainQuestFilterMode.PositiveOnly:
+                    page.ApplyFilter(IsPositiveMainQuestCard);
+                    break;
+
+                case MainQuestFilterMode.NegativeOnly:
+                    page.ApplyFilter(IsNegativeMainQuestCard);
+                    break;
+            }
+        }
+
+        private void ClearFilters()
+        {
+            var page = CurrentPage;
+            if (page.Name != "Main Quest") return;
+
+            page.ResetVisible();
+        }
+
+        private void SortCardsByLastActive()
+        {
+            var page = CurrentPage;
+            if (page.Name != "Main Quest") return;
+
+            page.SortCardsByLastActive();
+        }
+
+        private async Task FilterCardsByTag()
+        {
+            var choice = await Shell.Current.DisplayActionSheet(
+                "Add Card",
+                "Cancel",
+                null,
+                GetTags().ToArray()
+                );
+
+            if(!string.IsNullOrEmpty(choice))
+            {
+                foreach (var page in Pages)
+                {
+                    page.FilterCardsByTag(choice);
+                }
+            }
+
+            return;
+        }
+
+        private List<string> GetTags()
+        {
+            var result = new List<string>();
+
+            foreach (var page in Pages)
+            {
+                foreach (var card in page.AllCards)
+                {
+                    var cardTags = card.Tags.Replace('#', ' ').Replace(',', ' ').Split(' ').Select(x => x.Trim());
+                    foreach (var cardTag in cardTags)
+                    {
+                        if (!result.Contains(cardTag))
+                        {
+                            result.Add(cardTag);
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        internal void FilterCardsBySearchTerm(string input)
+        {
+            if (!string.IsNullOrEmpty(input))
+            {
+                foreach (var page in Pages)
+                {
+                    page.FilterCardsBySearchTerm(input);
+                }
+            }
+        }
+
+        private bool IsPositiveMainQuestCard(ICardModel card)
+        {
+            return card is IActiveCardModel active
+                && active.ValuePerMinute > 0;
+        }
+
+        private bool IsNegativeMainQuestCard(ICardModel card)
+        {
+            return card is IActiveCardModel active
+                && active.ValuePerMinute < 0;
+        }
+
+        private void RequestScrollToActiveCard()
+        {
+            if (_activeCard == null)
+                return;
+
+            ScrollToCardRequested?.Invoke((ICardModel)_activeCard);
+        }
         private void SortMissionCards()
         {
             var missionPage = Pages.FirstOrDefault(p => p.Name == "Mission");
             if (missionPage == null) return;
 
-            var missionCards = missionPage.Cards.OfType<Points.Models.MissionCardModel>().ToList();
+            var missionCards = missionPage.AllCards.OfType<Points.Models.MissionCardModel>().ToList();
             if (missionCards.Count == 0) return;
 
             // Completed at top, ordered by CompletedDate (most recent first)
@@ -309,10 +626,48 @@ namespace Points.ViewModels
             // Rebuild the observable collection in-place
             // (only for mission cards; preserves other card types if you ever mix them in)
             // If Mission page is mission-only, this is enough:
-            missionPage.Cards.Clear();
+            missionPage.AllCards.Clear();
             foreach (var m in sorted)
-                missionPage.Cards.Add(m);
+                missionPage.AllCards.Add(m);
+
+            missionPage.ResetVisible();
         }
+
+        public void ScrollMainQuestIntoView()
+        {
+            Position = 0;
+        }
+
+        private async Task OpenAchievementsAsync()
+        {
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.AchievementsPage());
+        }
+
+
+        #endregion
+
+        public void Tick()
+        {
+            Now = DateTime.Now;
+
+            foreach (var page in Pages)
+                foreach (var card in page.AllCards.OfType<Points.Models.MissionCardModel>())
+                    card.NotifyTimeChanged();
+
+            SortMissionCards();
+
+            double total = 0;
+            foreach (var page in Pages)
+                foreach (var card in page.AllCards)
+                    total += card.GetValue(RangeStart, RangeEnd);
+                             
+            TopRightValue = total;
+
+            OnPropertyChanged(nameof(RangeEnd));
+        }
+
+        private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
 
     }
 
@@ -320,12 +675,75 @@ namespace Points.ViewModels
     public class HomePageModel
     {
         public string Name { get; }
-        public ObservableCollection<ICardModel> Cards { get; } = new();
+        public ObservableCollection<ICardModel> AllCards { get; } = new();
+        public ObservableCollection<ICardModel> VisibleCards { get; } = new();
 
         public HomePageModel(string name, IEnumerable<ICardModel> cards)
         {
             Name = name;
-            foreach (var c in cards) Cards.Add(c);
+            foreach (var c in cards)
+            {
+                AllCards.Add(c);
+                VisibleCards.Add(c);
+            }
         }
+
+        #region Methods
+
+        public void ResetVisible()
+        {
+            VisibleCards.Clear();
+            foreach (var c in AllCards)
+                VisibleCards.Add(c);
+        }
+
+        public void ApplyFilter(Func<ICardModel, bool> predicate)
+        {
+            VisibleCards.Clear();
+            foreach (var c in AllCards)
+            {
+                if (predicate(c))
+                    VisibleCards.Add(c);
+            }
+        }
+
+        public void AddCard(ICardModel card)
+        {
+            AllCards.Add(card);
+            VisibleCards.Add(card);
+        }
+
+        public void SortCardsByLastActive()
+        {
+            var sorted = VisibleCards.OrderByDescending(x => ((IActiveCardModel)x).GetLastActiveTime()).ToArray();
+            VisibleCards.Clear();
+            foreach (var item in sorted)
+            {
+                VisibleCards.Add(item);
+            }
+        }
+
+        public void FilterCardsByTag(string choice)
+        {
+            var filtered = VisibleCards.Where(x => x.Tags.ToLower().Contains(choice.ToLower())).ToArray();
+            VisibleCards.Clear();
+            foreach (var item in filtered)
+            {
+                VisibleCards.Add(item);
+            }
+        }
+
+        public void FilterCardsBySearchTerm(string choice)
+        {
+            var filtered = VisibleCards.Where(x => x.Tags.ToLower().Contains(choice.ToLower()) || x.Title.ToLower().Contains(choice.ToLower())).ToArray();
+            VisibleCards.Clear();
+            foreach (var item in filtered)
+            {
+                VisibleCards.Add(item);
+            }
+        }
+
+        #endregion
+
     }
 }

@@ -1,3 +1,4 @@
+using Points.Global;
 using Points.Helpers;
 using Points.Models;
 using Points.Views.Details;
@@ -18,11 +19,11 @@ public partial class TatCardView : ContentView
             // pull the current window from HomeViewModel via the parent page BindingContext
             if (this.FindParentOfType<ContentPage>()?.BindingContext is Points.ViewModels.HomeViewModel vm)
             {
-                await Shell.Current.Navigation.PushAsync(new TatDetailsPage(model, vm.RangeStart, vm.RangeEnd));
+                await Shell.Current.Navigation.PushAsync(new TatDetailsPage(model));
             }
             else
             {
-                await Shell.Current.Navigation.PushAsync(new TatDetailsPage(model, DateTime.Today, DateTime.Now));
+                await Shell.Current.Navigation.PushAsync(new TatDetailsPage(model));
             }
         }
     }

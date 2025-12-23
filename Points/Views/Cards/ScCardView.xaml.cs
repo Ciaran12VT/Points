@@ -18,9 +18,9 @@ public partial class ScCardView : ContentView
         {
             var page = this.FindParentOfType<ContentPage>();
             if (page?.BindingContext is HomeViewModel vm)
-                await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model, vm.RangeStart, vm.RangeEnd));
+                await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model));
             else
-                await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model, DateTime.Today, DateTime.Now));
+                await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model));
         }
     }
 }

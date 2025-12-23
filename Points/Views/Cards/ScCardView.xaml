@@ -71,6 +71,8 @@
                         <Binding Path="." />
                         <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeStart" />
                         <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
+                        <!-- force refresh every second -->
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
                     </MultiBinding>
                 </Label.Text>
             </Label>
@@ -84,6 +86,8 @@
                         <Binding Path="." />
                         <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeStart" />
                         <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
+                        <!-- force refresh every second -->
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
                     </MultiBinding>
                 </Label.Text>
             </Label>

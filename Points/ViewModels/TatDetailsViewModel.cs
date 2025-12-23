@@ -1,4 +1,5 @@
-﻿using Points.Models;
+﻿using Points.Global;
+using Points.Models;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -10,18 +11,28 @@ namespace Points.ViewModels
 {
     public class TatDetailsViewModel : ObservableObject
     {
-        private readonly TatCardModel _model;
-        private readonly DateTime _rangeStart;
-        private readonly DateTime _rangeEnd;
+        private TatCardModel _model;
+        private Action<TatCardModel> _onSaved;
 
-        public TatDetailsViewModel(TatCardModel model, DateTime rangeStart, DateTime rangeEnd)
+        public TatDetailsViewModel(TatCardModel model)
         {
-            _model = model;
-            _rangeStart = rangeStart;
-            _rangeEnd = rangeEnd;
-
             ToggleSignCommand = new Command(ToggleSign);
             SaveCommand = new Command(async () => await SaveAsync());
+
+            BuildModel(model);
+        }
+
+        public TatDetailsViewModel(TatCardModel model, Action<TatCardModel> onSaved)
+        {
+            _onSaved = onSaved;
+            ToggleSignCommand = new Command(ToggleSign);
+            SaveCommand = new Command(async () => await SaveAsync());
+            BuildModel(model);
+        }
+
+        private void BuildModel(TatCardModel model)
+        {
+            _model = model;
 
             // seed editable fields from model
             Title = _model.Title;
@@ -32,6 +43,31 @@ namespace Points.ViewModels
 
             RaiseComputed();
         }
+
+        private DateTime _rangeStart = GlobalVariables.RangeStart;
+        public DateTime RangeStart
+        {
+            get => _rangeStart;
+            set
+            {
+                if (_rangeStart == value) return;
+                _rangeStart = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        private DateTime _rangeEnd = GlobalVariables.RangeEnd;
+        public DateTime RangeEnd
+        {
+            get => _rangeEnd;
+            set
+            {
+                if (_rangeEnd == value) return;
+                _rangeEnd = value;
+                RaisePropertyChanged();
+            }
+        }
+
 
         // Editable fields (local copy)
         private string _title = "";
@@ -58,10 +94,10 @@ namespace Points.ViewModels
         public string Status => _model.Status;
 
         public string ActiveTimeText
-            => _model.GetActiveTime(_rangeStart, _rangeEnd).ToString(@"hh\:mm\:ss");
+            => _model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString(@"hh\:mm\:ss");
 
         public string CurrentAccruedValueText
-            => _model.GetValue(_rangeStart, _rangeEnd).ToString("F2");
+            => _model.GetValue(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString("F2");
 
         // Sign toggle
         private bool _isNegative;
@@ -90,6 +126,8 @@ namespace Points.ViewModels
             _model.Tags = Tags;
             _model.Description = Description;
             _model.ValuePerMinute = vpm;
+
+            if (_onSaved != null) _onSaved(_model);
 
             await Shell.Current.Navigation.PopAsync();
         }

@@ -33,8 +33,18 @@ namespace Points.Converters
                 if (nowObj is not DateTime now)
                     return "Value: --";
 
+                // DEBUG
+                if (cardObj is MissionCardModel mc)
+                {
+                    if (mc.Title == "Rot - Available, Overdue & Incomplete")
+                    {
+
+                    }
+                }
+
                 var v = mission.GetCurrentValue(now);
-                return $"Value: {v:F2}";
+                var formatted = $"Value: {v:F2}";
+                return formatted;
             }
             catch
             {

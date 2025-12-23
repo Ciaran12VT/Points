@@ -33,6 +33,9 @@ namespace Points.Models
         private double _initialBalance = 0;
         public double InitialBalance { get => _initialBalance; set => SetProperty(ref _initialBalance, value); }
 
+        private string _description = "";
+        public string Description { get => _description; set => SetProperty(ref _description, value); }
+
         public ObservableCollection<ScheduledTopUp> TopUps { get; } = new();
         public ObservableCollection<BudgetTransaction> Transactions { get; } = new();
 

@@ -5,9 +5,16 @@ namespace Points.Views.Details;
 
 public partial class TatDetailsPage : ContentPage
 {
-    public TatDetailsPage(TatCardModel model, DateTime rangeStart, DateTime rangeEnd)
+    public TatDetailsPage(TatCardModel model)
     {
         InitializeComponent();
-        BindingContext = new TatDetailsViewModel(model, rangeStart, rangeEnd);
+        BindingContext = new TatDetailsViewModel(model);
     }
+
+    public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved)
+    {
+        InitializeComponent();
+        BindingContext = new TatDetailsViewModel(model, onSaved);
+    }
+
 }

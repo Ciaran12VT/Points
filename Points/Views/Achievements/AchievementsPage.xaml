@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Points.ViewModels"
+             xmlns:cards="clr-namespace:Points.Views.Cards;assembly=Points"
+             x:Class="Points.Views.Achievements.AchievementsPage"
+             Title="Achievements">
+
+    <ContentPage.BindingContext>
+        <vm:AchievementsViewModel />
+    </ContentPage.BindingContext>
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <CarouselView ItemsSource="{Binding Pages}"
+                      Position="{Binding Position, Mode=TwoWay}">
+
+            <CarouselView.ItemTemplate>
+                <DataTemplate>
+                    <Grid RowDefinitions="Auto,*">
+
+                        <Label Grid.Row="0"
+                               Text="{Binding Name}"
+                               FontSize="18"
+                               Margin="0,0,0,8" />
+                        <CollectionView Grid.Row="1" ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource AchievementSelector}" />
+
+                    </Grid>
+                </DataTemplate>
+            </CarouselView.ItemTemplate>
+
+        </CarouselView>
+
+    </Grid>
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <cards:AchievementCardTemplateSelector x:Key="AchievementSelector">
+                <cards:AchievementCardTemplateSelector.AchievementTemplate>
+                    <DataTemplate>
+                        <cards:AchievementCardView />
+                    </DataTemplate>
+                </cards:AchievementCardTemplateSelector.AchievementTemplate>
+            </cards:AchievementCardTemplateSelector>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+
+</ContentPage>
