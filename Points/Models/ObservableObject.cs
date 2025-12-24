@@ -20,7 +20,7 @@ namespace Points.Models
             return true;
         }
 
-        protected void RaisePropertyChanged([CallerMemberName] string? name = null)
+        public void RaisePropertyChanged([CallerMemberName] string? name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }

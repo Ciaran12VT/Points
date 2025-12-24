@@ -1,9 +1,25 @@
-﻿using System.Globalization;
+﻿using System.Collections.ObjectModel;
+using System.Globalization;
 
 namespace Points.Models
 {
+
+    public class TrophyItem
+    {
+        public string Id { get; } = Guid.NewGuid().ToString();
+        public string DisplayName { get; set; } = "";
+        public string LocalPath { get; set; } = "";
+        public DateTime AddedAt { get; set; } = DateTime.Now;
+    }
+
+
     public class AchievementCardModel : ObservableObject, ICardModel
     {
+        public AchievementCardModel()
+        {
+            Trophies.CollectionChanged += (_, __) => RaisePropertyChanged(nameof(TrophyCount));
+        }
+
         public string Id { get; } = Guid.NewGuid().ToString();
 
         private string _title = "New Achievement";
@@ -16,14 +32,110 @@ namespace Points.Models
         public string Tags { get => _tags; set => SetProperty(ref _tags, value); }
 
         private AchievementGoalType _goalType = AchievementGoalType.ActiveTime;
-        public AchievementGoalType GoalType { get => _goalType; set => SetProperty(ref _goalType, value); }
+        public AchievementGoalType GoalType
+        {
+            get => _goalType;
+            set
+            {
+                if (SetProperty(ref _goalType, value))
+                {
+                    RaisePropertyChanged(nameof(GoalTypeText));
+                    RaisePropertyChanged(nameof(TargetText));
+                    RaisePropertyChanged(nameof(ActiveTimeText));
+                }
+            }
+        }
 
-        private double _targetValue = 1; // minutes if ActiveTime, points if Value, count if Steps
+        private double _targetValue = 1;
         public double TargetValue
         {
             get => _targetValue;
-            set => SetProperty(ref _targetValue, value);
+            set
+            {
+                if (SetProperty(ref _targetValue, value))
+                {
+                    RaisePropertyChanged(nameof(TargetText));
+                    RaisePropertyChanged(nameof(Progress));
+                }
+            }
         }
+
+        private string _activeTimeTargetText = "";
+        public string ActiveTimeTargetText
+        {
+            get => _activeTimeTargetText;
+            set
+            {
+                if (SetProperty(ref _activeTimeTargetText, value))
+                {
+                    RaisePropertyChanged(nameof(TargetText));
+                    RaisePropertyChanged(nameof(ActiveTimeText));
+                }
+            }
+        }
+
+        private DateTime? _lastEarnedAt;
+        public DateTime? LastEarnedAt
+        {
+            get => _lastEarnedAt;
+            set
+            {
+                if (SetProperty(ref _lastEarnedAt, value))
+                {
+                    RaisePropertyChanged(nameof(IsLockedThisRange));
+                    RaisePropertyChanged(nameof(StatusDisplay));
+                    RaisePropertyChanged(nameof(CardBackgroundColor));
+                }
+            }
+        }
+
+        public bool IsLockedThisRange
+        {
+            get
+            {
+                if (CompletionType != AchievementCompletionType.Range)
+                    return false;
+
+                if (LastEarnedAt is null)
+                    return false;
+
+                var now = DateTime.Now;
+                var windowStart = GetRangeWindowStart(now);
+
+                // If it was earned within the window, it is locked.
+                return LastEarnedAt.Value >= windowStart && LastEarnedAt.Value <= now;
+            }
+        }
+
+        private DateTime GetRangeWindowStart(DateTime now)
+        {
+            // RangeAmount is int, RangeUnit is enum (you already have these).
+            var amt = RangeAmount;
+
+            return RangeUnit switch
+            {
+                AchievementRangeUnit.Minutes => now.AddMinutes(-amt),
+                AchievementRangeUnit.Hours => now.AddHours(-amt),
+                AchievementRangeUnit.Days => now.AddDays(-amt),
+                AchievementRangeUnit.Weeks => now.AddDays(-(7 * amt)),
+                AchievementRangeUnit.Months => now.AddMonths(-amt),
+                _ => now.AddDays(-amt)
+            };
+        }
+
+        public string StatusDisplay
+        {
+            get
+            {
+                if (IsLockedThisRange)
+                    return "Locked (already earned in range)";
+                return Status;
+            }
+        }
+
+        public Color CardBackgroundColor => IsLockedThisRange ? Color.FromArgb("#2A2A2A") : Colors.Black;
+
+
 
         // For Steps: which step name + numeric target
         private string _stepName = "";
@@ -34,14 +146,50 @@ namespace Points.Models
         public string AchievementTitle { get => _achievementTitle; set => SetProperty(ref _achievementTitle, value); }
 
         private AchievementCompletionType _completionType = AchievementCompletionType.Range;
-        public AchievementCompletionType CompletionType { get => _completionType; set => SetProperty(ref _completionType, value); }
+        public AchievementCompletionType CompletionType
+        {
+            get => _completionType;
+            set
+            {
+                if (SetProperty(ref _completionType, value))
+                {
+                    RaisePropertyChanged(nameof(IsLockedThisRange));
+                    RaisePropertyChanged(nameof(StatusDisplay));
+                    RaisePropertyChanged(nameof(CardBackgroundColor));
+                }
+            }
+        }
 
         // Range completion fields
         private AchievementRangeUnit _rangeUnit = AchievementRangeUnit.Days;
-        public AchievementRangeUnit RangeUnit { get => _rangeUnit; set => SetProperty(ref _rangeUnit, value); }
+        public AchievementRangeUnit RangeUnit
+        {
+            get => _rangeUnit;
+            set
+            {
+                if (SetProperty(ref _rangeUnit, value))
+                {
+                    RaisePropertyChanged(nameof(IsLockedThisRange));
+                    RaisePropertyChanged(nameof(StatusDisplay));
+                    RaisePropertyChanged(nameof(CardBackgroundColor));
+                }
+            }
+        }
 
         private int _rangeAmount = 7;
-        public int RangeAmount { get => _rangeAmount; set => SetProperty(ref _rangeAmount, value); }
+        public int RangeAmount
+        {
+            get => _rangeAmount;
+            set
+            {
+                if (SetProperty(ref _rangeAmount, value))
+                {
+                    RaisePropertyChanged(nameof(IsLockedThisRange));
+                    RaisePropertyChanged(nameof(StatusDisplay));
+                    RaisePropertyChanged(nameof(CardBackgroundColor));
+                }
+            }
+        }
 
         // For now, store a deadline (even if Range); you’ll refine this when you build the details form.
         private DateTime? _deadline;
@@ -111,7 +259,7 @@ namespace Points.Models
                 var v = TargetValue.ToString("0.##", CultureInfo.InvariantCulture);
                 return GoalType switch
                 {
-                    AchievementGoalType.ActiveTime => $"Target: {v} min",
+                    AchievementGoalType.ActiveTime => $"Target: {ActiveTimeTargetText}",
                     AchievementGoalType.Value => $"Target: {v}",
                     AchievementGoalType.Steps => $"Target: {v}",
                     _ => $"Target: {v}"
@@ -136,6 +284,11 @@ namespace Points.Models
 
         public int Target { get; internal set; }
         public DateTime CompletedAt { get; internal set; }
+
+        public ObservableCollection<string> Trophies { get; } = new();
+
+        public int TrophyCount => Trophies.Count;
+
 
         // For now: Achievements don’t contribute to global value until you define how they pay out.
         public double GetValue(DateTime start, DateTime end) => 0;

@@ -28,10 +28,81 @@ namespace Points.ViewModels
             }
         }
 
+        public Command AddAchievementCommand { get; }
+        public Command OpenTrophyRoomCommand { get; }
+
+        private AchievementsPageModel CurrentPage => Pages[Math.Clamp(Position, 0, Pages.Count - 1)];
+
+        private async Task OpenTrophyRoomAsync()
+        {
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.TrophyRoomPage());
+        }
+
+        private async Task AddAchievementAsync()
+        {
+            var page = CurrentPage;
+
+            var model = new AchievementCardModel
+            {
+                Title = "New Achievement",
+                Status = "In-Progress",
+                Tags = "",
+                GoalType = AchievementGoalType.ActiveTime,
+                TargetValue = 0,
+                CompletionType = AchievementCompletionType.Range,
+                RangeUnit = AchievementRangeUnit.Days,
+                RangeAmount = 7,
+                Deadline = DateTime.Now
+            };
+
+            var allTags = GetAllTags();
+            var stepNames = GetAllStepNames();
+            var achievementTitles = GetAllAchievementTitles();
+
+            await Shell.Current.Navigation.PushAsync(
+                new Points.Views.Details.AchievementDetailsPage(
+                    model,
+                    allTags,
+                    stepNames,
+                    achievementTitles,
+                    saved =>
+                    {
+                        // Add to whichever carousel page the user is currently on
+                        page.Cards.Add(saved);
+                    }
+                )
+            );
+        }
+
+        private IEnumerable<string> GetAllTags()
+        {
+            // Very simple parsing: split by comma from all cards’ Tags fields
+            return Pages
+                .SelectMany(p => p.Cards)
+                .SelectMany(c => (c.Tags ?? "")
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Distinct()
+                .OrderBy(x => x);
+        }
+
+        private IEnumerable<string> GetAllAchievementTitles()
+        {
+            return Pages
+                .SelectMany(p => p.Cards)
+                .Select(c => c.Title)
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct()
+                .OrderBy(x => x);
+        }
+
+
         public AchievementsViewModel()
         {
             Pages.Add(CreateAchievementsPage());
             Pages.Add(CreateMetaAchievementsPage());
+
+            AddAchievementCommand = new Command(async () => await AddAchievementAsync());
+            OpenTrophyRoomCommand = new Command(async () => await OpenTrophyRoomAsync());
         }
 
         private AchievementsPageModel CreateAchievementsPage()
@@ -57,7 +128,12 @@ namespace Points.ViewModels
                         GoalType = AchievementGoalType.Value,
                         Target = 1000,
                         CurrentValue = 1000,
-                        CompletedAt = DateTime.Now.AddDays(-2)
+                        CompletedAt = DateTime.Now.AddDays(-2),
+                        CompletionType = AchievementCompletionType.Range,
+                        RangeAmount = 6,
+                        RangeUnit  = AchievementRangeUnit.Months,
+                        LastEarnedAt = DateTime.Now.AddDays(-2),
+                        ActiveTimeTargetText = "200:00:00"
                     }
                 });
         }
@@ -85,8 +161,10 @@ namespace Points.ViewModels
 
         internal IEnumerable<string> GetAllStepNames()
         {
-            return new string[] { "" };
+            // Placeholder for now until you wire “steps from cards with selected tags”
+            return Array.Empty<string>();
         }
+
     }
 
     public class AchievementsPageModel

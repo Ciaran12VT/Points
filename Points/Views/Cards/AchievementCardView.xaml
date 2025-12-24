@@ -6,7 +6,8 @@
     <Frame Margin="12,8"
            Padding="12"
            CornerRadius="12"
-           HasShadow="True">
+           HasShadow="True"
+           BackgroundColor="{Binding CardBackgroundColor}">
 
         <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
               ColumnDefinitions="*,Auto"
@@ -21,7 +22,7 @@
 
             <!-- Row 2: Status + Tags -->
             <Label Grid.Row="1" Grid.Column="0"
-                   Text="{Binding Status, StringFormat='Status: {0}'}"
+                   Text="{Binding StatusDisplay, StringFormat='Status: {0}'}"
                    FontSize="13"
                    TextColor="Gray" />
 
@@ -69,6 +70,15 @@
         <Frame.GestureRecognizers>
             <TapGestureRecognizer Tapped="OnCardTapped" />
         </Frame.GestureRecognizers>
+
+        <Frame.Triggers>
+            <DataTrigger TargetType="Frame"
+                 Binding="{Binding IsLockedThisRange}"
+                 Value="True">
+                <Setter Property="Opacity" Value="0.6" />
+            </DataTrigger>
+        </Frame.Triggers>
+
 
     </Frame>
 </ContentView>

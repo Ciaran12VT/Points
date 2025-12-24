@@ -91,9 +91,47 @@ namespace Points.Models
 
         public bool IsAvailable => DateTime.Now >= AvailableFromDate;
 
+        public bool IsPending => !IsComplete && DateTime.Now < AvailableFromDate;
+
+        public string PendingWindowText
+        {
+            get
+            {
+                if (!IsPending)
+                    return string.Empty;
+
+                var now = DateTime.Now;
+
+                var available = AvailableFromDate;
+                var due = DueDate;
+
+                var daysUntil = Math.Max(0, (available.Date - now.Date).Days);
+                var durationDays = Math.Max(0, (due.Date - available.Date).Days);
+
+                var availableText = available.ToString("ddd, MMM d");
+                var dueText = due.ToString("ddd, MMM d");
+
+                return $"{availableText} (in {daysUntil} days) - {dueText} (for {durationDays} days)";
+            }
+        }
+
+        public string StatusDisplay
+        {
+            get
+            {
+                if (IsPending)
+                    return "Pending";
+
+                return Status;
+            }
+        }
+
+
         public void NotifyTimeChanged()
         {
             RaisePropertyChanged(nameof(IsAvailable));
+            RaisePropertyChanged(nameof(IsPending));
+            RaisePropertyChanged(nameof(PendingWindowText));
         }
 
         public MissionCardModel()

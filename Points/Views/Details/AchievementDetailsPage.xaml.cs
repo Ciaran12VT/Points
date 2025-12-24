@@ -1,5 +1,6 @@
-using Points.Models;
+﻿using Points.Models;
 using Points.ViewModels;
+using System;
 using System.Formats.Tar;
 
 namespace Points.Views.Details;
@@ -19,7 +20,7 @@ public partial class AchievementDetailsPage : ContentPage
        var completionTypePicker = this.FindByName<Picker>("CompletionTypePicker");
        var rangeUnitPicker = this.FindByName<Picker>("RangeUnitPicker");
        var stepPicker = this.FindByName<Picker>("StepPicker");
-       var achievementPicker = this.FindByName<Picker>("AchievementPicker");
+       var activeTimeEntry = this.FindByName<Entry>("ActiveTimeEntry");
 
 
         _allTags = allTags?.Distinct().OrderBy(x => x).ToList() ?? new List<string>();
@@ -34,7 +35,6 @@ public partial class AchievementDetailsPage : ContentPage
        rangeUnitPicker.ItemsSource = Enum.GetValues(typeof(AchievementRangeUnit)).Cast<AchievementRangeUnit>().ToList();
 
        stepPicker.ItemsSource = _stepNames;
-       achievementPicker.ItemsSource = _achievementTitles;
 
        // Tap-to-pick tags
        tagEntry.Focused += async (_, __) =>
@@ -43,9 +43,185 @@ public partial class AchievementDetailsPage : ContentPage
            tagEntry.Unfocus();
            await PickTagsAsync();
        };
-   }
 
-   private async Task PickTagsAsync()
+    }
+
+    private async void OnEditActiveTimeTargetClicked(object sender, EventArgs e)
+    {
+        // 1) Start values (parse from the current display if you want)
+        // If you already store a TimeSpan on the VM, use that instead.
+        var vm = BindingContext; // cast to your AchievementDetailsViewModel if you want
+
+        // 2) Push your picker page
+        // This assumes your DurationPickerPage returns a TimeSpan (or null if cancelled).
+        var page = new DurationPickerPage(
+        /* pass current duration here if your ctor needs it */
+        );
+
+        // OPTION A: if DurationPickerPage exposes a TaskCompletionSource result
+        await Shell.Current.Navigation.PushAsync(page);
+
+        var result = await page.Result; // e.g. Task<TimeSpan?>
+        if (result is null) return;
+
+        // 3) Write back to VM
+        // Replace with your real VM property
+        if (BindingContext is AchievementDetailsViewModel typedVm)
+        {
+            var totalHours = (int)result.Value.TotalHours;
+            var formatted = $"{totalHours}:{result.Value.Minutes:D2}:{result.Value.Seconds:D2}";
+
+            typedVm.ActiveTimeTarget = result.Value;          // if you store TimeSpan
+            typedVm.ActiveTimeTargetText = formatted; // if you store string
+        }
+    }
+
+    private async void OnEditAchievementsClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is not AchievementDetailsViewModel vm)
+            return;
+
+        var initial = (vm.AchievementTitle ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var page = new MultiSelectPickerPage(
+            "Select Achievements",
+            _achievementTitles,
+            initial
+        );
+
+        await Shell.Current.Navigation.PushAsync(page);
+
+        var result = await page.Result;
+        if (result == null)
+            return; // Cancelled
+
+        vm.AchievementTitle = string.Join(", ", result);
+    }
+
+
+    private void OnClearAchievementsClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is AchievementDetailsViewModel vm)
+            vm.AchievementTitle = "";
+    }
+
+    private async void OnEditTagsClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is not AchievementDetailsViewModel vm)
+            return;
+
+        var initial = (vm.Tags ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var page = new MultiSelectPickerPage(
+            "Select Tags",
+            _allTags,
+            initial
+        );
+
+        await Shell.Current.Navigation.PushAsync(page);
+
+        var result = await page.Result;
+        if (result == null)
+            return; // cancelled
+
+        vm.Tags = string.Join(", ", result);
+    }
+
+    private void OnClearTagsClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is AchievementDetailsViewModel vm)
+            vm.Tags = "";
+    }
+
+    private async void OnAddTrophyPhotoClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is not AchievementDetailsViewModel vm)
+            return;
+
+        var isRange = vm.CompletionType == AchievementCompletionType.Range;
+
+        try
+        {
+            if (isRange)
+            {
+                var results = await FilePicker.Default.PickMultipleAsync(new PickOptions
+                {
+                    PickerTitle = "Pick photos (trophies)",
+                    FileTypes = FilePickerFileType.Images
+                });
+
+                foreach (var r in results ?? Enumerable.Empty<FileResult>())
+                    vm.Model.Trophies.Add(r.FileName);
+            }
+            else
+            {
+                var r = await FilePicker.Default.PickAsync(new PickOptions
+                {
+                    PickerTitle = "Pick a photo (trophy)",
+                    FileTypes = FilePickerFileType.Images
+                });
+
+                if (r == null) return;
+
+                vm.Model.Trophies.Clear(); // deadline => single trophy
+                vm.Model.Trophies.Add(r.FileName);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // user cancelled
+        }
+    }
+
+    private async void OnAddTrophyFileClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is not AchievementDetailsViewModel vm)
+            return;
+
+        var isRange = vm.CompletionType == AchievementCompletionType.Range;
+
+        try
+        {
+            if (isRange)
+            {
+                var results = await FilePicker.Default.PickMultipleAsync(new PickOptions
+                {
+                    PickerTitle = "Pick files (trophies)"
+                    // no FileTypes => any
+                });
+
+                foreach (var r in results ?? Enumerable.Empty<FileResult>())
+                    vm.Model.Trophies.Add(r.FileName);
+            }
+            else
+            {
+                var r = await FilePicker.Default.PickAsync(new PickOptions
+                {
+                    PickerTitle = "Pick a file (trophy)"
+                });
+
+                if (r == null) return;
+
+                vm.Model.Trophies.Clear(); // deadline => single trophy
+                vm.Model.Trophies.Add(r.FileName);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // user cancelled
+        }
+    }
+
+    private void OnClearTrophiesClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is AchievementDetailsViewModel vm)
+            vm.Model.Trophies.Clear();
+    }
+
+
+    private async Task PickTagsAsync()
    {
        if (BindingContext is not AchievementDetailsViewModel vm)
            return;

@@ -18,25 +18,90 @@
                 <Label Text="Status" FontAttributes="Bold"/>
                 <Label Text="{Binding Status}" TextColor="Gray"/>
 
-                <!-- Tags (tap-to-pick via code-behind) -->
+                <!-- Tags -->
                 <Label Text="Tags" FontAttributes="Bold"/>
-                <Entry x:Name="TagsEntry"
+
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+
+                    <!-- Read-only display -->
+                    <Entry x:Name="TagsEntry"
                        Text="{Binding Tags}"
-                       Placeholder="Tap to pick tags"
-                       IsReadOnly="True" />
+                       IsReadOnly="True"
+                       Placeholder="Tap edit to select tags"
+                       VerticalOptions="Center"/>
+
+                    <!-- Edit -->
+                    <Button Grid.Column="1"
+                        Text="✎"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Clicked="OnEditTagsClicked"
+                        VerticalOptions="Center"/>
+
+                    <!-- Clear -->
+                    <Button Grid.Column="2"
+                        Text="✕"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="DarkRed"
+                        Clicked="OnClearTagsClicked"
+                        VerticalOptions="Center"/>
+
+                </Grid>
+
 
                 <!-- Goal Type -->
                 <Label Text="Goal Type" FontAttributes="Bold"/>
                 <Picker x:Name="GoalTypePicker"
                     Title="Select goal type"
+                    ItemsSource="{Binding GoalTypeOptions}"
                     SelectedItem="{Binding GoalType}" />
 
-                <!-- Target for ActiveTime/Value -->
-                <VerticalStackLayout IsVisible="{Binding IsTargetValueVisible}">
-                    <Label Text="Target" FontAttributes="Bold"/>
+                <!-- Target for VALUE -->
+                <VerticalStackLayout IsVisible="{Binding IsValueTargetVisible}">
+                    <Label Text="Target Value" FontAttributes="Bold"/>
                     <Entry Text="{Binding TargetValueText}"
-                           Keyboard="Numeric"
-                           Placeholder="e.g. 100" />
+                       Keyboard="Numeric"
+                       Placeholder="e.g. 100" />
+                            </VerticalStackLayout>
+
+                <!-- Target for ACTIVE TIME -->
+                <VerticalStackLayout IsVisible="{Binding IsActiveTimeTargetVisible}">
+                    <!-- Target (Active Time) -->
+                    <Label Text="Target (Active Time)" FontAttributes="Bold"/>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <!-- Read-only display -->
+                        <Entry x:Name="ActiveTimeTargetEntry"
+                           Text="{Binding ActiveTimeTargetText}"
+                           IsReadOnly="True"
+                           Placeholder="hh:mm:ss"
+                           VerticalOptions="Center"/>
+
+                        <!-- Edit button -->
+                        <Button Grid.Column="1"
+                            Text="✎"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="Black"
+                            Clicked="OnEditActiveTimeTargetClicked"
+                            VerticalOptions="Center"/>
+                    </Grid>
+
+
                 </VerticalStackLayout>
 
                 <!-- Target for Steps -->
@@ -51,13 +116,44 @@
 
                 <!-- Target for Achievements -->
                 <VerticalStackLayout IsVisible="{Binding IsAchievementTargetVisible}">
-                    <Label Text="Achievement" FontAttributes="Bold"/>
-                    <Picker x:Name="AchievementPicker" Title="Select achievement" SelectedItem="{Binding AchievementTitle}" />
-                    <Label Text="Target" FontAttributes="Bold"/>
-                    <Entry Text="{Binding TargetValueText}"
-                           Keyboard="Numeric"
-                           Placeholder="e.g. 1" />
+                    <Label Text="Achievements" FontAttributes="Bold"/>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <!-- Read-only display -->
+                        <Entry x:Name="AchievementsEntry"
+                               Text="{Binding AchievementTitle}"
+                               IsReadOnly="True"
+                               Placeholder="Tap edit to select"
+                               VerticalOptions="Center"/>
+
+                        <!-- Edit -->
+                        <Button Grid.Column="1"
+                                Text="✎"
+                                WidthRequest="36"
+                                HeightRequest="36"
+                                CornerRadius="18"
+                                Padding="0"
+                                Margin="0"
+                                TextColor="White"
+                                BackgroundColor="Black"
+                                Clicked="OnEditAchievementsClicked"
+                                VerticalOptions="Center"/>
+
+                        <!-- Clear -->
+                        <Button Grid.Column="2"
+                                Text="✕"
+                                WidthRequest="36"
+                                HeightRequest="36"
+                                CornerRadius="18"
+                                Padding="0"
+                                Margin="0"
+                                TextColor="White"
+                                BackgroundColor="DarkRed"
+                                Clicked="OnClearAchievementsClicked"
+                                VerticalOptions="Center"/>
+                    </Grid>
                 </VerticalStackLayout>
+
 
                 <!-- Completion Type -->
                 <Label Text="Completion Type" FontAttributes="Bold"/>
@@ -92,6 +188,54 @@
                     <DatePicker Date="{Binding DeadlineDate}" />
                     <TimePicker Time="{Binding DeadlineTime}" />
                 </VerticalStackLayout>
+
+                <!-- Trophies -->
+                <Label Text="Trophies" FontAttributes="Bold"/>
+
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                    <!-- Add Photo -->
+                    <Button Text="🖼"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    Clicked="OnAddTrophyPhotoClicked"/>
+
+                    <!-- Add File -->
+                    <Button Grid.Column="1"
+                    Text="📎"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    Clicked="OnAddTrophyFileClicked"/>
+
+                    <!-- Count -->
+                    <Label Grid.Column="2"
+                   Text="{Binding Model.TrophyCount, StringFormat='Available: {0}'}"
+                   VerticalTextAlignment="Center"
+                   TextColor="Gray"/>
+
+                    <!-- Clear -->
+                    <Button Grid.Column="3"
+                    Text="✕"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0"
+                    TextColor="White"
+                    BackgroundColor="DarkRed"
+                    Clicked="OnClearTrophiesClicked"/>
+                </Grid>
+
+
 
             </VerticalStackLayout>
         </ScrollView>
