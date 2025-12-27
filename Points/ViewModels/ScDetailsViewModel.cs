@@ -14,7 +14,9 @@ namespace Points.ViewModels
     {
         private ScCardModel _model;
         private Action<ScCardModel> _onSaved;
+        private Action<ScCardModel> _onDelete;
 
+        public Command CancelCommand { get; }
         public ObservableCollection<ScStepModel> Steps { get; } = new();
 
         public ScDetailsViewModel(ScCardModel model)
@@ -22,15 +24,18 @@ namespace Points.ViewModels
             ToggleSignCommand = new Command(ToggleSign);
             AddStepCommand = new Command(AddStep);
             SaveCommand = new Command(async () => await SaveAsync());
+            CancelCommand = new Command(async () => await OnCancelAsync());
             BuildModel(model);
         }
 
-        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved)
+        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete)
         {
             ToggleSignCommand = new Command(ToggleSign);
             AddStepCommand = new Command(AddStep);
             SaveCommand = new Command(async () => await SaveAsync());
+            CancelCommand = new Command(async () => await OnCancelAsync());
             _onSaved = onSaved;
+            _onDelete = onDelete;
             BuildModel(model);
         }
 
@@ -171,6 +176,22 @@ namespace Points.ViewModels
             if(_onSaved != null) _onSaved(_model);
 
             await Shell.Current.Navigation.PopAsync();
+        }
+
+        private async Task OnCancelAsync()
+        {
+            var choice = await Shell.Current.DisplayActionSheet(
+                _model.Title,
+                "Cancel",
+                null,
+                "Delete"
+            );
+
+            if (choice == "Delete")
+            {
+                _onDelete?.Invoke(_model);
+                await Shell.Current.Navigation.PopAsync();
+            }
         }
 
         private void RaiseComputed()

@@ -29,6 +29,8 @@ namespace Points.ViewModels
         public Command SortByLastActiveCommand { get; }
         public Command OpenAchievementsCommand { get; }
 
+        public Command<MissionCardModel> MissionCancelCommand { get; }
+
 
         #endregion
 
@@ -168,6 +170,8 @@ namespace Points.ViewModels
             FilterByTagCommand = new Command(async () => await FilterCardsByTag());
             OpenAchievementsCommand = new Command(async () => await OpenAchievementsAsync());
 
+            MissionCancelCommand = new Command<MissionCardModel>(async m => await OnMissionCancelAsync(m));
+
             #endregion
 
             #region Add Cards
@@ -300,27 +304,30 @@ namespace Points.ViewModels
             ((MissionCardModel)missionCards[7]).Complete(AtToday(11, 30));  // Degrade completed 11:30
             ((MissionCardModel)missionCards[8]).Complete(AtToday(14, 10));  // Rot completed 14:10 (after due -> freezes penalty)
 
+
             // Build the Mission page
             Pages.Add(new HomePageModel("Mission", missionCards));
+
+            SortMissionCards();
 
             Pages.Add(new HomePageModel("Budgets", new ICardModel[]
             {
                 new BudgetCardModel
-                {
-                    Title = "Calorie Budget",
-                    Currency = "Kcal",
-                    ExchangeRate = 0.01,
-                    StartDate = DateTime.Today,
-                    InitialBalance = 0,
-                    Status = "In-Progress",
-                    Tags = "PRO TAT Other",
-                    TopUps =
+            {
+                Title = "Calorie Budget",
+                Currency = "Kcal",
+                ExchangeRate = 0.01,
+                StartDate = DateTime.Today,
+                InitialBalance = 0,
+                Status = "In-Progress",
+                Tags = "PRO TAT Other",
+                TopUps =
                     {
                         new ScheduledTopUp { TimeOfDay = new TimeSpan(7,0,0), Amount = 500 },
                         new ScheduledTopUp { TimeOfDay = new TimeSpan(12,0,0), Amount = 500 },
                         new ScheduledTopUp { TimeOfDay = new TimeSpan(18,0,0), Amount = 500 },
                     }
-                }
+            }
             }));
 
             // Start on Main Quest
@@ -370,29 +377,33 @@ namespace Points.ViewModels
                     "Step-Completion");
 
                 if (choice == "Time-At-Task")
-                    await CreateTatAsync(page);
+                {
+                    await CreateTatAsync(page);                    
+                }
                 else if (choice == "Step-Completion")
+                {
                     await CreateScAsync(page);
+                }
 
                 return;
             }
 
             if (page.Name == "Mission")
             {
-                await CreateMissionAsync(page);
+                await CreateMissionAsync(page);          
                 return;
             }
 
             if (page.Name == "Budgets")
             {
-                await CreateBudgetAsync(page);
+                await CreateBudgetAsync(page); 
                 return;
             }
         }
 
-        private async Task CreateTatAsync(HomePageModel page)
+        private async Task CreateTatAsync(HomePageModel page, TatCardModel? model = null)
         {
-            var model = new TatCardModel
+            model = model ?? new TatCardModel
             {
                 Title = "New TAT",
                 Status = "In-Progress",
@@ -405,13 +416,17 @@ namespace Points.ViewModels
                 new Points.Views.Details.TatDetailsPage(model, saved =>
                 {
                     page.AddCard(saved);
+                },
+                deletd =>
+                {
+                    page.RemoveCard(deletd);
                 })
             );
         }
 
-        private async Task CreateScAsync(HomePageModel page)
+        private async Task CreateScAsync(HomePageModel page, ScCardModel? model = null)
         {
-            var model = new ScCardModel
+            model = model ?? new ScCardModel
             {
                 Title = "New SC",
                 Status = "In-Progress",
@@ -421,15 +436,23 @@ namespace Points.ViewModels
             };
 
             await Shell.Current.Navigation.PushAsync(
-                new Points.Views.Details.ScDetailsPage(model, saved => { page.AddCard(saved); })
+                new Points.Views.Details.ScDetailsPage(model, 
+                saved => 
+                { 
+                    page.AddCard(saved); 
+                },
+                deletd =>
+                {
+                    page.RemoveCard(deletd);
+                })
             );
         }
 
-        private async Task CreateMissionAsync(HomePageModel page)
+        private async Task CreateMissionAsync(HomePageModel page, MissionCardModel? model = null)
         {
             var now = DateTime.Now;
 
-            var model = new MissionCardModel
+            model = model ?? new MissionCardModel
             {
                 Title = "New Mission",
                 Status = "In-Progress",                 // non-editable in form
@@ -443,18 +466,24 @@ namespace Points.ViewModels
             };
 
             await Shell.Current.Navigation.PushAsync(
-                new Points.Views.Details.MissionDetailsPage(model, saved =>
-                {
-                    page.AddCard(saved);
-                    // If you have mission sorting, call it here if needed
-                    // SortMissionCards();
-                })
+                new Points.Views.Details.MissionDetailsPage(
+                    model,
+                    saved =>
+                    {
+                        page.AddCard(saved);
+                        // optionally SortMissionCards(); (you already call it after)
+                    },
+                    onDelete: m => DeleteMission(m),
+                    onFail: m => FailMission(m)
+                )
             );
+
+            SortMissionCards();
         }
 
-        private async Task CreateBudgetAsync(HomePageModel page)
+        private async Task CreateBudgetAsync(HomePageModel page, BudgetCardModel? model = null)
         {
-            var model = new BudgetCardModel
+            model = model ?? new BudgetCardModel
             {
                 Title = "New Budget",
                 Status = "In-Progress",
@@ -466,9 +495,14 @@ namespace Points.ViewModels
             };
 
             await Shell.Current.Navigation.PushAsync(
-                new Points.Views.Details.BudgetDetailsPage(model, saved =>
+                new Points.Views.Details.BudgetDetailsPage(model, 
+                saved =>
                 {
                     page.AllCards.Add(saved);
+                },
+                deleted =>
+                {
+                    page.AllCards.Remove(deleted);
                 })
             );
         }
@@ -522,9 +556,11 @@ namespace Points.ViewModels
         private void ClearFilters()
         {
             var page = CurrentPage;
-            if (page.Name != "Main Quest") return;
+            if (page.Name != "Main Quest" && page.Name != "Mission") return;
 
             page.ResetVisible();
+
+            SortMissionCards();
         }
 
         private void SortCardsByLastActive()
@@ -643,6 +679,48 @@ namespace Points.ViewModels
             await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.AchievementsPage());
         }
 
+        private async Task OnMissionCancelAsync(MissionCardModel model)
+        {
+            if (model == null)
+                return;
+
+            var choice = await Shell.Current.DisplayActionSheet(
+                model.Title,
+                "Cancel",
+                null,
+                "Delete",
+                "Failed"
+            );
+
+            if (choice == "Delete")
+            {
+                DeleteMission(model);
+            }
+            else if (choice == "Failed")
+            {
+                FailMission(model);
+            }
+        }
+
+        public void FailMission(MissionCardModel model)
+        {
+            model.Fail(DateTime.Now);
+            SortMissionCards(); // optional but recommended
+        }
+
+
+        public void DeleteMission(MissionCardModel model)
+        {
+            var missionPage = Pages.FirstOrDefault(p => p.Name == "Mission");
+            if (missionPage == null)
+                return;
+
+            missionPage.AllCards.Remove(model);
+            missionPage.VisibleCards.Remove(model);
+
+            SortMissionCards();
+        }
+
 
         #endregion
 
@@ -651,7 +729,7 @@ namespace Points.ViewModels
             Now = DateTime.Now;
 
             foreach (var page in Pages)
-                foreach (var card in page.AllCards.OfType<Points.Models.MissionCardModel>())
+               foreach (var card in page.AllCards.OfType<Points.Models.MissionCardModel>())
                     card.NotifyTimeChanged();
 
             SortMissionCards();
@@ -741,6 +819,12 @@ namespace Points.ViewModels
             {
                 VisibleCards.Add(item);
             }
+        }
+
+        internal void RemoveCard(ICardModel card)
+        {
+            AllCards.Remove(card);
+            VisibleCards.Remove(card);
         }
 
         #endregion

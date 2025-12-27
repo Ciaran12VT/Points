@@ -14,6 +14,9 @@ namespace Points.ViewModels
     {
         private readonly BudgetCardModel _model;
         private readonly Action<BudgetCardModel> _onSaved;
+        private Action<BudgetCardModel> _onDelete;
+
+        public Command CancelCommand { get; }
 
         public ObservableCollection<BudgetTopUpEditItem> TopUps { get; } = new();
 
@@ -21,14 +24,16 @@ namespace Points.ViewModels
         public Command RemoveTopUpCommand { get; }
         public Command SaveCommand { get; }
 
-        public BudgetDetailsViewModel(BudgetCardModel model, Action<BudgetCardModel> onSaved)
+        public BudgetDetailsViewModel(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete)
         {
             _model = model;
             _onSaved = onSaved;
+            _onDelete = onDelete;
 
             AddTopUpCommand = new Command(AddTopUp);
             RemoveTopUpCommand = new Command<BudgetTopUpEditItem>(RemoveTopUp);
             SaveCommand = new Command(async () => await SaveAsync());
+            CancelCommand = new Command(async () => await OnCancelAsync());
 
             // Editable fields from model
             Title = _model.Title;
@@ -186,6 +191,22 @@ namespace Points.ViewModels
             _onSaved(_model);
 
             await Shell.Current.Navigation.PopAsync();
+        }
+
+        private async Task OnCancelAsync()
+        {
+            var choice = await Shell.Current.DisplayActionSheet(
+                _model.Title,
+                "Cancel",
+                null,
+                "Delete"
+            );
+
+            if (choice == "Delete")
+            {
+                _onDelete?.Invoke(_model);
+                await Shell.Current.Navigation.PopAsync();
+            }
         }
     }
 }

@@ -2,6 +2,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:converters="clr-namespace:Points.Converters;assembly=Points"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="Points.Views.Cards.MissionCardView">
 
     <ContentView.Resources>
@@ -12,7 +13,7 @@
     </ContentView.Resources>
 
 
-    <Frame Margin="12,8" Padding="12,12,8,12" CornerRadius="12" HasShadow="True">
+    <Frame x:Name="RootFrame" Margin="12,8" Padding="12,12,8,12" CornerRadius="12" HasShadow="True">
 
         <Frame.Triggers>
             <!-- Grey out when complete -->
@@ -24,6 +25,12 @@
             <DataTrigger TargetType="Frame" Binding="{Binding IsAvailable}" Value="False">
                 <Setter Property="Opacity" Value="0.55" />
             </DataTrigger>
+
+            <!-- Grey out when failed -->
+            <DataTrigger TargetType="Frame" Binding="{Binding IsFailed}" Value="True">
+                <Setter Property="Opacity" Value="0.55" />
+            </DataTrigger>
+
         </Frame.Triggers>
 
         <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6">
@@ -38,10 +45,16 @@
                 <DataTrigger TargetType="Grid" Binding="{Binding IsAvailable}" Value="False">
                     <Setter Property="IsEnabled" Value="False" />
                 </DataTrigger>
+
+                <!-- Disable when failed -->
+                <DataTrigger TargetType="Grid" Binding="{Binding IsFailed}" Value="True"> 
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
+
             </Grid.Triggers>
 
             <!-- Row 0: Title -->
-            <Label Grid.Row="0" Grid.Column="0" ext="{Binding Title}" FontSize="16" VerticalOptions="Center" />
+            <Label Grid.Row="0" Grid.Column="0" Text="{Binding Title}" FontSize="16" VerticalOptions="Center" />
 
             <!-- Row 0: Completion button (top-right) -->
             <Grid Grid.Row="0" Grid.Column="1" HorizontalOptions="End">

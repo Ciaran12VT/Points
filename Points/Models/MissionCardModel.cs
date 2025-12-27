@@ -126,6 +126,27 @@ namespace Points.Models
             }
         }
 
+        private bool _isFailed;
+        public bool IsFailed
+        {
+            get => _isFailed;
+            private set => SetProperty(ref _isFailed, value);
+        }
+
+        public void Fail(DateTime? failedAt = null)
+        {
+            if (IsFailed)
+                return;
+
+            IsFailed = true;
+            Status = "Failed";
+
+            IsComplete = true;
+            CompletedDate = failedAt ?? DateTime.Now;
+
+            CompleteCommand.ChangeCanExecute();
+        }
+
 
         public void NotifyTimeChanged()
         {
@@ -176,6 +197,8 @@ namespace Points.Models
         public double GetValue(DateTime start, DateTime end)
         {
             if (end <= start) return 0;
+
+            if (IsFailed) return Value * -1;
 
             // Only count up to completion time (if completed), otherwise up to 'end'
             var effectiveEnd = CompletedDate is DateTime completed ? (completed < end ? completed : end) : end;

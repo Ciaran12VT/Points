@@ -11,10 +11,10 @@ public partial class ScDetailsPage : ContentPage
         BindingContext = new ScDetailsViewModel(model);
     }
 
-    public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved)
+    public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete)
     {
         InitializeComponent();
-        BindingContext = new ScDetailsViewModel(model, onSaved);
+        BindingContext = new ScDetailsViewModel(model, onSaved, onDelete);
     }
 
 }

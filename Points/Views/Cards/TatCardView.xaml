@@ -18,7 +18,7 @@
                    Text="{Binding Title}"
                    FontSize="16"
                    VerticalOptions="Center" />
-
+           
             <!-- Row 0: Activity toggle (top-right) -->
             <Grid Grid.Row="0"
                   Grid.Column="1"

@@ -13,20 +13,26 @@ namespace Points.ViewModels
     {
         private TatCardModel _model;
         private Action<TatCardModel> _onSaved;
+        private Action<TatCardModel> _onDelete;
+
+        public Command CancelCommand { get; }
 
         public TatDetailsViewModel(TatCardModel model)
         {
             ToggleSignCommand = new Command(ToggleSign);
             SaveCommand = new Command(async () => await SaveAsync());
+            CancelCommand = new Command(async () => await OnCancelAsync());
 
             BuildModel(model);
         }
 
-        public TatDetailsViewModel(TatCardModel model, Action<TatCardModel> onSaved)
+        public TatDetailsViewModel(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete)
         {
             _onSaved = onSaved;
+            _onDelete = onDelete;
             ToggleSignCommand = new Command(ToggleSign);
             SaveCommand = new Command(async () => await SaveAsync());
+            CancelCommand = new Command(async () => await OnCancelAsync());
             BuildModel(model);
         }
 
@@ -130,6 +136,22 @@ namespace Points.ViewModels
             if (_onSaved != null) _onSaved(_model);
 
             await Shell.Current.Navigation.PopAsync();
+        }
+
+        private async Task OnCancelAsync()
+        {
+            var choice = await Shell.Current.DisplayActionSheet(
+                _model.Title,
+                "Cancel",
+                null,
+                "Delete"
+            );
+
+            if (choice == "Delete")
+            {
+                _onDelete?.Invoke(_model);
+                await Shell.Current.Navigation.PopAsync();
+            }
         }
 
         private void RaiseComputed()

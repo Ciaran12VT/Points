@@ -14,16 +14,25 @@ namespace Points.ViewModels
         private readonly MissionCardModel _model;
         private readonly Action<MissionCardModel> _onSaved;
 
+        private readonly Action<MissionCardModel> _onDelete;
+        private readonly Action<MissionCardModel> _onFail;
+
+        public Command SaveCommand { get; }
+        public Command CancelCommand { get; }
+
         public bool IsReadOnly => _model.IsComplete;     // complete => read-only
         public bool CanEdit => !_model.IsComplete;       // convenience
 
 
-        public MissionDetailsViewModel(MissionCardModel model, Action<MissionCardModel> onSaved)
+        public MissionDetailsViewModel(MissionCardModel model, Action<MissionCardModel> onSaved, Action<MissionCardModel> onDelete, Action<MissionCardModel> onFail)
         {
             _model = model;
             _onSaved = onSaved;
+            _onDelete = onDelete;
+            _onFail = onFail;
 
             SaveCommand = new Command(async () => await SaveAsync());
+            CancelCommand = new Command(async () => await OnCancelAsync());
 
             // Read-only
             CreatedDateText = _model.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
@@ -105,8 +114,6 @@ namespace Points.ViewModels
             set => SetProperty(ref _dueTime, value);
         }
 
-        public Command SaveCommand { get; }
-
         private async Task SaveAsync()
         {
             // Compose DateTime values
@@ -144,6 +151,28 @@ namespace Points.ViewModels
             _onSaved(_model);
 
             await Shell.Current.Navigation.PopAsync();
+        }
+
+        private async Task OnCancelAsync()
+        {
+            var choice = await Shell.Current.DisplayActionSheet(
+                _model.Title,
+                "Cancel",
+                null,
+                "Delete",
+                "Failed"
+            );
+
+            if (choice == "Delete")
+            {
+                _onDelete?.Invoke(_model);
+                await Shell.Current.Navigation.PopAsync();
+            }
+            else if (choice == "Failed")
+            {
+                _onFail?.Invoke(_model);
+                await Shell.Current.Navigation.PopAsync();
+            }
         }
     }
 }

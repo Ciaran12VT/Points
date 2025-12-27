@@ -11,10 +11,10 @@ public partial class TatDetailsPage : ContentPage
         BindingContext = new TatDetailsViewModel(model);
     }
 
-    public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved)
+    public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete)
     {
         InitializeComponent();
-        BindingContext = new TatDetailsViewModel(model, onSaved);
+        BindingContext = new TatDetailsViewModel(model, onSaved, onDelete);
     }
 
 }

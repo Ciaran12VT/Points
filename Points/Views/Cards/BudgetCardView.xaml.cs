@@ -71,7 +71,7 @@ public partial class BudgetCardView : ContentView
             return;
 
         await Shell.Current.Navigation.PushAsync(
-            new Points.Views.Details.BudgetDetailsPage(model, _ => { })
+            new Points.Views.Details.BudgetDetailsPage(model, _ => { }, _ => { })
         );
     }
 
