@@ -19,15 +19,6 @@ namespace Points.ViewModels
         public Command CancelCommand { get; }
         public ObservableCollection<ScStepModel> Steps { get; } = new();
 
-        public ScDetailsViewModel(ScCardModel model)
-        {
-            ToggleSignCommand = new Command(ToggleSign);
-            AddStepCommand = new Command(AddStep);
-            SaveCommand = new Command(async () => await SaveAsync());
-            CancelCommand = new Command(async () => await OnCancelAsync());
-            BuildModel(model);
-        }
-
         public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete)
         {
             ToggleSignCommand = new Command(ToggleSign);

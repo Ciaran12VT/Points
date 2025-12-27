@@ -17,15 +17,6 @@ namespace Points.ViewModels
 
         public Command CancelCommand { get; }
 
-        public TatDetailsViewModel(TatCardModel model)
-        {
-            ToggleSignCommand = new Command(ToggleSign);
-            SaveCommand = new Command(async () => await SaveAsync());
-            CancelCommand = new Command(async () => await OnCancelAsync());
-
-            BuildModel(model);
-        }
-
         public TatDetailsViewModel(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete)
         {
             _onSaved = onSaved;

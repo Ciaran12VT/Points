@@ -2,13 +2,10 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Points.Models;
-using Microsoft.VisualBasic;
 using Points.Global;
 
 namespace Points.ViewModels
@@ -28,15 +25,13 @@ namespace Points.ViewModels
         public Command ClearFiltersCommand { get; }
         public Command SortByLastActiveCommand { get; }
         public Command OpenAchievementsCommand { get; }
-
-        public Command<MissionCardModel> MissionCancelCommand { get; }
-
-
+        //public Command<MissionCardModel> MissionCancelCommand { get; }
         #endregion
 
         #region Fields
 
         public bool HasActiveCard => _activeCard != null;
+
         public ObservableCollection<HomePageModel> Pages { get; } = new();
         private HomePageModel CurrentPage => Pages[Math.Clamp(Position, 0, Pages.Count - 1)];
 
@@ -77,19 +72,15 @@ namespace Points.ViewModels
             {
                 var now = DateTime.Now;
 
-                // Adjust this to match how your pages are stored.
                 var missionPage = Pages.FirstOrDefault(p => p.Name == "Mission");
                 if (missionPage == null) return false;
 
                 foreach (var m in missionPage.AllCards.OfType<MissionCardModel>())
                 {
-                    // Available = not complete AND now >= AvailableFromDate
                     if (m.IsComplete) continue;
                     if (now < m.AvailableFromDate) continue;
 
-                    // "current value" means "what would it be worth if frozen now"
                     var current = m.GetCurrentValue(now);
-
                     if (current < 0)
                         return true;
                 }
@@ -158,8 +149,7 @@ namespace Points.ViewModels
 
         public HomeViewModel()
         {
-            #region Commands
-
+            // Commands
             ActivateCardCommand = new Command<IActiveCardModel>(RequestActivate);
             AddCardCommand = new Command(async () => await AddCardAsync());
             FilterPositiveCommand = new Command(ApplyPositiveFilter);
@@ -169,32 +159,293 @@ namespace Points.ViewModels
             SortByLastActiveCommand = new Command(SortCardsByLastActive);
             FilterByTagCommand = new Command(async () => await FilterCardsByTag());
             OpenAchievementsCommand = new Command(async () => await OpenAchievementsAsync());
+            //MissionCancelCommand = new Command<MissionCardModel>(async m => await OnMissionCancelAsync(m));
 
-            MissionCancelCommand = new Command<MissionCardModel>(async m => await OnMissionCancelAsync(m));
+            // Pages + mock data moved out of constructor logic
+            InitializePages();        // defines pages (empty)
+            SeedMockCards();          // adds mocks via the SAME route as UI adds
 
-            #endregion
+            // Start on Main Quest
+            Position = 0;
 
-            #region Add Cards
+            // Ensure mission ordering after seeding
+            SortMissionCards();
+        }
 
-            Pages.Add(new HomePageModel("Main Quest", new ICardModel[]
+        #region Single-route add/commit pipeline
+
+        /// <summary>
+        /// UI entry: Add button.
+        /// Uses the same pipeline: (create model) -> (open details if needed) -> (commit card to page) -> (post-commit hooks)
+        /// </summary>
+        private async Task AddCardAsync()
+        {
+            await AddCardFlowAsync(model: null, targetPage: CurrentPage, openDetails: true);
+        }
+
+        /// <summary>
+        /// Strong single-route guarantee:
+        /// - If model is null: chooses a model based on the target page.
+        /// - If openDetails is true: navigates to the relevant details page and commits from the save callback.
+        /// - If openDetails is false: commits immediately (used for mock seeding).
+        /// </summary>
+        private async Task AddCardFlowAsync(ICardModel? model, HomePageModel targetPage, bool openDetails)
+        {
+            if (targetPage == null) return;
+
+            // If the caller didn't supply a model, create one based on the page
+            model ??= await CreateModelForPageAsync(targetPage);
+
+            if (model == null) return;
+
+            if (!openDetails)
             {
-                             new TatCardModel { Title = "TAT 1", ValuePerMinute = 1.25 },
-                             new ScCardModel  { Title = "SC 1",  ValuePerMinute = 1.00 },
-                             new TatCardModel { Title = "TAT 2", ValuePerMinute = 0.75 },
-                             new TatCardModel { Title = "TAT 3", ValuePerMinute = -1.00 },
-            
-            }));
+                CommitCardToPage(targetPage, model);
+                return;
+            }
 
-            var today = DateTime.Today;
+            // Open details UI, and commit ONLY through the shared commit route
+            await OpenDetailsForModelAsync(targetPage, model);
+        }
+
+        /// <summary>
+        /// Page-based model creation (only place that decides "what model to use").
+        /// For Main Quest, shows ActionSheet because there are multiple card types.
+        /// </summary>
+        private async Task<ICardModel?> CreateModelForPageAsync(HomePageModel page)
+        {
+            if (page.Name == "Main Quest")
+            {
+                var choice = await Shell.Current.DisplayActionSheet(
+                    "Add Card",
+                    "Cancel",
+                    null,
+                    "Time-At-Task",
+                    "Step-Completion");
+
+                if (choice == "Time-At-Task")
+                {
+                    return CreateDefaultTat();
+                }
+                else if (choice == "Step-Completion")
+                {
+                    return CreateDefaultSc();
+                }
+
+                return null;
+            }
+
+            if (page.Name == "Mission")
+            {
+                return CreateDefaultMission();
+            }
+
+            if (page.Name == "Budgets")
+            {
+                return CreateDefaultBudget();
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Navigation to details page is here; commit only happens via CommitCardToPage.
+        /// </summary>
+        private async Task OpenDetailsForModelAsync(HomePageModel page, ICardModel model)
+        {
+            if (model is TatCardModel tat)
+            {
+                await Shell.Current.Navigation.PushAsync(
+                    new Points.Views.Details.TatDetailsPage(
+                        tat,
+                        saved => CommitCardToPage(page, saved),
+                        deleted => RemoveCardFromPage(page, deleted)
+                    )
+                );
+                return;
+            }
+
+            if (model is ScCardModel sc)
+            {
+                await Shell.Current.Navigation.PushAsync(
+                    new Points.Views.Details.ScDetailsPage(
+                        sc,
+                        saved => CommitCardToPage(page, saved),
+                        deleted => RemoveCardFromPage(page, deleted)
+                    )
+                );
+                return;
+            }
+
+            if (model is MissionCardModel mission)
+            {
+                await Shell.Current.Navigation.PushAsync(
+                    new Points.Views.Details.MissionDetailsPage(
+                        mission,
+                        saved => CommitCardToPage(page, saved),
+                        onDelete: m => DeleteMission(m),
+                        onFail: m => FailMission(m)
+                    )
+                );
+                return;
+            }
+
+            if (model is BudgetCardModel budget)
+            {
+                await Shell.Current.Navigation.PushAsync(
+                    new Points.Views.Details.BudgetDetailsPage(
+                        budget,
+                        saved => CommitCardToPage(page, saved),
+                        deleted => RemoveCardFromPage(page, deleted)
+                    )
+                );
+                return;
+            }
+        }
+
+        /// <summary>
+        /// The ONE AND ONLY way a card gets added to a page.
+        /// All callers (mock seeding + UI save callbacks) must use this.
+        /// </summary>
+        private void CommitCardToPage(HomePageModel page, ICardModel card)
+        {
+            if (page == null || card == null) return;
+
+            // If card already exists (editing existing), don't duplicate
+            // (Reference equality is the safest default here.)
+            if (!page.AllCards.Contains(card))
+            {
+                page.AddCard(card);
+            }
+
+            // Post-commit hooks centralized here
+            AfterCardCommitted(page, card);
+        }
+
+        private void AfterCardCommitted(HomePageModel page, ICardModel card)
+        {
+            // Any per-page logic that must always happen after add/update
+            if (page.Name == "Mission" && card is MissionCardModel)
+            {
+                SortMissionCards();
+                OnPropertyChanged(nameof(HasNegativeAvailableMission));
+            }
+
+            // For value/colour refresh, etc.
+            OnPropertyChanged(nameof(GlobalValueColor));
+        }
+
+        private void RemoveCardFromPage(HomePageModel page, ICardModel card)
+        {
+            if (page == null || card == null) return;
+            page.RemoveCard(card);
+
+            if (page.Name == "Mission")
+            {
+                SortMissionCards();
+                OnPropertyChanged(nameof(HasNegativeAvailableMission));
+            }
+        }
+
+        #endregion
+
+        #region Default model factories (no side effects)
+
+        private static TatCardModel CreateDefaultTat()
+        {
+            return new TatCardModel
+            {
+                Title = "New TAT",
+                Status = "In-Progress",
+                Tags = "",
+                Description = "",
+                ValuePerMinute = 1.0
+            };
+        }
+
+        private static ScCardModel CreateDefaultSc()
+        {
+            return new ScCardModel
+            {
+                Title = "New SC",
+                Status = "In-Progress",
+                Tags = "",
+                Description = "",
+                ValuePerMinute = 1.0
+            };
+        }
+
+        private static MissionCardModel CreateDefaultMission()
+        {
             var now = DateTime.Now;
 
-            // Helpers
+            return new MissionCardModel
+            {
+                Title = "New Mission",
+                Status = "In-Progress",                 // non-editable in form
+                Tags = "",
+                SubType = MissionSubType.Stable,
+                Value = 0,
+                CreatedDate = now,                      // auto-set to now
+                AvailableFromDate = now,                // default now
+                DueDate = now.AddDays(1),               // default now + 1 day
+                Description = ""
+            };
+        }
+
+        private static BudgetCardModel CreateDefaultBudget()
+        {
+            return new BudgetCardModel
+            {
+                Title = "New Budget",
+                Status = "In-Progress",
+                Tags = "",
+                Currency = "Kcal",
+                ExchangeRate = 0.01,
+                StartDate = DateTime.Now,
+                InitialBalance = 0
+            };
+        }
+
+        #endregion
+
+        #region Page + mock seeding (moved out of ctor; uses single route)
+
+        private void InitializePages()
+        {
+            Pages.Clear();
+
+            Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<ICardModel>()));
+            Pages.Add(new HomePageModel("Mission", Enumerable.Empty<ICardModel>()));
+            Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<ICardModel>()));
+        }
+
+        private void SeedMockCards()
+        {
+            var mainQuest = Pages.First(p => p.Name == "Main Quest");
+            var mission = Pages.First(p => p.Name == "Mission");
+            var budgets = Pages.First(p => p.Name == "Budgets");
+
+            // Main Quest mocks (commit through single route)
+            var mainQuestMocks = new ICardModel[]
+            {
+                new TatCardModel { Title = "TAT 1", ValuePerMinute = 1.25 },
+                new ScCardModel  { Title = "SC 1",  ValuePerMinute = 1.00 },
+                new TatCardModel { Title = "TAT 2", ValuePerMinute = 0.75 },
+                new TatCardModel { Title = "TAT 3", ValuePerMinute = -1.00 },
+            };
+
+            foreach (var c in mainQuestMocks)
+                CommitCardToPage(mainQuest, c);
+
+            // Mission mocks
+            var today = DateTime.Today;
+            var now = DateTime.Now;
             DateTime AtToday(int hour, int minute = 0) => today.AddHours(hour).AddMinutes(minute);
 
             var missionCards = new ICardModel[]
             {
                 // ===== AVAILABLE + INCOMPLETE =====
-
                 new MissionCardModel
                 {
                     Title = "Stable - Available & Incomplete",
@@ -202,8 +453,8 @@ namespace Points.ViewModels
                     SubType = MissionSubType.Stable,
                     Value = 25,
                     CreatedDate = now.AddDays(-2),
-                    AvailableFromDate = today.AddDays(-1),       // already available
-                    DueDate = today.AddDays(+2),                 // not due soon
+                    AvailableFromDate = today.AddDays(-1),
+                    DueDate = today.AddDays(+2),
                 },
 
                 new MissionCardModel
@@ -213,8 +464,8 @@ namespace Points.ViewModels
                     SubType = MissionSubType.Degrade,
                     Value = 30,
                     CreatedDate = now.AddDays(-1),
-                    AvailableFromDate = AtToday(8, 0),           // available since 8am
-                    DueDate = AtToday(18, 0),                    // due 6pm today
+                    AvailableFromDate = AtToday(8, 0),
+                    DueDate = AtToday(18, 0),
                 },
 
                 new MissionCardModel
@@ -224,12 +475,11 @@ namespace Points.ViewModels
                     SubType = MissionSubType.Rot,
                     Value = 40,
                     CreatedDate = now.AddDays(-3),
-                    AvailableFromDate = today.AddDays(-2),       // was available 2 days ago
-                    DueDate = AtToday(10, 0),                    // due 10am today -> penalty stream after 10am
+                    AvailableFromDate = today.AddDays(-2),
+                    DueDate = AtToday(10, 0),
                 },
 
                 // ===== NOT AVAILABLE YET (should be greyed + disabled) =====
-
                 new MissionCardModel
                 {
                     Title = "Stable - Not Available Yet",
@@ -237,7 +487,7 @@ namespace Points.ViewModels
                     SubType = MissionSubType.Stable,
                     Value = 15,
                     CreatedDate = now,
-                    AvailableFromDate = now.AddHours(+2),        // future -> locked
+                    AvailableFromDate = now.AddHours(+2),
                     DueDate = today.AddDays(+1),
                 },
 
@@ -248,7 +498,7 @@ namespace Points.ViewModels
                     SubType = MissionSubType.Degrade,
                     Value = 20,
                     CreatedDate = now,
-                    AvailableFromDate = today.AddDays(+1),       // tomorrow -> locked
+                    AvailableFromDate = today.AddDays(+1),
                     DueDate = today.AddDays(+2),
                 },
 
@@ -259,12 +509,11 @@ namespace Points.ViewModels
                     SubType = MissionSubType.Rot,
                     Value = 10,
                     CreatedDate = now,
-                    AvailableFromDate = today.AddDays(+1),       // tomorrow -> locked
+                    AvailableFromDate = today.AddDays(+1),
                     DueDate = today.AddDays(+1).AddHours(6),
                 },
 
                 // ===== COMPLETED TODAY (should float to top, sorted by CompletedDate) =====
-
                 new MissionCardModel
                 {
                     Title = "Stable - Completed Today",
@@ -299,20 +548,16 @@ namespace Points.ViewModels
                 },
             };
 
-            // Mark some as completed at specific times today
-            ((MissionCardModel)missionCards[6]).Complete(AtToday(9, 15));   // Stable completed 09:15
-            ((MissionCardModel)missionCards[7]).Complete(AtToday(11, 30));  // Degrade completed 11:30
-            ((MissionCardModel)missionCards[8]).Complete(AtToday(14, 10));  // Rot completed 14:10 (after due -> freezes penalty)
+            // mark some completed
+            ((MissionCardModel)missionCards[6]).Complete(AtToday(9, 15));
+            ((MissionCardModel)missionCards[7]).Complete(AtToday(11, 30));
+            ((MissionCardModel)missionCards[8]).Complete(AtToday(14, 10));
 
+            foreach (var c in missionCards)
+                CommitCardToPage(mission, c);
 
-            // Build the Mission page
-            Pages.Add(new HomePageModel("Mission", missionCards));
-
-            SortMissionCards();
-
-            Pages.Add(new HomePageModel("Budgets", new ICardModel[]
-            {
-                new BudgetCardModel
+            // Budget mocks
+            var budget = new BudgetCardModel
             {
                 Title = "Calorie Budget",
                 Currency = "Kcal",
@@ -322,21 +567,19 @@ namespace Points.ViewModels
                 Status = "In-Progress",
                 Tags = "PRO TAT Other",
                 TopUps =
-                    {
-                        new ScheduledTopUp { TimeOfDay = new TimeSpan(7,0,0), Amount = 500 },
-                        new ScheduledTopUp { TimeOfDay = new TimeSpan(12,0,0), Amount = 500 },
-                        new ScheduledTopUp { TimeOfDay = new TimeSpan(18,0,0), Amount = 500 },
-                    }
-            }
-            }));
+                {
+                    new ScheduledTopUp { TimeOfDay = new TimeSpan(7,0,0), Amount = 500 },
+                    new ScheduledTopUp { TimeOfDay = new TimeSpan(12,0,0), Amount = 500 },
+                    new ScheduledTopUp { TimeOfDay = new TimeSpan(18,0,0), Amount = 500 },
+                }
+            };
 
-            // Start on Main Quest
-            Position = 0;
-
-            #endregion
+            CommitCardToPage(budgets, budget);
         }
 
-        #region Methods
+        #endregion
+
+        #region Methods (existing behavior preserved)
 
         public void RequestActivate(IActiveCardModel card)
         {
@@ -355,7 +598,6 @@ namespace Points.ViewModels
             _activeCard?.StopActivity();
 
             // Activate new
-            // We only have ToggleActivityCommand publicly, so call it to start.
             if (!card.IsActive && card.ToggleActivityCommand.CanExecute(null))
                 card.ToggleActivityCommand.Execute(null);
 
@@ -363,156 +605,11 @@ namespace Points.ViewModels
             OnPropertyChanged(nameof(HasActiveCard));
         }
 
-        private async Task AddCardAsync()
-        {
-            var page = CurrentPage;
-
-            if (page.Name == "Main Quest")
-            {
-                var choice = await Shell.Current.DisplayActionSheet(
-                    "Add Card",
-                    "Cancel",
-                    null,
-                    "Time-At-Task",
-                    "Step-Completion");
-
-                if (choice == "Time-At-Task")
-                {
-                    await CreateTatAsync(page);                    
-                }
-                else if (choice == "Step-Completion")
-                {
-                    await CreateScAsync(page);
-                }
-
-                return;
-            }
-
-            if (page.Name == "Mission")
-            {
-                await CreateMissionAsync(page);          
-                return;
-            }
-
-            if (page.Name == "Budgets")
-            {
-                await CreateBudgetAsync(page); 
-                return;
-            }
-        }
-
-        private async Task CreateTatAsync(HomePageModel page, TatCardModel? model = null)
-        {
-            model = model ?? new TatCardModel
-            {
-                Title = "New TAT",
-                Status = "In-Progress",
-                Tags = "",
-                Description = "",
-                ValuePerMinute = 1.0
-            };
-
-            await Shell.Current.Navigation.PushAsync(
-                new Points.Views.Details.TatDetailsPage(model, saved =>
-                {
-                    page.AddCard(saved);
-                },
-                deletd =>
-                {
-                    page.RemoveCard(deletd);
-                })
-            );
-        }
-
-        private async Task CreateScAsync(HomePageModel page, ScCardModel? model = null)
-        {
-            model = model ?? new ScCardModel
-            {
-                Title = "New SC",
-                Status = "In-Progress",
-                Tags = "",
-                Description = "",
-                ValuePerMinute = 1.0
-            };
-
-            await Shell.Current.Navigation.PushAsync(
-                new Points.Views.Details.ScDetailsPage(model, 
-                saved => 
-                { 
-                    page.AddCard(saved); 
-                },
-                deletd =>
-                {
-                    page.RemoveCard(deletd);
-                })
-            );
-        }
-
-        private async Task CreateMissionAsync(HomePageModel page, MissionCardModel? model = null)
-        {
-            var now = DateTime.Now;
-
-            model = model ?? new MissionCardModel
-            {
-                Title = "New Mission",
-                Status = "In-Progress",                 // non-editable in form
-                Tags = "",
-                SubType = MissionSubType.Stable,
-                Value = 0,
-                CreatedDate = now,                      // auto-set to now
-                AvailableFromDate = now,                // default now
-                DueDate = now.AddDays(1),               // default now + 1 day
-                Description = ""
-            };
-
-            await Shell.Current.Navigation.PushAsync(
-                new Points.Views.Details.MissionDetailsPage(
-                    model,
-                    saved =>
-                    {
-                        page.AddCard(saved);
-                        // optionally SortMissionCards(); (you already call it after)
-                    },
-                    onDelete: m => DeleteMission(m),
-                    onFail: m => FailMission(m)
-                )
-            );
-
-            SortMissionCards();
-        }
-
-        private async Task CreateBudgetAsync(HomePageModel page, BudgetCardModel? model = null)
-        {
-            model = model ?? new BudgetCardModel
-            {
-                Title = "New Budget",
-                Status = "In-Progress",
-                Tags = "",
-                Currency = "Kcal",
-                ExchangeRate = 0.01,
-                StartDate = DateTime.Now,
-                InitialBalance = 0
-            };
-
-            await Shell.Current.Navigation.PushAsync(
-                new Points.Views.Details.BudgetDetailsPage(model, 
-                saved =>
-                {
-                    page.AllCards.Add(saved);
-                },
-                deleted =>
-                {
-                    page.AllCards.Remove(deleted);
-                })
-            );
-        }
-
         private void ApplyPositiveFilter()
         {
             var page = CurrentPage;
             if (page.Name != "Main Quest") return;
 
-            // Toggle behavior: pressing + again turns filter off
             _mainQuestFilterMode =
                 _mainQuestFilterMode == MainQuestFilterMode.PositiveOnly
                     ? MainQuestFilterMode.None
@@ -526,7 +623,6 @@ namespace Points.ViewModels
             var page = CurrentPage;
             if (page.Name != "Main Quest") return;
 
-            // Toggle behavior: pressing - again turns filter off
             _mainQuestFilterMode =
                 _mainQuestFilterMode == MainQuestFilterMode.NegativeOnly
                     ? MainQuestFilterMode.None
@@ -559,7 +655,6 @@ namespace Points.ViewModels
             if (page.Name != "Main Quest" && page.Name != "Mission") return;
 
             page.ResetVisible();
-
             SortMissionCards();
         }
 
@@ -578,17 +673,15 @@ namespace Points.ViewModels
                 "Cancel",
                 null,
                 GetTags().ToArray()
-                );
+            );
 
-            if(!string.IsNullOrEmpty(choice))
+            if (!string.IsNullOrEmpty(choice))
             {
                 foreach (var page in Pages)
                 {
                     page.FilterCardsByTag(choice);
                 }
             }
-
-            return;
         }
 
         private List<string> GetTags()
@@ -599,9 +692,14 @@ namespace Points.ViewModels
             {
                 foreach (var card in page.AllCards)
                 {
-                    var cardTags = card.Tags.Replace('#', ' ').Replace(',', ' ').Split(' ').Select(x => x.Trim());
+                    var cardTags = card.Tags.Replace('#', ' ').Replace(',', ' ')
+                        .Split(' ')
+                        .Select(x => x.Trim());
+
                     foreach (var cardTag in cardTags)
                     {
+                        if (string.IsNullOrWhiteSpace(cardTag)) continue;
+
                         if (!result.Contains(cardTag))
                         {
                             result.Add(cardTag);
@@ -643,25 +741,23 @@ namespace Points.ViewModels
 
             ScrollToCardRequested?.Invoke((ICardModel)_activeCard);
         }
+
         private void SortMissionCards()
         {
             var missionPage = Pages.FirstOrDefault(p => p.Name == "Mission");
             if (missionPage == null) return;
 
-            var missionCards = missionPage.AllCards.OfType<Points.Models.MissionCardModel>().ToList();
+            var missionCards = missionPage.AllCards.OfType<MissionCardModel>().ToList();
             if (missionCards.Count == 0) return;
 
             // Completed at top, ordered by CompletedDate (most recent first)
             // Others by AvailableFromDate (oldest -> newest)
             var sorted = missionCards
                 .OrderByDescending(m => m.IsComplete) // true first
-                .ThenBy(m => m.IsComplete ? m.CompletedDate : DateTime.MinValue) // completed most-recent first
-                .ThenBy(m => m.IsComplete ? DateTime.MaxValue : m.AvailableFromDate) // incomplete by AvailableFromDate asc
+                .ThenBy(m => m.IsComplete ? m.CompletedDate : DateTime.MinValue)
+                .ThenBy(m => m.IsComplete ? DateTime.MaxValue : m.AvailableFromDate)
                 .ToList();
 
-            // Rebuild the observable collection in-place
-            // (only for mission cards; preserves other card types if you ever mix them in)
-            // If Mission page is mission-only, this is enough:
             missionPage.AllCards.Clear();
             foreach (var m in sorted)
                 missionPage.AllCards.Add(m);
@@ -679,35 +775,34 @@ namespace Points.ViewModels
             await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.AchievementsPage());
         }
 
-        private async Task OnMissionCancelAsync(MissionCardModel model)
-        {
-            if (model == null)
-                return;
+        //private async Task OnMissionCancelAsync(MissionCardModel model)
+        //{
+        //    if (model == null)
+        //        return;
 
-            var choice = await Shell.Current.DisplayActionSheet(
-                model.Title,
-                "Cancel",
-                null,
-                "Delete",
-                "Failed"
-            );
+        //    var choice = await Shell.Current.DisplayActionSheet(
+        //        model.Title,
+        //        "Cancel",
+        //        null,
+        //        "Delete",
+        //        "Failed"
+        //    );
 
-            if (choice == "Delete")
-            {
-                DeleteMission(model);
-            }
-            else if (choice == "Failed")
-            {
-                FailMission(model);
-            }
-        }
+        //    if (choice == "Delete")
+        //    {
+        //        DeleteMission(model);
+        //    }
+        //    else if (choice == "Failed")
+        //    {
+        //        FailMission(model);
+        //    }
+        //}
 
         public void FailMission(MissionCardModel model)
         {
             model.Fail(DateTime.Now);
-            SortMissionCards(); // optional but recommended
+            SortMissionCards();
         }
-
 
         public void DeleteMission(MissionCardModel model)
         {
@@ -719,8 +814,8 @@ namespace Points.ViewModels
             missionPage.VisibleCards.Remove(model);
 
             SortMissionCards();
+            OnPropertyChanged(nameof(HasNegativeAvailableMission));
         }
-
 
         #endregion
 
@@ -729,7 +824,7 @@ namespace Points.ViewModels
             Now = DateTime.Now;
 
             foreach (var page in Pages)
-               foreach (var card in page.AllCards.OfType<Points.Models.MissionCardModel>())
+                foreach (var card in page.AllCards.OfType<MissionCardModel>())
                     card.NotifyTimeChanged();
 
             SortMissionCards();
@@ -738,17 +833,15 @@ namespace Points.ViewModels
             foreach (var page in Pages)
                 foreach (var card in page.AllCards)
                     total += card.GetValue(RangeStart, RangeEnd);
-                             
+
             TopRightValue = total;
 
             OnPropertyChanged(nameof(RangeEnd));
         }
 
-        private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-
-
+        private void OnPropertyChanged([CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
-
 
     public class HomePageModel
     {
@@ -793,7 +886,10 @@ namespace Points.ViewModels
 
         public void SortCardsByLastActive()
         {
-            var sorted = VisibleCards.OrderByDescending(x => ((IActiveCardModel)x).GetLastActiveTime()).ToArray();
+            var sorted = VisibleCards
+                .OrderByDescending(x => ((IActiveCardModel)x).GetLastActiveTime())
+                .ToArray();
+
             VisibleCards.Clear();
             foreach (var item in sorted)
             {
@@ -803,7 +899,10 @@ namespace Points.ViewModels
 
         public void FilterCardsByTag(string choice)
         {
-            var filtered = VisibleCards.Where(x => x.Tags.ToLower().Contains(choice.ToLower())).ToArray();
+            var filtered = VisibleCards
+                .Where(x => x.Tags.ToLower().Contains(choice.ToLower()))
+                .ToArray();
+
             VisibleCards.Clear();
             foreach (var item in filtered)
             {
@@ -813,7 +912,12 @@ namespace Points.ViewModels
 
         public void FilterCardsBySearchTerm(string choice)
         {
-            var filtered = VisibleCards.Where(x => x.Tags.ToLower().Contains(choice.ToLower()) || x.Title.ToLower().Contains(choice.ToLower())).ToArray();
+            var filtered = VisibleCards
+                .Where(x =>
+                    x.Tags.ToLower().Contains(choice.ToLower()) ||
+                    x.Title.ToLower().Contains(choice.ToLower()))
+                .ToArray();
+
             VisibleCards.Clear();
             foreach (var item in filtered)
             {
@@ -828,6 +932,5 @@ namespace Points.ViewModels
         }
 
         #endregion
-
     }
 }

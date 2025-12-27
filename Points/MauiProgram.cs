@@ -1,5 +1,7 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
+using Points.Interfaces;
+using Points.Views;
 
 namespace Points
 {
@@ -21,7 +23,23 @@ namespace Points
     		builder.Logging.AddDebug();
 #endif
 
+#if ANDROID
+            builder.Services.AddSingleton<IAudioFeedback, AndroidAudioFeedback>();
+#else
+            builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
+#endif
+
+            builder.Services.AddTransient<HomePage>();      // <-- add this
+            builder.Services.AddSingleton<AppShell>();      // <-- add this
+
             return builder.Build();
         }
+    }
+
+    public sealed class NoopAudioFeedback : IAudioFeedback
+    {
+        public void Tick() { }
+        public void Thock() { }
+        public void Clack() { }
     }
 }

@@ -1,6 +1,7 @@
 using Points.Global;
 using Points.Helpers;
 using Points.Models;
+using Points.ViewModels;
 using Points.Views.Details;
 
 namespace Points.Views.Cards;
@@ -14,17 +15,28 @@ public partial class TatCardView : ContentView
 
     private async void OnCardTapped(object sender, TappedEventArgs e)
     {
-        if (BindingContext is TatCardModel model)
+        if (BindingContext is not TatCardModel model)
+            return;
+
+        Action<TatCardModel> onSaved = _ => { };
+        Action<TatCardModel> onDelete = _ => { };
+
+        var page = this.FindParentOfType<ContentPage>();
+        if (page?.BindingContext is HomeViewModel vm)
         {
-            // pull the current window from HomeViewModel via the parent page BindingContext
-            if (this.FindParentOfType<ContentPage>()?.BindingContext is Points.ViewModels.HomeViewModel vm)
+            onSaved = _ =>
             {
-                await Shell.Current.Navigation.PushAsync(new TatDetailsPage(model));
-            }
-            else
+                // no-op for existing; optionally refresh totals/sorting if needed
+            };
+
+            onDelete = m =>
             {
-                await Shell.Current.Navigation.PushAsync(new TatDetailsPage(model));
-            }
+                var owner = vm.Pages.FirstOrDefault(p => p.AllCards.Contains(m));
+                owner?.RemoveCard(m);
+            };
         }
+
+        await Shell.Current.Navigation.PushAsync(new TatDetailsPage(model, onSaved, onDelete));
     }
+
 }

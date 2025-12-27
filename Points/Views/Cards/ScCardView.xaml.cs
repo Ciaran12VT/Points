@@ -14,13 +14,31 @@ public partial class ScCardView : ContentView
 
     private async void OnCardTapped(object sender, TappedEventArgs e)
     {
-        if (BindingContext is ScCardModel model)
+        if (BindingContext is not ScCardModel model)
+            return;
+
+        Action<ScCardModel> onSaved = _ => { };
+        Action<ScCardModel> onDelete = _ => { };
+
+        var page = this.FindParentOfType<ContentPage>();
+        if (page?.BindingContext is HomeViewModel vm)
         {
-            var page = this.FindParentOfType<ContentPage>();
-            if (page?.BindingContext is HomeViewModel vm)
-                await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model));
-            else
-                await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model));
+            // Existing card: editing should NOT add again, so onSaved can be no-op.
+            // If you need to refresh totals/sorting, you can do it here (or just rely on Tick()).
+            onSaved = _ =>
+            {
+                // e.g. vm.Tick(); or vm.SortCardsByLastActive(); etc. (only if you want)
+            };
+
+            onDelete = m =>
+            {
+                // Remove from whichever page actually contains it
+                var owner = vm.Pages.FirstOrDefault(p => p.AllCards.Contains(m));
+                owner?.RemoveCard(m);
+            };
         }
+
+        await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model, onSaved, onDelete));
     }
+
 }

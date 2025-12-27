@@ -1,4 +1,5 @@
 using Points.Helpers;
+using Points.Interfaces;
 using Points.Models;
 using Points.ViewModels;
 
@@ -9,9 +10,12 @@ public partial class HomePage : ContentPage
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
 
-    public HomePage()
+    readonly IAudioFeedback _audio;
+
+    public HomePage(IAudioFeedback audio)
 	{
 		InitializeComponent();
+        _audio = audio;
         if (BindingContext is HomeViewModel vm)
         {
             vm.ScrollToCardRequested = ScrollToCard;
@@ -40,6 +44,28 @@ public partial class HomePage : ContentPage
         }
 
         collectionView.ScrollTo(card, position: ScrollToPosition.Center, animate: true);
+    }
+
+    int _lastPos = -1;
+
+    void Carousel_PositionChanged(object? sender, PositionChangedEventArgs e)
+    {
+        if (e.CurrentPosition != _lastPos)
+        {
+            _lastPos = e.CurrentPosition;
+            _audio.Thock();
+            HapticFeedback.Perform(HapticFeedbackType.Click);
+        }
+    }
+
+    int _lastCenterIndex = -1;
+    void Cards_Scrolled(object? sender, ItemsViewScrolledEventArgs e)
+    {
+        if (e.CenterItemIndex != _lastCenterIndex && e.CenterItemIndex >= 0)
+        {
+            _lastCenterIndex = e.CenterItemIndex;
+            _audio.Tick();
+        }
     }
 
     private async void OnTextSearchClicked(object sender, EventArgs e)

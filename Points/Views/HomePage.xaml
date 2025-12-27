@@ -99,7 +99,8 @@
         <CarouselView Grid.Row="1"
                       ItemsSource="{Binding Pages}"
                       Position="{Binding Position, Mode=TwoWay}"
-                      IsSwipeEnabled="True">
+                      IsSwipeEnabled="True"
+                      PositionChanged="Carousel_PositionChanged">
 
             <CarouselView.ItemTemplate>
                 <DataTemplate>
@@ -111,12 +112,12 @@
                            Margin="0,0,0,8" />
 
                          <!--Cards list-->
-                        <CollectionView Grid.Row="1" ItemsSource="{Binding VisibleCards}" ItemTemplate="{StaticResource CardTemplateSelector}">
-                            <!--<CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <cards:TatCardView />
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>-->
+                        <CollectionView 
+                            Grid.Row="1" 
+                            ItemsSource="{Binding VisibleCards}" 
+                            ItemTemplate="{StaticResource CardTemplateSelector}"
+                            Scrolled="Cards_Scrolled">
+
                         </CollectionView>
                     </Grid>
                 </DataTemplate>
