@@ -37,7 +37,7 @@ public partial class ScCardView : ContentView
             //    owner?.RemoveCard(m);
             //};
 
-            await vm.OpenExistingCardAsync((ICardModel)BindingContext);
+            await vm.OpenExistingCardAsync((IActiveCardModel)BindingContext);
         }
 
         //await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model, onSaved, onDelete));

@@ -6,10 +6,6 @@ public partial class DurationPickerPage : ContentPage
 {
     private readonly TaskCompletionSource<TimeSpan?> _tcs = new();
 
-    //private Entry HoursEntry;
-    //private Entry MinutesEntry;
-    //private Entry SecondsEntry;
-
     public DurationPickerPage(TimeSpan? initial = null)
 	{
 		InitializeComponent();

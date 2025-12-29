@@ -98,7 +98,7 @@
         </Grid>
 
         <!-- Carousel -->
-        <CarouselView Grid.Row="1"
+        <CarouselView Grid.Row="1" x:Name="MainCarousel"
                       ItemsSource="{Binding Pages}"
                       Position="{Binding Position, Mode=TwoWay}"
                       IsSwipeEnabled="True"
@@ -115,6 +115,7 @@
 
                          <!--Cards list-->
                         <CollectionView 
+                            x:Name="CardsList"
                             Grid.Row="1" 
                             ItemsSource="{Binding VisibleCards}" 
                             ItemTemplate="{StaticResource CardTemplateSelector}"

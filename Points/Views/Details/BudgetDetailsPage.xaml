@@ -17,11 +17,11 @@
 
                     <Button Grid.Column="1"
                             Text="×"
-                            BackgroundColor="Red"
+                            BackgroundColor="DarkRed"
                             TextColor="White"
-                            WidthRequest="28"
-                            HeightRequest="28"
-                            CornerRadius="14"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
                             FontAttributes="Bold"
                             Padding="0"
                             HorizontalOptions="End"
@@ -77,6 +77,8 @@
                                     <!-- Remove -->
                                     <Button Grid.Row="0" Grid.Column="1"
                                             Text="✕"
+                                            TextColor="White"
+                                            BackgroundColor="DarkRed"
                                             WidthRequest="40"
                                             HeightRequest="40"
                                             CornerRadius="8"
@@ -98,6 +100,8 @@
 
                 <Button Text="Add Top-Up"
                         Command="{Binding AddTopUpCommand}"
+                        TextColor="White"
+                        BackgroundColor="Green"
                         Margin="0,8,0,0"/>
 
                 <!-- Start Date/Time -->
@@ -123,6 +127,10 @@
 
         <Button Grid.Row="1"
                 Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
                 Command="{Binding SaveCommand}"
                 HeightRequest="48"/>
     </Grid>

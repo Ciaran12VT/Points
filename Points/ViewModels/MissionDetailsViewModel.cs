@@ -1,4 +1,5 @@
-﻿using Points.Models;
+﻿using Points.Global;
+using Points.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -23,7 +24,7 @@ namespace Points.ViewModels
 
         public bool IsReadOnly => _model.IsComplete;     // complete => read-only
         public bool CanEdit => !_model.IsComplete;       // convenience
-
+        public string ActiveTimeText => _model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString(@"hh\:mm\:ss");
 
         public MissionDetailsViewModel(MissionCardModel model, Action<MissionCardModel> onSaved, Action<MissionCardModel> onDelete, Action<MissionCardModel> onFail, List<string> availableTagsList)
         {
@@ -38,6 +39,9 @@ namespace Points.ViewModels
 
             // Read-only
             CreatedDateText = _model.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+            EstimatedTimeText = _model.EstCompletionTimeText;
+            EstimatedTimeTs = _model.EstCompletionTime.HasValue ? _model.EstCompletionTime.Value : TimeSpan.Zero;
 
             // Editable copies
             Title = _model.Title;
@@ -71,6 +75,11 @@ namespace Points.ViewModels
         private string _valueText = "0";
         public string ValueText { get => _valueText; set => SetProperty(ref _valueText, value); }
 
+        private string _estimatedTimeText = "00:00:00";
+        public string EstimatedTimeText { get => _estimatedTimeText; set => SetProperty(ref _estimatedTimeText, value); }
+
+        private TimeSpan _estimatedTimeTs = TimeSpan.Zero;
+        public TimeSpan EstimatedTimeTs { get => _estimatedTimeTs; set => SetProperty(ref _estimatedTimeTs, value); }
 
         public ObservableCollection<MissionSubType> SubTypeOptions { get; }
 
@@ -137,6 +146,8 @@ namespace Points.ViewModels
             _model.SubType = SelectedSubType;
             _model.AvailableFromDate = available;
             _model.DueDate = due;
+
+            _model.EstCompletionTime = EstimatedTimeTs;
 
             if (!double.TryParse(ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
             {

@@ -35,7 +35,7 @@ public partial class TatCardView : ContentView
             //    owner?.RemoveCard(m);
             //};
 
-            await vm.OpenExistingCardAsync((ICardModel)BindingContext);
+            await vm.OpenExistingCardAsync((IActiveCardModel)BindingContext);
         }
 
         //await Shell.Current.Navigation.PushAsync(new TatDetailsPage(model, onSaved, onDelete));

@@ -22,26 +22,50 @@ public partial class HomePage : ContentPage
         }
     }
 
-    private void ScrollToCard(ICardModel card)
+    private TaskCompletionSource<int>? _posTcs;
+
+    private async void ScrollToCard(IActiveCardModel card)
     {
-        // Find the CollectionView in the currently visible page
-        var collectionView = this
-            .FindDescendants<CollectionView>()
-            .FirstOrDefault();
+        if (BindingContext is not HomeViewModel vm) return;
 
-        if (collectionView == null)
-            return;
+        // This should set vm.Position to the correct page index (via your VM logic)
+        vm.ScrollCardPageIntoView(card);
 
-        if (BindingContext is HomeViewModel vm)
+        // Wait until the Carousel has actually switched to that position
+        var targetPos = vm.Position;
+
+        if (MainCarousel.Position != targetPos)
         {
-            vm.ScrollMainQuestIntoView();
+            _posTcs = new TaskCompletionSource<int>();
 
-            // If filtered out, clear filters first
-            if (!collectionView.ItemsSource.Cast<object>().Contains(card))
+            // If Position is bound TwoWay, setting it here is fine too (optional safety):
+            MainCarousel.Position = targetPos;
+
+            while (true)
             {
-                vm.ClearFiltersCommand.Execute(null);
+                var pos = await _posTcs.Task;       // completed by Carousel_PositionChanged
+                if (pos == targetPos) break;
+                _posTcs = new TaskCompletionSource<int>();
             }
         }
+        else
+        {
+            // Even when already at the right position, yield a frame so the template is ready.
+            await Task.Yield();
+        }
+
+        // Now get the CollectionView for the CURRENT visible carousel page (not the first one in the tree)
+        var currentPageVm = vm.Pages[targetPos];
+
+        var currentPageView =
+            MainCarousel.FindDescendants<VisualElement>()
+                        .FirstOrDefault(v => v.BindingContext == currentPageVm);
+
+        var collectionView = currentPageView?.FindByName<CollectionView>("CardsList");
+        if (collectionView == null) return;
+
+        if (!collectionView.ItemsSource.Cast<object>().Contains(card))
+            vm.ClearFiltersCommand.Execute(null);
 
         collectionView.ScrollTo(card, position: ScrollToPosition.Center, animate: true);
     }
@@ -56,6 +80,8 @@ public partial class HomePage : ContentPage
             _audio.Thock();
             HapticFeedback.Perform(HapticFeedbackType.Click);
         }
+
+        _posTcs?.TrySetResult(e.CurrentPosition);
     }
 
     int _lastCenterIndex = -1;

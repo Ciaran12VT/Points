@@ -20,7 +20,7 @@ namespace Points.ViewModels
         public Command AddCardCommand { get; }
         public Command ScrollToActiveCardCommand { get; }
         public Command FilterByTagCommand { get; }
-        public Action<ICardModel>? ScrollToCardRequested;
+        public Action<IActiveCardModel>? ScrollToCardRequested;
         public Command FilterPositiveCommand { get; }
         public Command FilterNegativeCommand { get; }
         public Command ClearFiltersCommand { get; }
@@ -426,9 +426,9 @@ namespace Points.ViewModels
         {
             Pages.Clear();
 
-            Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<ICardModel>()));
-            Pages.Add(new HomePageModel("Mission", Enumerable.Empty<ICardModel>()));
-            Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<ICardModel>()));
+            Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<IActiveCardModel>()));
+            Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>()));
+            Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>()));
         }
 
         private void SeedMockCards()
@@ -438,7 +438,7 @@ namespace Points.ViewModels
             var budgets = Pages.First(p => p.Name == "Budgets");
 
             // Main Quest mocks (commit through single route)
-            var mainQuestMocks = new ICardModel[]
+            var mainQuestMocks = new IActiveCardModel[]
             {
                 new TatCardModel { Title = "TAT 1", ValuePerMinute = 1.25 },
                 new ScCardModel  { Title = "SC 1",  ValuePerMinute = 1.00 },
@@ -454,7 +454,7 @@ namespace Points.ViewModels
             var now = DateTime.Now;
             DateTime AtToday(int hour, int minute = 0) => today.AddHours(hour).AddMinutes(minute);
 
-            var missionCards = new ICardModel[]
+            var missionCards = new IActiveCardModel[]
             {
                 // ===== AVAILABLE + INCOMPLETE =====
                 new MissionCardModel
@@ -750,7 +750,7 @@ namespace Points.ViewModels
             if (_activeCard == null)
                 return;
 
-            ScrollToCardRequested?.Invoke((ICardModel)_activeCard);
+            ScrollToCardRequested?.Invoke((IActiveCardModel)_activeCard);
         }
 
         private void SortMissionCards()
@@ -779,6 +779,15 @@ namespace Points.ViewModels
         public void ScrollMainQuestIntoView()
         {
             Position = 0;
+        }
+
+        public void ScrollCardPageIntoView(ICardModel card)
+        {
+            var pg = Pages.FirstOrDefault(x => x.AllCards.Contains(card));
+            int pos = Pages.IndexOf(pg);
+            if (pos == -1) return;
+
+            Position = pos;
         }
 
         private async Task OpenAchievementsAsync()
@@ -815,7 +824,7 @@ namespace Points.ViewModels
             OnPropertyChanged(nameof(HasNegativeAvailableMission));
         }
 
-        public async Task OpenExistingCardAsync(ICardModel model)
+        public async Task OpenExistingCardAsync(IActiveCardModel model)
         {
             if (model == null) return;
 

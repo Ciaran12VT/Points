@@ -39,7 +39,7 @@ public partial class MissionCardView : ContentView
             //onDelete = vm.DeleteMission;
             //onFail = vm.FailMission;
 
-            await vm.OpenExistingCardAsync((ICardModel)BindingContext);
+            await vm.OpenExistingCardAsync((IActiveCardModel)BindingContext);
         }
 
         //await Shell.Current.Navigation.PushAsync(new MissionDetailsPage(model, onSaved, onDelete, onFail));

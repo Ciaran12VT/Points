@@ -23,13 +23,12 @@
                            VerticalOptions="Center"/>
 
                     <Button Grid.Column="2"
-                            Text="×"
-                            BackgroundColor="Red"
+                            Text="✕"
+                            BackgroundColor="DarkRed"
                             TextColor="White"
-                            WidthRequest="28"
-                            HeightRequest="28"
-                            CornerRadius="14"
-                            FontAttributes="Bold"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
                             Padding="0"
                             HorizontalOptions="End"
                             VerticalOptions="Center"
@@ -73,7 +72,7 @@
 
                     <!-- Clear -->
                     <Button Grid.Column="3"
-                        Text="✕"
+                        Text="⌫"
                         WidthRequest="36"
                         HeightRequest="36"
                         CornerRadius="18"
@@ -94,9 +93,20 @@
                            Text="{Binding CurrentAccruedValueText}"
                            TextColor="{Binding CurrentAccruedValueColor}"
                            VerticalOptions="Center"/>
+                    <Button Grid.Column="2"
+                            Text="{Binding SignToggleText}"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            TextColor="White"
+                            BackgroundColor="{Binding SignToggleColor}"
+                            Command="{Binding ToggleSignCommand}"
+                            VerticalOptions="Center"/>
                 </Grid>
 
-                <!-- Value Sign (already one row) -->
+                <!-- Value Sign (already one row) --><!--
                 <Grid ColumnDefinitions="Auto,*,Auto"
                       VerticalOptions="Center"
                       ColumnSpacing="12"
@@ -106,25 +116,24 @@
                            FontAttributes="Bold"
                            VerticalOptions="Center"/>
 
-                    <!-- spacer -->
+                    --><!-- spacer --><!--
                     <BoxView Grid.Column="1" Opacity="0" />
 
                     <Button Grid.Column="2"
                             Text="{Binding SignToggleText}"
-                            WidthRequest="28"
-                            HeightRequest="28"
-                            CornerRadius="14"
-                            FontAttributes="Bold"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
                             Padding="0"
                             HorizontalOptions="End"
                             TextColor="White"
                             BackgroundColor="{Binding SignToggleColor}"
                             Command="{Binding ToggleSignCommand}"
                             VerticalOptions="Center"/>
-                </Grid>
+                </Grid>-->
 
                 <!-- Active Time (label + buttons + value on same row) -->
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto"
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto"
                       ColumnSpacing="12"
                       VerticalOptions="Center">
                     <Label Grid.Column="0"
@@ -142,10 +151,9 @@
                             Text="⏱"
                             BackgroundColor="Black"
                             TextColor="White"
-                            WidthRequest="28"
-                            HeightRequest="28"
-                            CornerRadius="14"
-                            FontAttributes="Bold"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
                             Padding="0"
                             HorizontalOptions="End"
                             VerticalOptions="Center"
@@ -156,10 +164,9 @@
                             Text="✎"
                             BackgroundColor="Black"
                             TextColor="White"
-                            WidthRequest="28"
-                            HeightRequest="28"
-                            CornerRadius="14"
-                            FontAttributes="Bold"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
                             Padding="0"
                             HorizontalOptions="End"
                             VerticalOptions="Center"
@@ -252,6 +259,8 @@
                                     <Button Grid.Row="0" Grid.Column="4"
                                             Text="-"
                                             Command="{Binding DecrementCommand}"
+                                            BackgroundColor="DarkRed"
+                                            TextColor="White"
                                             WidthRequest="36"
                                             HeightRequest="36"
                                             CornerRadius="8"
@@ -261,6 +270,8 @@
                                     <Button Grid.Row="0" Grid.Column="5"
                                             Text="+"
                                             Command="{Binding IncrementCommand}"
+                                            BackgroundColor="Green"
+                                            TextColor="White"
                                             WidthRequest="36"
                                             HeightRequest="36"
                                             CornerRadius="8"
@@ -280,6 +291,10 @@
 
         <Button Grid.Row="1"
                 Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
                 Command="{Binding SaveCommand}"
                 HeightRequest="48"/>
     </Grid>

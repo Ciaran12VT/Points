@@ -12,13 +12,13 @@ namespace Points.Converters
     {
         public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
         {
-            if (values.Length < 3) return "Active Time: 00:00:00";
-            if (values[0] is not IActiveCardModel card) return "Active Time: --:--:--";
-            if (values[1] is not DateTime start) return "Active Time: --:--:--";
-            if (values[2] is not DateTime end) return "Active Time: --:--:--";
+            if (values.Length < 3) return "00:00:00";
+            if (values[0] is not IActiveCardModel card) return " --:--:--";
+            if (values[1] is not DateTime start) return "--:--:--";
+            if (values[2] is not DateTime end) return "--:--:--";
 
             var ts = card.GetActiveTime(start, end);
-            return $"Active Time: {ts:hh\\:mm\\:ss}";
+            return $"{ts:hh\\:mm\\:ss}";
         }
 
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
