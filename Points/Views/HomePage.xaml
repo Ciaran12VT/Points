@@ -71,6 +71,7 @@
 
                 <!-- Date Range -->
                 <Button Text="📅"
+                Command="{Binding OpenDateRangePickerViewCommand}"
                 WidthRequest="36"
                 HeightRequest="36"
                 CornerRadius="18"
@@ -84,6 +85,7 @@
 
             <!-- Right-hand Settings button -->
             <Button Grid.Column="1"
+            Command="{Binding OpenSettingsCommand}"
             Text="⚙️"
             WidthRequest="36"
             HeightRequest="36"

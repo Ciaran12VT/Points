@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="Points.Views.Details.TatDetailsPage"
              Title="TAT Details">
 
@@ -10,13 +11,19 @@
         <ScrollView Grid.Row="0">
             <VerticalStackLayout Spacing="14">
 
+                <!-- Title + Entry + Cancel (single row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Title"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
 
-                <!-- Title + Cancel -->
-                <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center">
+                    <Entry Grid.Column="1"
+                           Text="{Binding Title}"
+                           Placeholder="Enter title"
+                           VerticalOptions="Center"/>
 
-                    <Label Text="Title" FontAttributes="Bold" VerticalOptions="Center"/>
-
-                    <Button Grid.Column="1"
+                    <Button Grid.Column="2"
                             Text="×"
                             BackgroundColor="Red"
                             TextColor="White"
@@ -27,45 +34,143 @@
                             Padding="0"
                             HorizontalOptions="End"
                             VerticalOptions="Center"
-                            Command="{Binding CancelCommand}"
-/>
+                            Command="{Binding CancelCommand}"/>
                 </Grid>
-                <Entry Text="{Binding Title}" Placeholder="Enter title"/>
 
-                <!-- Status (read-only) -->
-                <Label Text="Status" FontAttributes="Bold"/>
-                <Label Text="{Binding Status}" TextColor="Gray"/>
+                <!-- Status (single row, read-only) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Status"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Label Grid.Column="1"
+                           Text="{Binding Status}"
+                           TextColor="Gray"
+                           VerticalOptions="Center"/>
+                </Grid>
 
-                <!-- Tags -->
-                <Label Text="Tags" FontAttributes="Bold"/>
-                <Entry Text="{Binding Tags}" Placeholder="e.g. PRO TAT Other"/>
+                <!-- Tags (single row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Tags"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1" x:Name="TagsEntry"
+                           Text="{Binding Tags}"
+                           IsReadOnly="True"
+                           Placeholder="e.g. PRO TAT Other"
+                           VerticalOptions="Center"/>
+                     <!--Edit--> 
+                    <Button Grid.Column="2"
+                        Text="✎"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Clicked="OnEditTagsClicked"
+                        VerticalOptions="Center"/>
 
-                <!-- Value per minute -->
-                <Label Text="Value Per Minute" FontAttributes="Bold"/>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <Entry Grid.Column="0"
+                    <!-- Clear -->
+                    <Button Grid.Column="3"
+                        Text="✕"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="DarkRed"
+                        Clicked="OnClearTagsClicked"
+                        VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Value per minute (single row, with inline button) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Value Per Minute"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
                            Keyboard="Numeric"
                            Text="{Binding ValuePerMinuteText}"
-                           Placeholder="e.g. 1.25"/>
-                    <Button Grid.Column="1"
+                           Placeholder="e.g. 1.25"
+                           VerticalOptions="Center"/>
+                    <Button Grid.Column="2"
                             Text="{Binding SignToggleText}"
-                            Command="{Binding ToggleSignCommand}"/>
+                            WidthRequest="28"
+                            HeightRequest="28"
+                            CornerRadius="14"
+                            FontAttributes="Bold"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            TextColor="White"
+                            BackgroundColor="{Binding SignToggleColor}"
+                            Command="{Binding ToggleSignCommand}"
+                            VerticalOptions="Center"/>
                 </Grid>
 
-                <!-- Current accrued value (read-only) -->
-                <Label Text="Current Accrued Value" FontAttributes="Bold"/>
-                <Label Text="{Binding CurrentAccruedValueText}" TextColor="Green"/>
+                <!-- Current accrued value (single row, read-only) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Current Accrued Value"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Label Grid.Column="1"
+                           Text="{Binding CurrentAccruedValueText}"
+                           TextColor="Green"
+                           VerticalOptions="Center"/>
+                </Grid>
 
-                <!-- Active time (read-only) -->
-                <Label Text="Active Time" FontAttributes="Bold"/>
-                <Label Text="{Binding ActiveTimeText}" TextColor="Orange"/>
+                <!-- Active Time (single row, with inline buttons) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Active Time"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
 
-                <!-- Description -->
+                    <Label Grid.Column="1"
+                           Text="{Binding ActiveTimeText}"
+                           TextColor="Orange"
+                           VerticalOptions="Center"/>
+
+                    <!-- Clock -->
+                    <Button Grid.Column="2"
+                            Text="⏱"
+                            BackgroundColor="Black"
+                            TextColor="White"
+                            WidthRequest="28"
+                            HeightRequest="28"
+                            CornerRadius="14"
+                            FontAttributes="Bold"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding SetActiveTimeTargetCommand}"/>
+
+                    <!-- Edit -->
+                    <Button Grid.Column="3"
+                            Text="✎"
+                            BackgroundColor="Black"
+                            TextColor="White"
+                            WidthRequest="28"
+                            HeightRequest="28"
+                            CornerRadius="14"
+                            FontAttributes="Bold"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Clicked="OnEditActiveTimeClicked"/>
+                </Grid>
+
+                <!-- Description (EXCEPTION: label + editor remain stacked) -->
                 <Label Text="Description" FontAttributes="Bold"/>
                 <Editor AutoSize="TextChanges"
                         Text="{Binding Description}"
                         Placeholder="Optional notes..."
-                        HeightRequest="120"/>
+                        HeightRequest="400"/>
 
             </VerticalStackLayout>
         </ScrollView>
@@ -75,5 +180,6 @@
                 Text="Save"
                 Command="{Binding SaveCommand}"
                 HeightRequest="48"/>
+
     </Grid>
 </ContentPage>

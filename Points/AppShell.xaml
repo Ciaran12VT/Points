@@ -7,9 +7,9 @@
     Shell.FlyoutBehavior="Disabled"
     Title="Points">
 
-    <ShellContent
+    <!--<ShellContent
         Title="Home"
         ContentTemplate="{DataTemplate views:HomePage}"
-        Route="HomePage" />
+        Route="HomePage" />-->
 
 </Shell>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Shared.DateRangePickerView">
+
+    <VerticalStackLayout Spacing="10">
+
+        <!-- Dropdown -->
+        <Picker x:Name="RangeModePicker"
+                Title="Range"
+                SelectedIndexChanged="OnRangeModeChanged">
+            <Picker.ItemsSource>
+                <x:Array Type="{x:Type x:String}">
+                    <x:String>Today</x:String>
+                    <x:String>Date</x:String>
+                    <x:String>This Week</x:String>
+                    <x:String>This Month</x:String>
+                    <x:String>This Year</x:String>
+                    <x:String>Custom</x:String>
+                </x:Array>
+            </Picker.ItemsSource>
+        </Picker>
+
+        <!-- Hidden Date selection (only for 'Date') -->
+        <VerticalStackLayout x:Name="SingleDateContainer"
+                             IsVisible="False"
+                             Spacing="6">
+            <Label Text="Select date" IsVisible="False" x:Name="SingleDateLabel"/>
+            <DatePicker x:Name="SingleDatePicker"
+                        DateSelected="OnSingleDateSelected"/>
+        </VerticalStackLayout>
+
+        <!-- Start -->
+        <Label Text="Start" FontAttributes="Bold"/>
+        <Grid ColumnDefinitions="*,*"
+              ColumnSpacing="10">
+            <DatePicker x:Name="StartDatePicker"
+                        Grid.Column="0"
+                        DateSelected="OnStartChanged"/>
+            <TimePicker x:Name="StartTimePicker"
+                        Grid.Column="1"
+                        PropertyChanged="OnStartTimeChanged"/>
+        </Grid>
+
+        <!-- End -->
+        <Label Text="End" FontAttributes="Bold"/>
+        <Grid ColumnDefinitions="*,*"
+              ColumnSpacing="10">
+            <DatePicker x:Name="EndDatePicker"
+                        Grid.Column="0"
+                        DateSelected="OnEndChanged"/>
+            <TimePicker x:Name="EndTimePicker"
+                        Grid.Column="1"
+                        PropertyChanged="OnEndTimeChanged"/>
+        </Grid>
+
+    </VerticalStackLayout>
+</ContentView>

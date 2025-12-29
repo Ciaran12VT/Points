@@ -28,6 +28,8 @@ namespace Points.ViewModels
             }
         }
 
+        public List<string> AvailableTagsList;
+
         public Command AddAchievementCommand { get; }
         public Command OpenTrophyRoomCommand { get; }
 
@@ -74,15 +76,9 @@ namespace Points.ViewModels
             );
         }
 
-        private IEnumerable<string> GetAllTags()
+        public IEnumerable<string> GetAllTags()
         {
-            // Very simple parsing: split by comma from all cards’ Tags fields
-            return Pages
-                .SelectMany(p => p.Cards)
-                .SelectMany(c => (c.Tags ?? "")
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                .Distinct()
-                .OrderBy(x => x);
+            return AvailableTagsList;
         }
 
         private IEnumerable<string> GetAllAchievementTitles()
@@ -96,10 +92,12 @@ namespace Points.ViewModels
         }
 
 
-        public AchievementsViewModel()
+        public AchievementsViewModel(List<string> availableTagsList)
         {
             Pages.Add(CreateAchievementsPage());
             Pages.Add(CreateMetaAchievementsPage());
+
+            AvailableTagsList = availableTagsList;
 
             AddAchievementCommand = new Command(async () => await AddAchievementAsync());
             OpenTrophyRoomCommand = new Command(async () => await OpenTrophyRoomAsync());

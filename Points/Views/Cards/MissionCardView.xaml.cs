@@ -30,16 +30,18 @@ public partial class MissionCardView : ContentView
         var page = this.FindParentOfType<ContentPage>();
         if (page?.BindingContext is HomeViewModel vm)
         {
-            onSaved = _ =>
-            {
-                // If you already have a method that sorts mission cards, call it here.
-                // vm.SortMissionCards();
-                // Otherwise, no-op is fine.
-            };
-            onDelete = vm.DeleteMission;
-            onFail = vm.FailMission;
+            //onSaved = _ =>
+            //{
+            //    // If you already have a method that sorts mission cards, call it here.
+            //    // vm.SortMissionCards();
+            //    // Otherwise, no-op is fine.
+            //};
+            //onDelete = vm.DeleteMission;
+            //onFail = vm.FailMission;
+
+            await vm.OpenExistingCardAsync((ICardModel)BindingContext);
         }
 
-        await Shell.Current.Navigation.PushAsync(new MissionDetailsPage(model, onSaved, onDelete, onFail));
+        //await Shell.Current.Navigation.PushAsync(new MissionDetailsPage(model, onSaved, onDelete, onFail));
     }
 }

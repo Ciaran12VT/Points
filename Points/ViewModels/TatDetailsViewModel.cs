@@ -2,10 +2,12 @@
 using Points.Models;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace Points.ViewModels
 {
@@ -17,13 +19,14 @@ namespace Points.ViewModels
 
         public Command CancelCommand { get; }
 
-        public TatDetailsViewModel(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete)
+        public TatDetailsViewModel(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList)
         {
             _onSaved = onSaved;
             _onDelete = onDelete;
             ToggleSignCommand = new Command(ToggleSign);
             SaveCommand = new Command(async () => await SaveAsync());
             CancelCommand = new Command(async () => await OnCancelAsync());
+            AvailableTagList = availableTagsList;
             BuildModel(model);
         }
 
@@ -71,7 +74,13 @@ namespace Points.ViewModels
         public string Title { get => _title; set => SetProperty(ref _title, value); }
 
         private string _tags = "";
-        public string Tags { get => _tags; set => SetProperty(ref _tags, value); }
+        public string Tags { get => _tags; set
+            {
+                SetProperty(ref _tags, value);
+            }
+        }
+
+        public List<string> AvailableTagList = new List<string>();
 
         private string _description = "";
         public string Description { get => _description; set => SetProperty(ref _description, value); }
@@ -98,13 +107,15 @@ namespace Points.ViewModels
 
         // Sign toggle
         private bool _isNegative;
-        public string SignToggleText => _isNegative ? "Negative" : "Positive";
+        public string SignToggleText => _isNegative ? "-" : "+";
+        public string SignToggleColor => _isNegative ? "Red" : "Green";
 
         public Command ToggleSignCommand { get; }
         private void ToggleSign()
         {
             _isNegative = !_isNegative;
             RaisePropertyChanged(nameof(SignToggleText));
+            RaisePropertyChanged(nameof(SignToggleColor));
             RaiseComputed();
         }
 

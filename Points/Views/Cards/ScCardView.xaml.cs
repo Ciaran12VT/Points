@@ -25,20 +25,22 @@ public partial class ScCardView : ContentView
         {
             // Existing card: editing should NOT add again, so onSaved can be no-op.
             // If you need to refresh totals/sorting, you can do it here (or just rely on Tick()).
-            onSaved = _ =>
-            {
-                // e.g. vm.Tick(); or vm.SortCardsByLastActive(); etc. (only if you want)
-            };
+            //onSaved = _ =>
+            //{
+            //    // e.g. vm.Tick(); or vm.SortCardsByLastActive(); etc. (only if you want)
+            //};
 
-            onDelete = m =>
-            {
-                // Remove from whichever page actually contains it
-                var owner = vm.Pages.FirstOrDefault(p => p.AllCards.Contains(m));
-                owner?.RemoveCard(m);
-            };
+            //onDelete = m =>
+            //{
+            //    // Remove from whichever page actually contains it
+            //    var owner = vm.Pages.FirstOrDefault(p => p.AllCards.Contains(m));
+            //    owner?.RemoveCard(m);
+            //};
+
+            await vm.OpenExistingCardAsync((ICardModel)BindingContext);
         }
 
-        await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model, onSaved, onDelete));
+        //await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model, onSaved, onDelete));
     }
 
 }

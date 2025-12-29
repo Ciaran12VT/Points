@@ -87,7 +87,8 @@ public partial class AchievementDetailsPage : ContentPage
         var page = new MultiSelectPickerPage(
             "Select Achievements",
             _achievementTitles,
-            initial
+            initial,
+            true
         );
 
         await Shell.Current.Navigation.PushAsync(page);
@@ -117,7 +118,8 @@ public partial class AchievementDetailsPage : ContentPage
         var page = new MultiSelectPickerPage(
             "Select Tags",
             _allTags,
-            initial
+            initial,
+            true
         );
 
         await Shell.Current.Navigation.PushAsync(page);

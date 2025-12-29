@@ -20,14 +20,14 @@ public partial class AchievementCardView : ContentView
         if (this.FindParentOfType<ContentPage>()?.BindingContext is not AchievementsViewModel vm) return;
 
         // Collect required data
-        var allTags =
-            vm.Pages
-              .SelectMany(p => p.Cards)
-              .SelectMany(c => (c.Tags ?? "")
-                  .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-              .Distinct()
-              .OrderBy(t => t)
-              .ToList();
+        var allTags = vm.GetAllTags();
+            //vm.Pages
+            //  .SelectMany(p => p.Cards)
+            //  .SelectMany(c => (c.Tags ?? "")
+            //      .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            //  .Distinct()
+            //  .OrderBy(t => t)
+            //  .ToList();
 
         var stepNames = vm.GetAllStepNames();
 

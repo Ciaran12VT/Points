@@ -17,6 +17,7 @@ namespace Points.ViewModels
         private readonly Action<MissionCardModel> _onDelete;
         private readonly Action<MissionCardModel> _onFail;
 
+        public List<string> AvailableTagList { get; }
         public Command SaveCommand { get; }
         public Command CancelCommand { get; }
 
@@ -24,12 +25,13 @@ namespace Points.ViewModels
         public bool CanEdit => !_model.IsComplete;       // convenience
 
 
-        public MissionDetailsViewModel(MissionCardModel model, Action<MissionCardModel> onSaved, Action<MissionCardModel> onDelete, Action<MissionCardModel> onFail)
+        public MissionDetailsViewModel(MissionCardModel model, Action<MissionCardModel> onSaved, Action<MissionCardModel> onDelete, Action<MissionCardModel> onFail, List<string> availableTagsList)
         {
             _model = model;
             _onSaved = onSaved;
             _onDelete = onDelete;
             _onFail = onFail;
+            AvailableTagList = availableTagsList;
 
             SaveCommand = new Command(async () => await SaveAsync());
             CancelCommand = new Command(async () => await OnCancelAsync());

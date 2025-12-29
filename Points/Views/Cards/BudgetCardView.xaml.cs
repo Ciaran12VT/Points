@@ -1,3 +1,8 @@
+using Points.Helpers;
+using Points.Models;
+using Points.ViewModels;
+using Points.Views.Details;
+
 namespace Points.Views.Cards;
 
 public partial class BudgetCardView : ContentView
@@ -70,9 +75,30 @@ public partial class BudgetCardView : ContentView
         if (BindingContext is not Points.Models.BudgetCardModel model)
             return;
 
-        await Shell.Current.Navigation.PushAsync(
-            new Points.Views.Details.BudgetDetailsPage(model, _ => { }, _ => { })
-        );
+        Action<BudgetCardModel> onSaved = _ => { };
+        Action<BudgetCardModel> onDelete = _ => { };
+
+        var page = this.FindParentOfType<ContentPage>();
+        if (page?.BindingContext is HomeViewModel vm)
+        {
+            //// Existing card: editing should NOT add again, so onSaved can be no-op.
+            //// If you need to refresh totals/sorting, you can do it here (or just rely on Tick()).
+            //onSaved = _ =>
+            //{
+            //    // e.g. vm.Tick(); or vm.SortCardsByLastActive(); etc. (only if you want)
+            //};
+
+            //onDelete = m =>
+            //{
+            //    // Remove from whichever page actually contains it
+            //    var owner = vm.Pages.FirstOrDefault(p => p.AllCards.Contains(m));
+            //    owner?.RemoveCard(m);
+            //};
+
+            await vm.OpenExistingCardAsync((ICardModel)BindingContext);
+        }
+
+        //await Shell.Current.Navigation.PushAsync(new BudgetDetailsPage(model, onSaved, onDelete));
     }
 
 }

@@ -16,6 +16,7 @@ namespace Points.ViewModels
         private readonly Action<BudgetCardModel> _onSaved;
         private Action<BudgetCardModel> _onDelete;
 
+        public List<string> AvailableTagList { get; }
         public Command CancelCommand { get; }
 
         public ObservableCollection<BudgetTopUpEditItem> TopUps { get; } = new();
@@ -24,11 +25,12 @@ namespace Points.ViewModels
         public Command RemoveTopUpCommand { get; }
         public Command SaveCommand { get; }
 
-        public BudgetDetailsViewModel(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete)
+        public BudgetDetailsViewModel(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete, List<string> availableTagsList)
         {
             _model = model;
             _onSaved = onSaved;
             _onDelete = onDelete;
+            AvailableTagList = availableTagsList;
 
             AddTopUpCommand = new Command(AddTopUp);
             RemoveTopUpCommand = new Command<BudgetTopUpEditItem>(RemoveTopUp);

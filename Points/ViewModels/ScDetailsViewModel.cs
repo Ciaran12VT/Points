@@ -17,14 +17,16 @@ namespace Points.ViewModels
         private Action<ScCardModel> _onDelete;
 
         public Command CancelCommand { get; }
+        public List<string> AvailableTagList { get; }
         public ObservableCollection<ScStepModel> Steps { get; } = new();
 
-        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete)
+        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList)
         {
             ToggleSignCommand = new Command(ToggleSign);
             AddStepCommand = new Command(AddStep);
             SaveCommand = new Command(async () => await SaveAsync());
             CancelCommand = new Command(async () => await OnCancelAsync());
+            AvailableTagList = availableTagsList;
             _onSaved = onSaved;
             _onDelete = onDelete;
             BuildModel(model);
@@ -119,12 +121,14 @@ namespace Points.ViewModels
         // Sign toggle
         private bool _isNegative;
         public string SignToggleText => _isNegative ? "-" : "+";
+        public string SignToggleColor => _isNegative ? "Red" : "Green";
 
         public Command ToggleSignCommand { get; }
         private void ToggleSign()
         {
             _isNegative = !_isNegative;
             RaisePropertyChanged(nameof(SignToggleText));
+            RaisePropertyChanged(nameof(SignToggleColor));
             RaiseComputed();
         }
 

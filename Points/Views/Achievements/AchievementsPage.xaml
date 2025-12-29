@@ -6,9 +6,9 @@
              x:Class="Points.Views.Achievements.AchievementsPage"
              Title="Achievements">
 
-    <ContentPage.BindingContext>
+    <!--<ContentPage.BindingContext>
         <vm:AchievementsViewModel />
-    </ContentPage.BindingContext>
+    </ContentPage.BindingContext>-->
 
     <Grid RowDefinitions="*,Auto" Padding="12">
 

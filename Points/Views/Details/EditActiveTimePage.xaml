@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:Points.Views.Details"
+    x:Class="Points.Views.Details.EditActiveTimePage"
+    Title="Active Time Log">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <CollectionView
+            Grid.Row="0"
+            ItemsSource="{Binding Rows}"
+            SelectionMode="None">
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Padding="0,6">
+
+                        <!-- Start cell -->
+                        <Frame
+                            Grid.Column="0"
+                            Padding="12"
+                            CornerRadius="12"
+                            HasShadow="False"
+                            BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding BindingContext.EditStartCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                    CommandParameter="{Binding .}" />
+                            </Frame.GestureRecognizers>
+
+                            <Label
+                                Text="{Binding StartText}"
+                                VerticalOptions="Center"
+                                HorizontalOptions="Center" />
+                        </Frame>
+
+                        <!-- End cell -->
+                        <Frame
+                            Grid.Column="1"
+                            Padding="12"
+                            CornerRadius="12"
+                            HasShadow="False"
+                            BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding BindingContext.EditEndCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                    CommandParameter="{Binding .}" />
+                            </Frame.GestureRecognizers>
+
+                            <Label
+                                Text="{Binding EndText}"
+                                VerticalOptions="Center"
+                                HorizontalOptions="Center" />
+                        </Frame>
+
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Button
+            Grid.Row="1"
+            Text="Save"
+            HeightRequest="48"
+            CornerRadius="12"
+            Command="{Binding SaveCommand}" />
+    </Grid>
+</ContentPage>

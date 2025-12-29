@@ -9,12 +9,17 @@
         <ScrollView Grid.Row="0">
             <VerticalStackLayout Spacing="14">
 
-                <!-- Title + Cancel -->
-                <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center">
+                <!-- Title + Entry + Cancel (same row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Title" FontAttributes="Bold" VerticalOptions="Center"/>
 
-                    <Label Text="Title" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
+                           Text="{Binding Title}"
+                           Placeholder="Enter title"
+                           IsReadOnly="{Binding IsReadOnly}"
+                           VerticalOptions="Center"/>
 
-                    <Button Grid.Column="1"
+                    <Button Grid.Column="2"
                             Text="×"
                             BackgroundColor="Red"
                             TextColor="White"
@@ -25,51 +30,100 @@
                             Padding="0"
                             HorizontalOptions="End"
                             VerticalOptions="Center"
-                            Command="{Binding CancelCommand}"
-/>
+                            Command="{Binding CancelCommand}"/>
                 </Grid>
 
-                <Entry Text="{Binding Title}" Placeholder="Enter title" IsReadOnly="{Binding IsReadOnly}"/>
+                <!-- Status (read-only) (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Status" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Label Grid.Column="1" Text="{Binding Status}" TextColor="Gray" VerticalOptions="Center"/>
+                </Grid>
 
-                <!-- Status (read-only) -->
-                <Label Text="Status" FontAttributes="Bold" />
-                <Label Text="{Binding Status}" TextColor="Gray"/>
+                <!-- Tags (single row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Tags"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1" x:Name="TagsEntry"
+                           Text="{Binding Tags}"
+                           IsReadOnly="True"
+                           Placeholder="e.g. PRO TAT Other"
+                           VerticalOptions="Center"/>
+                    <!--Edit-->
+                    <Button Grid.Column="2"
+                        Text="✎"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Clicked="OnEditTagsClicked"
+                        VerticalOptions="Center"/>
 
-                <!-- Tags -->
-                <Label Text="Tags" FontAttributes="Bold" />
-                <Entry Text="{Binding Tags}" Placeholder="e.g. #Work, #Errands" IsReadOnly="{Binding IsReadOnly}"/>
+                    <!-- Clear -->
+                    <Button Grid.Column="3"
+                        Text="✕"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="DarkRed"
+                        Clicked="OnClearTagsClicked"
+                        VerticalOptions="Center"/>
+                </Grid>
 
-                <!-- SubType -->
-                <Label Text="SubType" FontAttributes="Bold" />
-                <Picker Title="Select subtype"
-                        ItemsSource="{Binding SubTypeOptions}"
-                        SelectedItem="{Binding SelectedSubType}" 
-                        IsEnabled="{Binding CanEdit}"/>
+                <!-- SubType (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="SubType" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Picker Grid.Column="1"
+                            Title="Select subtype"
+                            ItemsSource="{Binding SubTypeOptions}"
+                            SelectedItem="{Binding SelectedSubType}"
+                            IsEnabled="{Binding CanEdit}"/>
+                </Grid>
 
-                <!-- Value -->
-                <Label Text="Value" FontAttributes="Bold" />
-                <Entry Text="{Binding ValueText}" Keyboard="Numeric"  Placeholder="e.g. 25" IsReadOnly="{Binding IsReadOnly}"/>
+                <!-- Value (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Value" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
+                           Text="{Binding ValueText}"
+                           Keyboard="Numeric"
+                           Placeholder="e.g. 25"
+                           IsReadOnly="{Binding IsReadOnly}"
+                           VerticalOptions="Center"/>
+                </Grid>
 
-                <!-- Created Date (read-only) -->
-                <Label Text="Created Date" FontAttributes="Bold" />
-                <Label Text="{Binding CreatedDateText}" TextColor="Gray" />
+                <!-- Created Date (read-only) (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Created Date" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Label Grid.Column="1" Text="{Binding CreatedDateText}" TextColor="Gray" VerticalOptions="Center"/>
+                </Grid>
 
-                <!-- Available From -->
-                <Label Text="Available From" FontAttributes="Bold" />
-                <DatePicker Date="{Binding AvailableFromDate}" IsEnabled="{Binding CanEdit}"/>
-                <TimePicker Time="{Binding AvailableFromTime}" IsEnabled="{Binding CanEdit}"/>
+                <!-- Available From (same row: label + date + time) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Available From" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <DatePicker Grid.Column="1" Date="{Binding AvailableFromDate}" IsEnabled="{Binding CanEdit}"/>
+                    <TimePicker Grid.Column="2" Time="{Binding AvailableFromTime}" IsEnabled="{Binding CanEdit}"/>
+                </Grid>
 
-                <!-- Due By -->
-                <Label Text="Due By" FontAttributes="Bold" />
-                <DatePicker Date="{Binding DueDate}" IsEnabled="{Binding CanEdit}"/>
-                <TimePicker Time="{Binding DueTime}" IsEnabled="{Binding CanEdit}"/>
+                <!-- Due By (same row: label + date + time) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Due By" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <DatePicker Grid.Column="1" Date="{Binding DueDate}" IsEnabled="{Binding CanEdit}"/>
+                    <TimePicker Grid.Column="2" Time="{Binding DueTime}" IsEnabled="{Binding CanEdit}"/>
+                </Grid>
 
-                <!-- Description -->
+                <!-- Description (UNCHANGED: stays label then editor) -->
                 <Label Text="Description" FontAttributes="Bold" />
                 <Editor AutoSize="TextChanges"
                         Text="{Binding Description}"
                         Placeholder="Optional notes..."
-                        HeightRequest="120" 
+                        HeightRequest="270"
                         IsReadOnly="{Binding IsReadOnly}"/>
 
             </VerticalStackLayout>

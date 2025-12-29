@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using Points.Models;
 using Points.Global;
+using Points.Services;
 
 namespace Points.ViewModels
 {
@@ -25,6 +26,10 @@ namespace Points.ViewModels
         public Command ClearFiltersCommand { get; }
         public Command SortByLastActiveCommand { get; }
         public Command OpenAchievementsCommand { get; }
+
+        public Command OpenDateRangePickerViewCommand { get; }
+        public Command OpenSettingsCommand { get; }
+
         //public Command<MissionCardModel> MissionCancelCommand { get; }
         #endregion
 
@@ -159,6 +164,8 @@ namespace Points.ViewModels
             SortByLastActiveCommand = new Command(SortCardsByLastActive);
             FilterByTagCommand = new Command(async () => await FilterCardsByTag());
             OpenAchievementsCommand = new Command(async () => await OpenAchievementsAsync());
+            OpenDateRangePickerViewCommand = new Command(async () => await OpenDateRangePickerViewAsync());
+            OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
             //MissionCancelCommand = new Command<MissionCardModel>(async m => await OnMissionCancelAsync(m));
 
             // Pages + mock data moved out of constructor logic
@@ -253,25 +260,27 @@ namespace Points.ViewModels
         /// </summary>
         private async Task OpenDetailsForModelAsync(HomePageModel page, ICardModel model)
         {
-            if (model is TatCardModel tat)
-            {
-                await Shell.Current.Navigation.PushAsync(
-                    new Points.Views.Details.TatDetailsPage(
-                        tat,
-                        saved => CommitCardToPage(page, saved),
-                        deleted => RemoveCardFromPage(page, deleted)
-                    )
-                );
-                return;
-            }
-
             if (model is ScCardModel sc)
             {
                 await Shell.Current.Navigation.PushAsync(
                     new Points.Views.Details.ScDetailsPage(
                         sc,
                         saved => CommitCardToPage(page, saved),
-                        deleted => RemoveCardFromPage(page, deleted)
+                        deleted => RemoveCardFromPage(page, deleted),
+                        GetTags()
+                    )
+                );
+                return;
+            }
+
+            if (model is TatCardModel tat)
+            {
+                await Shell.Current.Navigation.PushAsync(
+                    new Points.Views.Details.TatDetailsPage(
+                        tat,
+                        saved => CommitCardToPage(page, saved),
+                        deleted => RemoveCardFromPage(page, deleted),
+                        GetTags()
                     )
                 );
                 return;
@@ -284,7 +293,8 @@ namespace Points.ViewModels
                         mission,
                         saved => CommitCardToPage(page, saved),
                         onDelete: m => DeleteMission(m),
-                        onFail: m => FailMission(m)
+                        onFail: m => FailMission(m),
+                        GetTags()
                     )
                 );
                 return;
@@ -296,7 +306,8 @@ namespace Points.ViewModels
                     new Points.Views.Details.BudgetDetailsPage(
                         budget,
                         saved => CommitCardToPage(page, saved),
-                        deleted => RemoveCardFromPage(page, deleted)
+                        deleted => RemoveCardFromPage(page, deleted),
+                        GetTags()
                     )
                 );
                 return;
@@ -772,31 +783,18 @@ namespace Points.ViewModels
 
         private async Task OpenAchievementsAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.AchievementsPage());
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.AchievementsPage(GetTags()));
         }
 
-        //private async Task OnMissionCancelAsync(MissionCardModel model)
-        //{
-        //    if (model == null)
-        //        return;
+        private async Task OpenDateRangePickerViewAsync()
+        {
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Shared.DateRangePickerPage());
+        }
 
-        //    var choice = await Shell.Current.DisplayActionSheet(
-        //        model.Title,
-        //        "Cancel",
-        //        null,
-        //        "Delete",
-        //        "Failed"
-        //    );
-
-        //    if (choice == "Delete")
-        //    {
-        //        DeleteMission(model);
-        //    }
-        //    else if (choice == "Failed")
-        //    {
-        //        FailMission(model);
-        //    }
-        //}
+        private async Task OpenSettingsAsync()
+        {
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Settings.SettingsPage(new SettingsViewModel(new MockDbService())));
+        }
 
         public void FailMission(MissionCardModel model)
         {
@@ -816,6 +814,17 @@ namespace Points.ViewModels
             SortMissionCards();
             OnPropertyChanged(nameof(HasNegativeAvailableMission));
         }
+
+        public async Task OpenExistingCardAsync(ICardModel model)
+        {
+            if (model == null) return;
+
+            var page = Pages.FirstOrDefault(p => p.AllCards.Contains(model));
+            if (page == null) return;
+
+            await OpenDetailsForModelAsync(page, model);
+        }
+
 
         #endregion
 
@@ -930,6 +939,8 @@ namespace Points.ViewModels
             AllCards.Remove(card);
             VisibleCards.Remove(card);
         }
+
+
 
         #endregion
     }

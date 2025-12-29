@@ -19,7 +19,7 @@ namespace Points.Models
         }
 
         // Requested shape
-        public List<Tuple<DateTime, DateTime>> Activity { get; } = new();
+        public List<Tuple<DateTime, DateTime>> Activity { get; set; } = new();
 
         private double _valuePerMinute = 1.0;
         public double ValuePerMinute

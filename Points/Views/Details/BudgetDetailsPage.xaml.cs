@@ -5,9 +5,9 @@ namespace Points.Views.Details;
 
 public partial class BudgetDetailsPage : ContentPage
 {
-    public BudgetDetailsPage(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete)
+    public BudgetDetailsPage(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete, List<string> availableTagsList)
     {
         InitializeComponent();
-        BindingContext = new BudgetDetailsViewModel(model, onSaved, onDelete);
+        BindingContext = new BudgetDetailsViewModel(model, onSaved, onDelete, availableTagsList);
     }
 }
