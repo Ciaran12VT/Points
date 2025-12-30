@@ -43,4 +43,15 @@ public partial class ScCardView : ContentView
         //await Shell.Current.Navigation.PushAsync(new ScDetailsPage(model, onSaved, onDelete));
     }
 
+
+    private async void OnAddRepClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is not ScCardModel model)
+            return;
+
+        if(model.Steps[0].IncrementCommand.CanExecute(null))
+        {
+            model.Steps[0].IncrementCommand.Execute(null);
+        }
+    }
 }

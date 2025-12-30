@@ -3,7 +3,6 @@ using Points.Helpers;
 using Points.Models;
 using Points.ViewModels;
 using Points.Views.Details;
-using static Android.Graphics.ColorSpace;
 
 namespace Points.Views.Cards;
 

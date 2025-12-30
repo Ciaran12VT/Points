@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,6 +11,42 @@ namespace Points.Models
 {
     public class ScCardModel : TatCardModel
     {
+
+        public bool IsSingleStep => Steps.Count == 1;
+
+        public double FirstStepRepCount => Steps.Count > 0 ? Steps[0].Reps.Count : 0;
+
+        public ScCardModel()
+        {
+            Steps.CollectionChanged += Steps_CollectionChanged;
+        }
+
+        private void Steps_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.OldItems != null)
+                foreach (ScStepModel step in e.OldItems)
+                    step.PropertyChanged -= Step_PropertyChanged;
+
+            if (e.NewItems != null)
+                foreach (ScStepModel step in e.NewItems)
+                    step.PropertyChanged += Step_PropertyChanged;
+
+            // Steps.Count may have changed
+            RaisePropertyChanged(nameof(IsSingleStep));
+
+            // The “first step” may have changed (insert/remove/move), so refresh rep count too
+            RaisePropertyChanged(nameof(FirstStepRepCount));
+        }
+
+        private void Step_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            // Only rep changes need to refresh the computed rep-count
+            if (e.PropertyName == nameof(ScStepModel.RepsVersion))
+            {
+                // If you want this to be strictly “first step only”, you can check sender == Steps[0]
+                RaisePropertyChanged(nameof(FirstStepRepCount));
+            }
+        }
 
         public ObservableCollection<ScStepModel> Steps { get; } = new();
 

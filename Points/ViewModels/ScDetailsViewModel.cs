@@ -47,7 +47,7 @@ namespace Points.ViewModels
             // Copy steps into a local collection (edit freely, commit on save)
             foreach (var s in _model.Steps.OrderBy(x => x.Order))
             {
-                var step = new ScStepModel { Order = Steps.Count + 1, StepValue = 1.0 };
+                var step = s ?? new ScStepModel { Order = Steps.Count + 1, StepValue = 1.0 };
                 HookStep(step);
                 Steps.Add(step);
             }

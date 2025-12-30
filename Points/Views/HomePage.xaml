@@ -20,11 +20,19 @@
           VerticalOptions="Center"
           ColumnSpacing="6">
 
-            <Label Grid.Column="0"
+            <!--<Label Grid.Column="0"
                Text="Points"
                FontSize="18"
                VerticalOptions="Center" 
-               HorizontalOptions="Start"/>
+               HorizontalOptions="Start"/>-->
+
+            <Image Grid.Column="0"
+               Source="appiconfortoolbar.png"
+               HeightRequest="28"
+               Aspect="AspectFit"
+               VerticalOptions="Center"
+               HorizontalOptions="Start" />
+
 
             <Label Grid.Column="1"
                Text="!"

@@ -30,7 +30,7 @@
                    VerticalOptions="Center" />
 
             <!-- Right-tight toggle -->
-            <Grid Grid.Row="0" Grid.Column="1"
+            <!--<Grid Grid.Row="0" Grid.Column="1"
                   HorizontalOptions="End">
                 <Button Text="●"
                         WidthRequest="36"
@@ -50,7 +50,55 @@
                         </MultiBinding>
                     </Button.BackgroundColor>
                 </Button>
-            </Grid>
+            </Grid>-->
+            <HorizontalStackLayout
+                Grid.Row="0"
+                Grid.Column="1"
+                Grid.ColumnSpan="2"
+                Spacing="6"
+                HorizontalOptions="End"
+                VerticalOptions="Center">
+
+
+                <Label Text="{Binding FirstStepRepCount}" 
+                       Padding="0" Margin="8" 
+                       FontSize="20" 
+                       HorizontalTextAlignment="Start" 
+                       VerticalTextAlignment="Center"
+                       IsVisible="{Binding IsSingleStep}"/>
+                <!-- Add Step button -->
+                <Button	Text="+"
+							WidthRequest="36"
+							HeightRequest="36"
+							CornerRadius="18"
+							Padding="0"
+							Margin="0"
+							TextColor="White"
+							BackgroundColor="Green"
+							Clicked="OnAddRepClicked" 
+                            IsVisible="{Binding IsSingleStep}"/>
+
+                <!-- Active Toggle button -->
+                <Button Text="●"
+							WidthRequest="36"
+							HeightRequest="36"
+							CornerRadius="18"
+							Padding="0"
+							Margin="0"
+							TextColor="White"
+							HorizontalOptions="End"
+							VerticalOptions="Center"
+							Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ActivateCardCommand}"
+							CommandParameter="{Binding .}">
+                    <Button.BackgroundColor>
+                        <MultiBinding Converter="{StaticResource ActiveButtonBgConverter}">
+                            <Binding Path="IsActive" />
+                            <Binding Path="ValuePerMinute" />
+                        </MultiBinding>
+                    </Button.BackgroundColor>
+                </Button>
+
+            </HorizontalStackLayout>
 
             <Label Grid.Row="1" Grid.Column="0"
                    Text="{Binding Status, StringFormat='Status: {0}'}"
