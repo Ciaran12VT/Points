@@ -284,6 +284,16 @@
                     </DataTemplate>
                 </cards:CardTemplateSelector.BudgetTemplate>
 
+                <cards:CardTemplateSelector.DateHeaderCardTemplate>
+                    <DataTemplate>
+                        <Grid Padding="8,10">
+                            <Label Text="{Binding Title}"
+                               FontSize="13"
+                               FontAttributes="Bold"
+                               Opacity="0.8" />
+                        </Grid>
+                    </DataTemplate>
+                </cards:CardTemplateSelector.DateHeaderCardTemplate>
 
             </cards:CardTemplateSelector>
 

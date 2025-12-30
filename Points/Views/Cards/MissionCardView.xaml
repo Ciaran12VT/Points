@@ -13,6 +13,8 @@
             <converters:ActiveButtonBackgroundConverter x:Key="ActiveButtonBgConverter" />
             <converters:ActiveVsEstimatePercentTextConverter x:Key="ActiveVsEstimatePercentTextConverter" />
             <converters:ActiveVsEstimatePercentColorConverter x:Key="ActiveVsEstimatePercentColorConverter" />
+            <converters:MissionDueInTextConverter x:Key="MissionDueInTextConverter" />
+            <converters:MissionDueInColorConverter x:Key="MissionDueInColorConverter" />
         </ResourceDictionary>
     </ContentView.Resources>
 
@@ -101,7 +103,7 @@
                         TextColor="White"
                         BackgroundColor="Green"
                         VerticalOptions="Center"
-                        Command="{Binding CompleteCommand}">
+                        Clicked="OnCompleteClicked">
 
                         <Button.Triggers>
                             <DataTrigger TargetType="Button" Binding="{Binding IsComplete}" Value="True">
@@ -148,7 +150,7 @@
                 Spacing="6"
                 HorizontalOptions="Start">
 
-                <Label Grid.Row="2" Grid.Column="0" Text="{Binding SubType}" FontSize="14" TextColor="Orange" />
+                <Label Grid.Row="2" Grid.Column="0" Text="{Binding SubType}" FontSize="14" TextColor="{Binding SubTypeLabelColor}" />
                 <Label Grid.Row="2" Grid.Column="0" Text=" - " FontSize="14" TextColor="Orange" />
                 <Label FontSize="14" TextColor="Orange" >
                     <Label.Text>
@@ -193,6 +195,7 @@
             </HorizontalStackLayout>
 
             <!-- Row 2: Value (right, green) -->
+            
             <Label Grid.Row="2" Grid.Column="1" FontSize="14" HorizontalTextAlignment="End">
                 <Label.Text>
                     <MultiBinding Converter="{StaticResource MissionCurrentValueTextConverter}">
@@ -209,6 +212,35 @@
                     </MultiBinding>
                 </Label.TextColor>
             </Label>
+
+            <HorizontalStackLayout
+                Grid.Row="3"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Spacing="6"
+                HorizontalOptions="Start">
+
+                <Label Grid.Row="3" Grid.Column="0" FontSize="14" HorizontalTextAlignment="Start" Text="Due in:" />
+                <Label Grid.Row="3" Grid.Column="0" FontSize="14" HorizontalTextAlignment="End" IsVisible="{Binding IsAvailable}">
+                    <Label.Text>
+                        <MultiBinding Converter="{StaticResource MissionDueInTextConverter}">
+                            <!-- the card -->
+                            <Binding Path="." />
+                            <!-- current time -->
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
+                        </MultiBinding>
+                    </Label.Text>
+                    <Label.TextColor>
+                        <MultiBinding Converter="{StaticResource MissionDueInColorConverter}">
+                            <Binding Path="." />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
+                        </MultiBinding>
+                    </Label.TextColor>
+                </Label>
+
+
+
+            </HorizontalStackLayout>
 
         </Grid>
 

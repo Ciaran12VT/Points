@@ -769,11 +769,69 @@ namespace Points.ViewModels
                 .ThenBy(m => m.IsComplete ? DateTime.MaxValue : m.AvailableFromDate)
                 .ToList();
 
+            // Check if there is any difference between missionPage.AllCards and sorted. If not, do not reset
+            if (missionCards.Count == sorted.Count)
+            {
+                bool sameOrder = true;
+                bool hasDateHeaderCards = missionPage.AllCards.OfType<DateHeaderCardModel>().Count() > 0;
+
+                for (int i = 0; i < missionCards.Count; i++)
+                {
+                    if (!ReferenceEquals(missionCards[i], sorted[i]))
+                    {
+                        sameOrder = false;
+                        break;
+                    }
+                }
+
+                if (sameOrder && hasDateHeaderCards) return;
+            }
+
             missionPage.AllCards.Clear();
+
             foreach (var m in sorted)
+            {
+                if (m == sorted[0] || sorted[sorted.IndexOf(m) - 1].AvailableFromDate.Date != m.AvailableFromDate.Date)
+                {
+                    var dateheadermodel = new DateHeaderCardModel()
+                    {
+                        Title = $"{m.AvailableFromDate.Date.ToString("MMM-dd yyyy")} ({GetRelativeDateString(m.AvailableFromDate)})",
+                    };
+                    missionPage.AllCards.Add(dateheadermodel);
+                }
+
                 missionPage.AllCards.Add(m);
+            }
 
             missionPage.ResetVisible();
+        }
+
+        private string GetRelativeDateString(DateTime dt)
+        {
+            if(dt.Date < DateTime.Today)
+            {
+                if(dt.Date == DateTime.Today.AddDays(-1))
+                {
+                    return "Yesterday";
+                }
+                else
+                {
+                    return $"{(dt.Date - DateTime.Today).TotalDays * -1} Days Ago";
+                }
+            }
+
+            if(dt.Date == DateTime.Today)
+            {
+                return "Today";
+            }
+            else if(dt.Date == DateTime.Today.AddDays(1))
+            {
+                return "Tomorrow";
+            }
+            else
+            {
+                return $"In {(dt.Date - DateTime.Today).TotalDays} Days"; 
+            }
         }
 
         public void ScrollMainQuestIntoView()

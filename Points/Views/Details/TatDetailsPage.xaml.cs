@@ -57,7 +57,7 @@ public partial class TatDetailsPage : ContentPage
         try
         {
             var edited = await tcs.Task;   // user hit Save
-            _model.Activity = edited;             // store it wherever you keep it
+            _model.Activity = edited;      // store it wherever you keep it
         }
         catch (TaskCanceledException)
         {

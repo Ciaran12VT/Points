@@ -13,6 +13,7 @@ namespace Points.Views.Cards
         public DataTemplate? ScTemplate { get; set; }
         public DataTemplate? MissionTemplate { get; set; }
         public DataTemplate? BudgetTemplate { get; set; }
+        public DataTemplate? DateHeaderCardTemplate { get; set; }
 
         protected override DataTemplate OnSelectTemplate(object item, BindableObject container)
         {
@@ -22,6 +23,7 @@ namespace Points.Views.Cards
                 MissionCardModel => MissionTemplate ?? TatTemplate!,
                 ScCardModel => ScTemplate ?? TatTemplate!,
                 TatCardModel => TatTemplate!,
+                DateHeaderCardModel => DateHeaderCardTemplate!,
                 _ => TatTemplate!
             };
         }

@@ -45,7 +45,8 @@
 
     <!-- Splash Screen -->
     <!-- <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" /> -->
-    <MauiSplashScreen Include="Resources\Splash\splash.png" Color="#4D76F0" BaseSize="128,128" />
+    <!-- <MauiSplashScreen Include="Resources\Splash\splash.png" Color="#4D76F0" BaseSize="128,128" />  -->
+    <MauiSplashScreen Include="Resources\Splash\splash1.png" Color="#1A1818" BaseSize="128,128"/>
 
     <!-- Images -->
 		<MauiImage Include="Resources\Images\*" />
@@ -62,6 +63,7 @@
 	  <None Remove="Platforms\Android\Resources\raw\clack.ogg" />
 	  <None Remove="Platforms\Android\Resources\raw\thock.ogg" />
 	  <None Remove="Platforms\Android\Resources\raw\tick.ogg" />
+	  <None Remove="Resources\Splash\splash1.png" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -88,7 +90,16 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Update="Views\Cards\DateHeaderCardView.xaml.cs">
+	    <DependentUpon>DateHeaderCardView.xaml</DependentUpon>
+	  </Compile>
+	</ItemGroup>
+
+	<ItemGroup>
 	  <MauiXaml Update="Views\Achievements\TrophyRoomPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Views\Cards\DateHeaderCardView.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Views\Details\AchievementDetailsPage.xaml">

@@ -134,7 +134,7 @@ namespace Points.Models
 
         public bool IsPending => !IsComplete && DateTime.Now < AvailableFromDate;
 
-
+        public string SubTypeLabelColor => SubType == MissionSubType.Stable ? "LightBlue" : (SubType == MissionSubType.Degrade ? "DarkOrange" : "DarkRed");
 
         public string PendingWindowText
         {
@@ -154,7 +154,7 @@ namespace Points.Models
                 var availableText = available.ToString("ddd, MMM d");
                 var dueText = due.ToString("ddd, MMM d");
 
-                return $"{availableText} (in {daysUntil} days) - {dueText} (for {durationDays} days)";
+                return $"For {durationDays} day" + (durationDays == 1 ? "" : "s");
             }
         }
 

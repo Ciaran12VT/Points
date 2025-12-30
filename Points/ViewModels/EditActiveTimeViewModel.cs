@@ -7,18 +7,42 @@ using System.Threading.Tasks;
 
 namespace Points.ViewModels
 {
-    public sealed class EditActiveTimeRow
+    public sealed class EditActiveTimeRow : BindableObject
     {
-        public DateTime Start { get; private set; }
-        public DateTime End { get; private set; }
+        private DateTime _start;
+        private DateTime _end;
 
-        public string StartText => Start.ToString("yyyy-MM-dd HH:mm");
-        public string EndText => End.ToString("yyyy-MM-dd HH:mm");
+        public DateTime Start
+        {
+            get => _start;
+            private set
+            {
+                if (_start == value) return;
+                _start = value;
+                OnPropertyChanged(nameof(Start));
+                OnPropertyChanged(nameof(StartText));
+            }
+        }
+
+        public DateTime End
+        {
+            get => _end;
+            private set
+            {
+                if (_end == value) return;
+                _end = value;
+                OnPropertyChanged(nameof(End));
+                OnPropertyChanged(nameof(EndText));
+            }
+        }
+
+        public string StartText => Start.ToString("yyyy-MM-dd HH:mm:ss");
+        public string EndText => End.ToString("yyyy-MM-dd HH:mm:ss");
 
         public EditActiveTimeRow(DateTime start, DateTime end)
         {
-            Start = start;
-            End = end;
+            _start = start;
+            _end = end;
         }
 
         public void SetStart(DateTime dt) => Start = dt;
@@ -92,9 +116,7 @@ namespace Points.ViewModels
             var sorted = Rows.OrderByDescending(r => r.Start).ToList();
             Rows.Clear();
             foreach (var r in sorted) Rows.Add(r);
-
-            // Force UI refresh of computed text properties
-            OnPropertyChanged(nameof(Rows));
         }
+
     }
 }

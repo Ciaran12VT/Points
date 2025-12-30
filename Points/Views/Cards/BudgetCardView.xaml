@@ -33,7 +33,17 @@
                    FontAttributes="Bold"
                    VerticalOptions="Center" />
 
-            <Button Grid.Row="0" Grid.Column="1"
+            <!-- Row 0: Action buttons (top-right) -->
+            <HorizontalStackLayout
+                Grid.Row="0"
+                Grid.Column="1"
+                Grid.ColumnSpan="2"
+                Spacing="6"
+                HorizontalOptions="End"
+                VerticalOptions="Center">
+
+                            <!-- Spend button -->
+                            <Button
                     Text="-"
                     WidthRequest="36"
                     HeightRequest="36"
@@ -42,9 +52,11 @@
                     Margin="0"
                     TextColor="White"
                     BackgroundColor="Red"
+                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SpendCommand}"
                     Clicked="OnSpendClicked" />
 
-            <Button Grid.Row="0" Grid.Column="2"
+                            <!-- Cash-in button -->
+                            <Button
                     Text="$"
                     WidthRequest="36"
                     HeightRequest="36"
@@ -53,7 +65,11 @@
                     Margin="0"
                     TextColor="White"
                     BackgroundColor="Green"
+                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CashInCommand}"
                     Clicked="OnCashInClicked" />
+
+            </HorizontalStackLayout>
+
 
             <!-- Row 1: Status (left) + Tags (right spanning 2 cols) -->
             <Label Grid.Row="1" Grid.Column="0"

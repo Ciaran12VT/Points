@@ -1,3 +1,4 @@
+using Microsoft.Maui.Graphics.Text;
 using Points.ViewModels;
 
 namespace Points.Views.Details;
@@ -51,8 +52,27 @@ internal static class DateTimePickerSheet
             HorizontalOptions = LayoutOptions.Fill
         };
 
-        var cancel = new Button { Text = "Cancel" };
-        var ok = new Button { Text = "OK" };
+        var ok = new Button
+        {
+            Text = "OK",
+            BackgroundColor = Colors.Green,
+            TextColor = Colors.White,
+            FontAttributes = FontAttributes.Bold,
+            FontSize = 21f,
+            HeightRequest = 48,
+            CornerRadius = 12
+        };
+
+        var cancel = new Button
+        {
+            Text = "Cancel",
+            BackgroundColor = Colors.Gray,
+            TextColor = Colors.White,
+            FontAttributes = FontAttributes.Bold,
+            FontSize = 21f,
+            HeightRequest = 48,
+            CornerRadius = 12
+        };
 
         var modal = new ContentPage
         {
@@ -62,27 +82,32 @@ internal static class DateTimePickerSheet
                 Padding = 16,
                 Spacing = 12,
                 Children =
+                {
+                    new Label { Text = "Date", FontAttributes = FontAttributes.Bold },
+                    datePicker,
+                    new Label { Text = "Time", FontAttributes = FontAttributes.Bold },
+                    timePicker,
+                    new Grid
                     {
-                        new Label { Text = "Date", FontAttributes = FontAttributes.Bold },
-                        datePicker,
-                        new Label { Text = "Time", FontAttributes = FontAttributes.Bold },
-                        timePicker,
-                        //new Grid
-                        //{
-                        //    ColumnDefinitions = new ColumnDefinitionCollection
-                        //    {
-                        //        new ColumnDefinition { Width = GridLength.Star },
-                        //        new ColumnDefinition { Width = GridLength.Star }
-                        //    },
-                        //    ColumnSpacing = 12,
-                        //    Children =
-                        //    {
-                        //        { cancel, 0, 0 },
-                        //        { ok, 1, 0 }
-                        //    }
-                        //}
+                        ColumnDefinitions = new ColumnDefinitionCollection
+                        {
+                            new ColumnDefinition { Width = GridLength.Star }
+                        },
+                        Children =
+                        {
+                            cancel,
+                            ok
+                        }
                     }
+                }
             }
+        };
+
+        // If user navigates back/dismisses, ensure the task completes.
+        modal.Disappearing += (_, __) =>
+        {
+            // If OK already set it, this does nothing. Otherwise completes as "cancel".
+            tcs.TrySetResult(null);
         };
 
         cancel.Clicked += async (_, __) =>
@@ -90,7 +115,6 @@ internal static class DateTimePickerSheet
             tcs.TrySetResult(null);
             await page.Navigation.PopModalAsync();
         };
-
         ok.Clicked += async (_, __) =>
         {
             var chosen = datePicker.Date + timePicker.Time;
