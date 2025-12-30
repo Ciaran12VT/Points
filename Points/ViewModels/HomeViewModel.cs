@@ -61,6 +61,21 @@ namespace Points.ViewModels
 
         private MainQuestFilterMode _mainQuestFilterMode = MainQuestFilterMode.None;
 
+        public string HeaderDate
+        {
+            get
+            {
+                if(GlobalVariables.RangeStart.Date == GlobalVariables.RangeEnd.Date)
+                {
+                    return GlobalVariables.RangeStart.Date.ToString("MMM-dd-yyyy");
+                }
+                else
+                {
+                    return $"{GlobalVariables.RangeStart.Date.ToString("MMM-dd")} - {GlobalVariables.RangeEnd.Date.ToString("MMM-dd")}";
+                }
+            }
+        }
+
         public Color GlobalValueColor
         {
             get

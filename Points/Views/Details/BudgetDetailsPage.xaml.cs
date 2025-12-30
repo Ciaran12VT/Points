@@ -10,4 +10,11 @@ public partial class BudgetDetailsPage : ContentPage
         InitializeComponent();
         BindingContext = new BudgetDetailsViewModel(model, onSaved, onDelete, availableTagsList);
     }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (BindingContext is BudgetDetailsViewModel vm)
+            vm.StopTimer();
+    }
 }

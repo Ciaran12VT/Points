@@ -20,6 +20,9 @@ namespace Points.ViewModels
         public List<string> AvailableTagList { get; }
         public ObservableCollection<ScStepModel> Steps { get; } = new();
 
+        private readonly IDispatcherTimer _timer;
+        public void StopTimer() => _timer?.Stop();
+
         public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList)
         {
             ToggleSignCommand = new Command(ToggleSign);
@@ -29,6 +32,16 @@ namespace Points.ViewModels
             AvailableTagList = availableTagsList;
             _onSaved = onSaved;
             _onDelete = onDelete;
+
+            // Tick every second
+            _timer = Application.Current!.Dispatcher.CreateTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Tick += (_, __) =>
+            {
+                RaisePropertyChanged(nameof(ActiveTimeText));
+            };
+            _timer.Start();
+
             BuildModel(model);
         }
 

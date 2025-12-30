@@ -140,14 +140,14 @@
                     <Button Grid.Column="2"
                             Text="⏱"
                             BackgroundColor="Black"
-                            TextColor="White"
+                            TextColor="{Binding ActiveTimeTargetLabelColor}"
                             WidthRequest="36"
                             HeightRequest="36"
                             CornerRadius="18"
                             Padding="0"
                             HorizontalOptions="End"
                             VerticalOptions="Center"
-                            Command="{Binding SetActiveTimeTargetCommand}"/>
+                            Clicked="OnSetActiveTimeTargetClicked"/>
 
                     <!-- Edit -->
                     <Button Grid.Column="3"

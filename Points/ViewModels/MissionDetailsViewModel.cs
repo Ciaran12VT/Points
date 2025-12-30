@@ -26,6 +26,9 @@ namespace Points.ViewModels
         public bool CanEdit => !_model.IsComplete;       // convenience
         public string ActiveTimeText => _model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString(@"hh\:mm\:ss");
 
+        private readonly IDispatcherTimer _timer;
+        public void StopTimer() => _timer?.Stop();
+
         public MissionDetailsViewModel(MissionCardModel model, Action<MissionCardModel> onSaved, Action<MissionCardModel> onDelete, Action<MissionCardModel> onFail, List<string> availableTagsList)
         {
             _model = model;
@@ -33,6 +36,15 @@ namespace Points.ViewModels
             _onDelete = onDelete;
             _onFail = onFail;
             AvailableTagList = availableTagsList;
+
+            // Tick every second
+            _timer = Application.Current!.Dispatcher.CreateTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Tick += (_, __) =>
+            {
+                RaisePropertyChanged(nameof(ActiveTimeText));
+            };
+            _timer.Start();
 
             SaveCommand = new Command(async () => await SaveAsync());
             CancelCommand = new Command(async () => await OnCancelAsync());

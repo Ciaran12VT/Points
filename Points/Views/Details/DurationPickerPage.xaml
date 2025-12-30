@@ -24,8 +24,17 @@
         </Grid>
 
         <Grid Grid.Row="4" ColumnDefinitions="*,*" ColumnSpacing="12">
-            <Button Text="Cancel" Clicked="OnCancelClicked" />
-            <Button Grid.Column="1" Text="OK" BackgroundColor="Green" TextColor="White" Clicked="OnOkClicked" />
+            <Button Text="Cancel" 
+                    Clicked="OnCancelClicked" 
+                    FontAttributes="Bold"
+                    TextColor="White"
+                    BackgroundColor="Red" />
+            <Button Grid.Column="1" 
+                    Text="OK" 
+                    BackgroundColor="Green" 
+                    TextColor="White" 
+                    Clicked="OnOkClicked" 
+                    FontAttributes="Bold"/>
         </Grid>
 
     </Grid>

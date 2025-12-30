@@ -7,6 +7,7 @@ namespace Points.Views.Details;
 public partial class ScDetailsPage : ContentPage
 {
     INotifyCollectionChanged? _stepsNotify;
+    private readonly TatCardModel _model;
     private readonly List<string> _allTags;
 
     public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList)
@@ -14,6 +15,7 @@ public partial class ScDetailsPage : ContentPage
         InitializeComponent();
         BindingContext = new ScDetailsViewModel(model, onSaved, onDelete, availableTagsList);
         _allTags = availableTagsList;
+        _model = model;
         // 1) First scroll: only after the page is actually loaded + laid out
         Loaded += async (_, __) =>
         {
@@ -88,5 +90,30 @@ public partial class ScDetailsPage : ContentPage
     {
         if (BindingContext is ScDetailsViewModel vm)
             vm.Tags = "";
+    }
+
+    private async void OnEditActiveTimeClicked(object sender, EventArgs e)
+    {
+        var tcs = new TaskCompletionSource<List<Tuple<DateTime, DateTime>>>();
+
+        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs);
+        await Navigation.PushAsync(page);
+
+        try
+        {
+            var edited = await tcs.Task;   // user hit Save
+            _model.Activity = edited;      // store it wherever you keep it
+        }
+        catch (TaskCanceledException)
+        {
+            // user backed out, ignore
+        }
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (BindingContext is ScDetailsViewModel vm)
+            vm.StopTimer();
     }
 }

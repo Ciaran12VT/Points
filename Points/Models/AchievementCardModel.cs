@@ -128,7 +128,7 @@ namespace Points.Models
             get
             {
                 if (IsLockedThisRange)
-                    return "Locked (already earned in range)";
+                    return "Locked";
                 return Status;
             }
         }

@@ -181,7 +181,7 @@
                             Padding="0"
                             HorizontalOptions="End"
                             VerticalOptions="Center"
-                            Command="{Binding OpenActiveTimeLogCommand}"/>
+                            Clicked="OnEditActiveTimeClicked"/>
                 </Grid>
 
                 <!-- Description (UNCHANGED: stays label then editor) -->

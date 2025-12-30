@@ -22,16 +22,17 @@ public partial class EditActiveTimePage : ContentPage
             },
             pickDateTime: async (current) =>
             {
-                return await DateTimePickerSheet.PickAsync(this, current);
+                var result = await DateTimePickerSheet.PickAsync(this, current);
+                return result;
             });
     }
 
-    protected override void OnDisappearing()
-    {
-        base.OnDisappearing();
-        // If user backs out without saving, don't leave caller hanging.
-        _tcs.TrySetCanceled();
-    }
+    //protected override void OnDisappearing()
+    //{
+    //    base.OnDisappearing();
+    //    // If user backs out without saving, don't leave caller hanging.
+    //    _tcs.TrySetCanceled();
+    //}
 }
 
 internal static class DateTimePickerSheet

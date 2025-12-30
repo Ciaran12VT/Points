@@ -25,12 +25,26 @@ namespace Points.ViewModels
         public Command RemoveTopUpCommand { get; }
         public Command SaveCommand { get; }
 
+
+        private readonly IDispatcherTimer _timer;
+        public void StopTimer() => _timer?.Stop();
+
+
         public BudgetDetailsViewModel(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete, List<string> availableTagsList)
         {
             _model = model;
             _onSaved = onSaved;
             _onDelete = onDelete;
             AvailableTagList = availableTagsList;
+
+            // Tick every second
+            _timer = Application.Current!.Dispatcher.CreateTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Tick += (_, __) =>
+            {
+
+            };
+            _timer.Start();
 
             AddTopUpCommand = new Command(AddTopUp);
             RemoveTopUpCommand = new Command<BudgetTopUpEditItem>(RemoveTopUp);

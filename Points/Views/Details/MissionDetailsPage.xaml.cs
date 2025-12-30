@@ -6,6 +6,7 @@ namespace Points.Views.Details;
 public partial class MissionDetailsPage : ContentPage
 {
     private readonly List<string> _allTags;
+    private readonly MissionCardModel _model;
 
     public MissionDetailsPage(
         MissionCardModel model,
@@ -17,6 +18,7 @@ public partial class MissionDetailsPage : ContentPage
         InitializeComponent();
         BindingContext = new MissionDetailsViewModel(model, onSaved, onDelete, onFail, availableTagsList);
         _allTags = availableTagsList;
+        _model = model;
     }
 
     private async void OnEditTagsClicked(object sender, EventArgs e)
@@ -78,5 +80,30 @@ public partial class MissionDetailsPage : ContentPage
             typedVm.EstimatedTimeTs = result.Value;          // if you store TimeSpan
             typedVm.EstimatedTimeText = formatted; // if you store string
         }
+    }
+
+    private async void OnEditActiveTimeClicked(object sender, EventArgs e)
+    {
+        var tcs = new TaskCompletionSource<List<Tuple<DateTime, DateTime>>>();
+
+        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs);
+        await Navigation.PushAsync(page);
+
+        try
+        {
+            var edited = await tcs.Task;   // user hit Save
+            _model.Activity = edited;      // store it wherever you keep it
+        }
+        catch (TaskCanceledException)
+        {
+            // user backed out, ignore
+        }
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (BindingContext is MissionDetailsViewModel vm)
+            vm.StopTimer();
     }
 }

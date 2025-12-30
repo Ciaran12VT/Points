@@ -223,7 +223,7 @@ public partial class AchievementDetailsPage : ContentPage
     }
 
 
-    private async Task PickTagsAsync()
+   private async Task PickTagsAsync()
    {
        if (BindingContext is not AchievementDetailsViewModel vm)
            return;
@@ -251,5 +251,12 @@ public partial class AchievementDetailsPage : ContentPage
 
        vm.Tags = string.Join(", ", set.OrderBy(x => x));
    }
-    
+
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (BindingContext is AchievementDetailsViewModel vm)
+            vm.StopTimer();
+    }
 }

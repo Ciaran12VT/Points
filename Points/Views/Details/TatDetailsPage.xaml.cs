@@ -65,4 +65,43 @@ public partial class TatDetailsPage : ContentPage
         }
     }
 
+    private async void OnSetActiveTimeTargetClicked(object sender, EventArgs e)
+    {
+        // 1) Start values (parse from the current display if you want)
+        // If you already store a TimeSpan on the VM, use that instead.
+        var vm = BindingContext; // cast to your AchievementDetailsViewModel if you want
+
+        // 2) Push your picker page
+        // This assumes your DurationPickerPage returns a TimeSpan (or null if cancelled).
+        var page = new DurationPickerPage(
+        /* pass current duration here if your ctor needs it */
+        );
+
+        // OPTION A: if DurationPickerPage exposes a TaskCompletionSource result
+        await Shell.Current.Navigation.PushAsync(page);
+
+        var result = await page.Result; // e.g. Task<TimeSpan?>
+        if (result is null) return;
+
+        // 3) Write back to VM
+        // Replace with your real VM property
+        if (BindingContext is TatDetailsViewModel typedVm)
+        {
+            var totalHours = (int)result.Value.TotalHours;
+            var formatted = $"{totalHours}:{result.Value.Minutes:D2}:{result.Value.Seconds:D2}";
+
+            //Hold the target in a property in the VM
+            typedVm.TargetActiveTime = result;
+            typedVm.RaisePropertyChanged(nameof(typedVm.HasTargetActiveTime));
+            typedVm.RaisePropertyChanged(nameof(typedVm.ActiveTimeTargetLabelColor));
+        }
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (BindingContext is TatDetailsViewModel vm)
+            vm.StopTimer();
+    }
+
 }

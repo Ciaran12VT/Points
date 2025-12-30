@@ -17,7 +17,14 @@ namespace Points.ViewModels
         private Action<TatCardModel> _onSaved;
         private Action<TatCardModel> _onDelete;
 
+        public TimeSpan? TargetActiveTime { get; set; }
+        public bool HasTargetActiveTime => TargetActiveTime != null;
+        public string ActiveTimeTargetLabelColor => HasTargetActiveTime ? "Yellow" : "White";
+
         public Command CancelCommand { get; }
+
+        private readonly IDispatcherTimer _timer;
+        public void StopTimer() => _timer?.Stop();
 
         public TatDetailsViewModel(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList)
         {
@@ -27,6 +34,16 @@ namespace Points.ViewModels
             SaveCommand = new Command(async () => await SaveAsync());
             CancelCommand = new Command(async () => await OnCancelAsync());
             AvailableTagList = availableTagsList;
+
+            // Tick every second
+            _timer = Application.Current!.Dispatcher.CreateTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Tick += (_, __) =>
+            {
+                RaisePropertyChanged(nameof(ActiveTimeText));
+            };
+            _timer.Start();
+
             BuildModel(model);
         }
 

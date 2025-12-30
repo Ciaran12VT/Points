@@ -15,10 +15,22 @@ namespace Points.ViewModels
 
         private readonly Action<AchievementCardModel> _onSaved;
 
+        private readonly IDispatcherTimer _timer;
+        public void StopTimer() => _timer?.Stop();
+
         public AchievementDetailsViewModel(AchievementCardModel model, Action<AchievementCardModel> onSaved)
         {
             _model = model;
             _onSaved = onSaved;
+
+            // Tick every second
+            _timer = Application.Current!.Dispatcher.CreateTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Tick += (_, __) =>
+            {
+
+            };
+            _timer.Start();
 
             SaveCommand = new Command(async () => await SaveAsync());
 
