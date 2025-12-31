@@ -15,6 +15,8 @@ namespace Points.ViewModels
     {
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        private IDbService _db;
+
         #region Commands
         public Command<IActiveCardModel> ActivateCardCommand { get; }
         public Command AddCardCommand { get; }
@@ -31,16 +33,17 @@ namespace Points.ViewModels
         public Command OpenSettingsCommand { get; }
         public Command OpenReportsCommand { get; }
 
-        //public Command<MissionCardModel> MissionCancelCommand { get; }
         #endregion
 
         #region Fields
 
+        //Used to check if there is an card currenty active
         public bool HasActiveCard => _activeCard != null;
 
-        public ObservableCollection<HomePageModel> Pages { get; } = new();
+        //Returns the Carousel page that is currently displayed
         private HomePageModel CurrentPage => Pages[Math.Clamp(Position, 0, Pages.Count - 1)];
 
+        //Returns the current time. Used for live updateding bound fields every second
         public DateTime _now = DateTime.Now;
         public DateTime Now
         {
@@ -53,6 +56,10 @@ namespace Points.ViewModels
             }
         }
 
+        //A collection of the Carousel Pages (Main Quest, Mission, Budgets)
+        public ObservableCollection<HomePageModel> Pages { get; } = new();
+        
+        //Filter options for the Main Quest Page
         private enum MainQuestFilterMode
         {
             None,
@@ -62,6 +69,7 @@ namespace Points.ViewModels
 
         private MainQuestFilterMode _mainQuestFilterMode = MainQuestFilterMode.None;
 
+        //Returns a formatted date string for the app header
         public string HeaderDate
         {
             get
@@ -76,7 +84,8 @@ namespace Points.ViewModels
                 }
             }
         }
-
+        
+        //Provides the color for the Global Value (top-right total value of app) based on its current value
         public Color GlobalValueColor
         {
             get
@@ -87,6 +96,7 @@ namespace Points.ViewModels
             }
         }
 
+        //Calculates if there is a Rotting missing currently available and already in the negative. Is used to check if we should add the red ! before the Global Value
         public bool HasNegativeAvailableMission
         {
             get
@@ -110,6 +120,7 @@ namespace Points.ViewModels
             }
         }
 
+        //The index of the currently displayed carousel page. Setting this here changes the page displayed.
         private int _position;
         public int Position
         {
@@ -123,6 +134,7 @@ namespace Points.ViewModels
             }
         }
 
+        //The value of the Global Value (also known as the "top right value")
         private double _topRightValue;
         public double TopRightValue
         {
@@ -138,6 +150,7 @@ namespace Points.ViewModels
             }
         }
 
+        //The start range, should probably be removed and the GlobalVariables.RangeStart used directly
         private DateTime _rangeStart = GlobalVariables.RangeStart;
         public DateTime RangeStart
         {
@@ -150,6 +163,7 @@ namespace Points.ViewModels
             }
         }
 
+        //The end range, should probably be removed and the GlobalVariables.RangeEnd used directly
         private DateTime _rangeEnd = GlobalVariables.RangeEnd;
         public DateTime RangeEnd
         {
@@ -164,12 +178,18 @@ namespace Points.ViewModels
             }
         }
 
+        //A reference to the currenlty active card, if there is any
         private IActiveCardModel? _activeCard;
+
+        public Task? Initialization { get; private set; }
+
 
         #endregion
 
-        public HomeViewModel()
+        public HomeViewModel(IDbService db)
         {
+            _db = db;
+
             // Commands
             ActivateCardCommand = new Command<IActiveCardModel>(RequestActivate);
             AddCardCommand = new Command(async () => await AddCardAsync());
@@ -183,11 +203,13 @@ namespace Points.ViewModels
             OpenDateRangePickerViewCommand = new Command(async () => await OpenDateRangePickerViewAsync());
             OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
             OpenReportsCommand = new Command(async () => await OpenReportsAsync());
-            //MissionCancelCommand = new Command<MissionCardModel>(async m => await OnMissionCancelAsync(m));
 
             // Pages + mock data moved out of constructor logic
             InitializePages();        // defines pages (empty)
-            SeedMockCards();          // adds mocks via the SAME route as UI adds
+                                      //SeedMockCards();          // adds mocks via the SAME route as UI adds
+
+            // kick off async load without awaiting
+            Initialization = LoadAsync();
 
             // Start on Main Quest
             Position = 0;
@@ -195,6 +217,34 @@ namespace Points.ViewModels
             // Ensure mission ordering after seeding
             SortMissionCards();
         }
+
+        private async Task LoadAsync()
+        {
+            // Get seed data (mock now, sqlite later)
+            var seed = await _db.GetHomeSeedDataAsync();
+
+            // Make sure we touch ObservableCollection on UI thread
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                var mainQuest = Pages.First(p => p.Name == "Main Quest");
+                var mission = Pages.First(p => p.Name == "Mission");
+                var budgets = Pages.First(p => p.Name == "Budgets");
+
+                foreach (var c in seed.MainQuestCards)
+                    CommitCardToPage(mainQuest, c);
+
+                foreach (var c in seed.MissionCards)
+                    CommitCardToPage(mission, c);
+
+                foreach (var c in seed.BudgetCards)
+                    CommitCardToPage(budgets, c);
+
+                SortMissionCards();
+                OnPropertyChanged(nameof(HasNegativeAvailableMission));
+                OnPropertyChanged(nameof(GlobalValueColor));
+            });
+        }
+
 
         #region Single-route add/commit pipeline
 
@@ -446,168 +496,6 @@ namespace Points.ViewModels
             Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<IActiveCardModel>()));
             Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>()));
             Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>()));
-        }
-
-        private void SeedMockCards()
-        {
-            var mainQuest = Pages.First(p => p.Name == "Main Quest");
-            var mission = Pages.First(p => p.Name == "Mission");
-            var budgets = Pages.First(p => p.Name == "Budgets");
-
-            // Main Quest mocks (commit through single route)
-            var testValueRates = new List<ValueRateModel>
-            {
-                new ValueRateModel() { RateName = "Higher Rate", ValuePerMinute = 5 }
-            };
-
-            var mainQuestMocks = new IActiveCardModel[]
-            {
-                new TatCardModel { Title = "TAT 1", ValuePerMinute = 1.25, ValueRates = testValueRates },
-                new ScCardModel  { Title = "SC 1",  ValuePerMinute = 1.00 },
-                new TatCardModel { Title = "TAT 2", ValuePerMinute = 0.75 },
-                new TatCardModel { Title = "TAT 3", ValuePerMinute = -1.00 },
-            };
-
-            foreach (var c in mainQuestMocks)
-                CommitCardToPage(mainQuest, c);
-
-            // Mission mocks
-            var today = DateTime.Today;
-            var now = DateTime.Now;
-            DateTime AtToday(int hour, int minute = 0) => today.AddHours(hour).AddMinutes(minute);
-
-            var missionCards = new IActiveCardModel[]
-            {
-                // ===== AVAILABLE + INCOMPLETE =====
-                new MissionCardModel
-                {
-                    Title = "Stable - Available & Incomplete",
-                    Tags = "#Stable #Available",
-                    SubType = MissionSubType.Stable,
-                    Value = 25,
-                    CreatedDate = now.AddDays(-2),
-                    AvailableFromDate = today.AddDays(-1),
-                    DueDate = today.AddDays(+2),
-                },
-
-                new MissionCardModel
-                {
-                    Title = "Degrade - Available & Incomplete",
-                    Tags = "#Degrade #Available",
-                    SubType = MissionSubType.Degrade,
-                    Value = 30,
-                    CreatedDate = now.AddDays(-1),
-                    AvailableFromDate = AtToday(8, 0),
-                    DueDate = AtToday(18, 0),
-                },
-
-                new MissionCardModel
-                {
-                    Title = "Rot - Available, Overdue & Incomplete",
-                    Tags = "#Rot #Overdue",
-                    SubType = MissionSubType.Rot,
-                    Value = 40,
-                    CreatedDate = now.AddDays(-3),
-                    AvailableFromDate = today.AddDays(-2),
-                    DueDate = AtToday(10, 0),
-                },
-
-                // ===== NOT AVAILABLE YET (should be greyed + disabled) =====
-                new MissionCardModel
-                {
-                    Title = "Stable - Not Available Yet",
-                    Tags = "#Stable #Locked",
-                    SubType = MissionSubType.Stable,
-                    Value = 15,
-                    CreatedDate = now,
-                    AvailableFromDate = now.AddHours(+2),
-                    DueDate = today.AddDays(+1),
-                },
-
-                new MissionCardModel
-                {
-                    Title = "Degrade - Not Available Yet",
-                    Tags = "#Degrade #Locked",
-                    SubType = MissionSubType.Degrade,
-                    Value = 20,
-                    CreatedDate = now,
-                    AvailableFromDate = today.AddDays(+1),
-                    DueDate = today.AddDays(+2),
-                },
-
-                new MissionCardModel
-                {
-                    Title = "Rot - Not Available Yet",
-                    Tags = "#Rot #Locked",
-                    SubType = MissionSubType.Rot,
-                    Value = 10,
-                    CreatedDate = now,
-                    AvailableFromDate = today.AddDays(+1),
-                    DueDate = today.AddDays(+1).AddHours(6),
-                },
-
-                // ===== COMPLETED TODAY (should float to top, sorted by CompletedDate) =====
-                new MissionCardModel
-                {
-                    Title = "Stable - Completed Today",
-                    Tags = "#Stable #Done",
-                    SubType = MissionSubType.Stable,
-                    Value = 25,
-                    CreatedDate = now.AddDays(-5),
-                    AvailableFromDate = today.AddDays(-2),
-                    DueDate = today.AddDays(+5),
-                },
-
-                new MissionCardModel
-                {
-                    Title = "Degrade - Completed Today",
-                    Tags = "#Degrade #Done",
-                    SubType = MissionSubType.Degrade,
-                    Value = 30,
-                    CreatedDate = now.AddDays(-2),
-                    AvailableFromDate = AtToday(7, 0),
-                    DueDate = AtToday(19, 0),
-                },
-
-                new MissionCardModel
-                {
-                    Title = "Rot - Completed Today (Freezes Damage)",
-                    Tags = "#Rot #Done",
-                    SubType = MissionSubType.Rot,
-                    Value = 40,
-                    CreatedDate = now.AddDays(-2),
-                    AvailableFromDate = today.AddDays(-1),
-                    DueDate = AtToday(9, 0),
-                },
-            };
-
-            // mark some completed
-            ((MissionCardModel)missionCards[6]).Complete(AtToday(9, 15));
-            ((MissionCardModel)missionCards[7]).Complete(AtToday(11, 30));
-            ((MissionCardModel)missionCards[8]).Complete(AtToday(14, 10));
-
-            foreach (var c in missionCards)
-                CommitCardToPage(mission, c);
-
-            // Budget mocks
-            var budget = new BudgetCardModel
-            {
-                Title = "Calorie Budget",
-                Currency = "Kcal",
-                ExchangeRate = 0.01,
-                StartDate = DateTime.Today,
-                InitialBalance = 0,
-                Status = "In-Progress",
-                Tags = "PRO TAT Other",
-                TopUps =
-                {
-                    new ScheduledTopUp { TimeOfDay = new TimeSpan(7,0,0), Amount = 500 },
-                    new ScheduledTopUp { TimeOfDay = new TimeSpan(12,0,0), Amount = 500 },
-                    new ScheduledTopUp { TimeOfDay = new TimeSpan(18,0,0), Amount = 500 },
-                }
-            };
-
-            CommitCardToPage(budgets, budget);
         }
 
         #endregion
@@ -893,22 +781,22 @@ namespace Points.ViewModels
 
         private async Task OpenAchievementsAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.AchievementsPage(GetTags()));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.AchievementsPage(_db, GetTags()));
         }
 
         private async Task OpenDateRangePickerViewAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Shared.DateRangePickerPage());
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Shared.DateRangePickerPage(_db));
         }
 
         private async Task OpenSettingsAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Settings.SettingsPage(new SettingsViewModel(new MockDbService())));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Settings.SettingsPage(_db));
         }
 
         private async Task OpenReportsAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Reports.ReportPage());
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Reports.ReportPage(_db));
         }
 
         public void FailMission(MissionCardModel model)

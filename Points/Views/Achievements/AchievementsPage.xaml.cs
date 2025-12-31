@@ -4,7 +4,7 @@ namespace Points.Views.Achievements;
 
 public partial class AchievementsPage : ContentPage
 {
-	public AchievementsPage(List<string> availableTagsList)
+	public AchievementsPage(Services.IDbService _db, List<string> availableTagsList)
 	{
 		InitializeComponent();
 

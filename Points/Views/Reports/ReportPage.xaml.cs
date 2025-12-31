@@ -4,7 +4,7 @@ namespace Points.Views.Reports;
 
 public partial class ReportPage : ContentPage
 {
-	public ReportPage()
+	public ReportPage(Services.IDbService _db)
 	{
 		InitializeComponent();
 

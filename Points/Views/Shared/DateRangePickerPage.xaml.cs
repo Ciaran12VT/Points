@@ -4,7 +4,7 @@ namespace Points.Views.Shared;
 
 public partial class DateRangePickerPage : ContentPage
 {
-	public DateRangePickerPage()
+	public DateRangePickerPage(Services.IDbService _db)
 	{
 		InitializeComponent();
 	}

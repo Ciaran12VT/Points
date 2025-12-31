@@ -8,9 +8,9 @@
              x:Class="Points.Views.HomePage"
              Title="Points">
 
-    <ContentPage.BindingContext>
+    <!--<ContentPage.BindingContext>
         <vm:HomeViewModel />
-    </ContentPage.BindingContext>
+    </ContentPage.BindingContext>-->
     
 
     <!-- TOP TOOLBAR (in the actual top title bar area) -->

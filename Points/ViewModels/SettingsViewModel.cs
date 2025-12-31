@@ -1,4 +1,5 @@
 ﻿using Points.Models;
+using Points.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,9 +11,9 @@ namespace Points.ViewModels
 {
     public class SettingsViewModel : ObservableObject
     {
-        private readonly IDatabaseMaintenance _db;
+        private readonly IDbService _db;
 
-        public SettingsViewModel(IDatabaseMaintenance db)
+        public SettingsViewModel(IDbService db)
         {
             _db = db;
 

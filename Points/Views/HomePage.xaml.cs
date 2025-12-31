@@ -12,14 +12,14 @@ public partial class HomePage : ContentPage
 
     readonly IAudioFeedback _audio;
 
-    public HomePage(IAudioFeedback audio)
+    public HomePage(HomeViewModel vm, IAudioFeedback audio)
 	{
 		InitializeComponent();
+        BindingContext = vm;
         _audio = audio;
-        if (BindingContext is HomeViewModel vm)
-        {
-            vm.ScrollToCardRequested = ScrollToCard;
-        }
+
+        vm.ScrollToCardRequested = ScrollToCard;
+        
     }
 
     private TaskCompletionSource<int>? _posTcs;
