@@ -9,6 +9,7 @@ public partial class AchievementDetailsPage : ContentPage
 {
    private readonly List<string> _allTags;
    private readonly List<string> _stepNames;
+   private readonly List<string> _reportNames;
    private readonly List<string> _achievementTitles;
 
    public AchievementDetailsPage(AchievementCardModel model, IEnumerable<string> allTags, IEnumerable<string> stepNames, IEnumerable<string> achievementTitles, Action<AchievementCardModel> onSaved)
@@ -16,16 +17,20 @@ public partial class AchievementDetailsPage : ContentPage
        InitializeComponent();
 
        var tagEntry = this.FindByName<Entry>("TagsEntry");
+       var difficultyLevelPicker = this.FindByName<Picker>("DifficultyLevelPicker");
        var goalTypePicker = this.FindByName<Picker>("GoalTypePicker");
        var completionTypePicker = this.FindByName<Picker>("CompletionTypePicker");
        var rangeUnitPicker = this.FindByName<Picker>("RangeUnitPicker");
        var stepPicker = this.FindByName<Picker>("StepPicker");
        var activeTimeEntry = this.FindByName<Entry>("ActiveTimeEntry");
+       var reportPicker = this.FindByName<Picker>("CustomReportPicker");
 
 
         _allTags = allTags?.Distinct().OrderBy(x => x).ToList() ?? new List<string>();
        _stepNames = stepNames?.Distinct().OrderBy(x => x).ToList() ?? new List<string>();
+       _reportNames = new List<string>() { "Report 1", "Report 2" };
        _achievementTitles = achievementTitles?.Distinct().OrderBy(x => x).ToList() ?? new List<string>();
+       
 
        BindingContext = new AchievementDetailsViewModel(model, onSaved);
 
@@ -33,8 +38,10 @@ public partial class AchievementDetailsPage : ContentPage
        goalTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementGoalType)).Cast<AchievementGoalType>().ToList();
        completionTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementCompletionType)).Cast<AchievementCompletionType>().ToList();
        rangeUnitPicker.ItemsSource = Enum.GetValues(typeof(AchievementRangeUnit)).Cast<AchievementRangeUnit>().ToList();
+       difficultyLevelPicker.ItemsSource = Enum.GetValues(typeof(AchievementDifficultyLevels)).Cast<AchievementDifficultyLevels>().ToList();
 
        stepPicker.ItemsSource = _stepNames;
+       reportPicker.ItemsSource = _reportNames;
 
        // Tap-to-pick tags
        tagEntry.Focused += async (_, __) =>

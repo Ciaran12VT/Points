@@ -23,12 +23,28 @@ namespace Points.Converters
             if (cardObj is not MissionCardModel mission) return "--";
             if (nowObj is not DateTime now) return "--";
 
-            var timeLeft = (mission.DueDate - DateTime.Now);
+            string result = "";
 
-            var totalHours = (int)timeLeft.TotalHours;
-            var formatted = $"{totalHours}:{timeLeft.Minutes:D2}:{timeLeft.Seconds:D2}";
+            if(mission.IsAvailable)
+            {
+                var timeLeft = (mission.DueDate - DateTime.Now);
+                var totalHours = (int)timeLeft.TotalHours;
+                result = $"Due In: {totalHours}:{timeLeft.Minutes:D2}:{timeLeft.Seconds:D2}";
+            }
+            else if(mission.IsComplete)
+            {
+                var timeUsed = mission.GetActiveTime(mission.AvailableFromDate, mission.CompletedDate ?? DateTime.Now);
+                var totalHours = (int)timeUsed.TotalHours;
+                result = $"Took: {totalHours}:{timeUsed.Minutes:D2}:{timeUsed.Seconds:D2}";
+            }
+            else
+            {
+                var timeToBeUsed = (mission.DueDate - mission.AvailableFromDate);
+                var totalHours = (int)timeToBeUsed.TotalHours;
+                result = $"Available For: {totalHours}:{timeToBeUsed.Minutes:D2}:{timeToBeUsed.Seconds:D2}";
+            }
 
-            return formatted;
+            return result;
         }
 
         public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture)

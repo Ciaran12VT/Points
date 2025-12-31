@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Details.ReportDetailsPage"
+             Title="Report">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto"
+          Padding="12"
+          RowSpacing="10">
+
+        <!-- Title -->
+        <Label Grid.Row="0"
+               Text="{Binding Title}"
+               FontSize="20"
+               FontAttributes="Bold" />
+
+        <!-- SQL editor -->
+        <Editor Grid.Row="1"
+                Text="{Binding SqlText}"
+                AutoSize="TextChanges"
+                HeightRequest="180"
+                FontFamily="Courier New"
+                BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#1E1E1E}" />
+
+        <!-- Execute row -->
+        <HorizontalStackLayout Grid.Row="2" Spacing="10" VerticalOptions="Center">
+            <Button Text="Execute"
+                    Command="{Binding ExecuteCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                    BackgroundColor="Green"
+                    TextColor="White" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               VerticalOptions="Center" />
+        </HorizontalStackLayout>
+
+        <!-- Results "Grid" (simple list for now) -->
+        <Frame Grid.Row="3"
+               Padding="8"
+               CornerRadius="8"
+               BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
+
+            <CollectionView ItemsSource="{Binding Results}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Label Text="{Binding .}"
+                               FontFamily="Courier New"
+                               FontSize="12"
+                               LineBreakMode="WordWrap" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+        </Frame>
+
+        <!-- Results message -->
+        <Editor Grid.Row="4"
+                Text="{Binding ResultsMessage}"
+                IsReadOnly="True"
+                AutoSize="TextChanges"
+                FontSize="12"
+                BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#1E1E1E}" />
+
+    </Grid>
+</ContentPage>

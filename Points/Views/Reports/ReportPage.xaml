@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Points.ViewModels"
+             xmlns:cards="clr-namespace:Points.Views.Cards;assembly=Points"
+             x:Class="Points.Views.Reports.ReportPage"
+             Title="Reports">
+
+    <!--<ContentPage.BindingContext>
+        <vm:ReportsViewModel />
+    </ContentPage.BindingContext>-->
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <CarouselView Grid.Row="0"
+                      ItemsSource="{Binding Pages}"
+                      Position="{Binding Position, Mode=TwoWay}">
+
+            <CarouselView.ItemTemplate>
+                <DataTemplate>
+                    <Grid RowDefinitions="Auto,*">
+
+                        <Label Grid.Row="0"
+                               Text="{Binding Name}"
+                               FontSize="18"
+                               Margin="0,0,0,8" />
+
+                        <CollectionView Grid.Row="1"
+                                        ItemsSource="{Binding Cards}"
+                                        ItemTemplate="{StaticResource ReportSelector}" />
+                    </Grid>
+                </DataTemplate>
+            </CarouselView.ItemTemplate>
+
+        </CarouselView>
+
+        <!-- BOTTOM TOOLBAR -->
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,Auto"
+              Padding="12"
+              BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
+
+            <!-- Right: Add Report -->
+            <Button Grid.Column="1"
+                    Text="Add"
+                    Command="{Binding AddReportCommand}"
+                    VerticalOptions="Center"
+                    TextColor="White"
+                    BackgroundColor="Green"/>
+        </Grid>
+
+    </Grid>
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <cards:ReportCardTemplateSelector x:Key="ReportSelector">
+                <cards:ReportCardTemplateSelector.ReportTemplate>
+                    <DataTemplate>
+                        <cards:ReportCardView />
+                    </DataTemplate>
+                </cards:ReportCardTemplateSelector.ReportTemplate>
+            </cards:ReportCardTemplateSelector>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+</ContentPage>

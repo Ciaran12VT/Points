@@ -119,10 +119,10 @@
 
             </Grid>
 
-            <!-- Row 1: Status (left, grey) -->
+            <!-- Row 1: Status (left, grey) --><!--
             <Label Grid.Row="1" Grid.Column="0" Text="{Binding StatusDisplay, StringFormat='Status: {0}'}" FontSize="13" TextColor="Gray" />
 
-            <!-- Row 1: Status + Pending Window -->
+            --><!-- Row 1: Status + Pending Window --><!--
             <VerticalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Spacing="2">
 
                 <Label
@@ -139,8 +139,8 @@
             </VerticalStackLayout>
 
 
-            <!-- Row 1: Tags (right, grey) -->
-            <Label Grid.Row="1" Grid.Column="1" Text="{Binding Tags, StringFormat='Tags: {0}'}" FontSize="13" TextColor="Gray" HorizontalTextAlignment="End" />
+            --><!-- Row 1: Tags (right, grey) --><!--
+            <Label Grid.Row="1" Grid.Column="1" Text="{Binding Tags, StringFormat='Tags: {0}'}" FontSize="13" TextColor="Gray" HorizontalTextAlignment="End" />-->
 
             <!-- Row 2: SubType +Time summary -->
             <HorizontalStackLayout
@@ -220,8 +220,8 @@
                 Spacing="6"
                 HorizontalOptions="Start">
 
-                <Label Grid.Row="3" Grid.Column="0" FontSize="14" HorizontalTextAlignment="Start" Text="Due in:" />
-                <Label Grid.Row="3" Grid.Column="0" FontSize="14" HorizontalTextAlignment="End" IsVisible="{Binding IsAvailable}">
+                <!--<Label Grid.Row="3" Grid.Column="0" FontSize="14" HorizontalTextAlignment="Start" Text="Due in:" />-->
+                <Label Grid.Row="3" Grid.Column="0" FontSize="14" HorizontalTextAlignment="Start">
                     <Label.Text>
                         <MultiBinding Converter="{StaticResource MissionDueInTextConverter}">
                             <!-- the card -->

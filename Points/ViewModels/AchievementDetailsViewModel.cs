@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -36,9 +37,11 @@ namespace Points.ViewModels
 
             // load editable fields from model
             Title = _model.Title;
+            IsPinned = _model.IsPinned;
             Tags = _model.Tags;
 
             GoalType = _model.GoalType;
+            DifficultyLevel = _model.Difficulty;
 
             TargetValueText = _model.TargetValue.ToString("0.##", CultureInfo.InvariantCulture);
             StepName = _model.StepName;
@@ -90,6 +93,20 @@ namespace Points.ViewModels
                 RaisePropertyChanged(nameof(IsValueTargetVisible));
                 RaisePropertyChanged(nameof(IsStepTargetVisible));
                 RaisePropertyChanged(nameof(IsAchievementTargetVisible));
+                RaisePropertyChanged(nameof(IsCustomReportTargetVisible));
+            }
+        }
+
+        private AchievementDifficultyLevels _difficultyLevel;
+        public AchievementDifficultyLevels DifficultyLevel
+        {
+            get => _difficultyLevel;
+            set
+            {
+                if (!SetProperty(ref _difficultyLevel, value)) return;
+
+                // Tell the UI that all dependent visibility properties changed
+                RaisePropertyChanged(nameof(DifficultyLevel));
             }
         }
 
@@ -98,6 +115,9 @@ namespace Points.ViewModels
 
         private string _stepName = "";
         public string StepName { get => _stepName; set => SetProperty(ref _stepName, value); }
+
+        private string _reportName = "";
+        public string ReportName { get => _reportName; set => SetProperty(ref _reportName, value); }
 
         private string _achievementTitle = "";
         public string AchievementTitle { get => _achievementTitle; set => SetProperty(ref _achievementTitle, value); }
@@ -111,6 +131,17 @@ namespace Points.ViewModels
                 if (!SetProperty(ref _completionType, value)) return;
                 RaisePropertyChanged(nameof(IsRangeVisible));
                 RaisePropertyChanged(nameof(IsDeadlineVisible));
+            }
+        }
+
+        private bool _isPinned;
+        public bool IsPinned
+        {
+            get => _isPinned;
+            set
+            {
+                if (!SetProperty(ref _isPinned, value)) return;
+                RaisePropertyChanged(nameof(IsPinned));
             }
         }
 
@@ -136,6 +167,8 @@ namespace Points.ViewModels
         public bool IsStepTargetVisible => GoalType == AchievementGoalType.Steps;
 
         public bool IsAchievementTargetVisible => GoalType == AchievementGoalType.Achievements;
+
+        public bool IsCustomReportTargetVisible => GoalType == AchievementGoalType.Custom;
 
 
         // ===== Completion-type visibility =====
@@ -186,9 +219,11 @@ namespace Points.ViewModels
 
             // Commit
             _model.Title = Title;
+            _model.IsPinned = IsPinned;
             _model.Tags = Tags;
 
             _model.GoalType = GoalType;
+            _model.Difficulty = DifficultyLevel;
             _model.ActiveTimeTargetText = ActiveTimeTargetText;
             _model.TargetValue = targetVal;
             _model.StepName = StepName;

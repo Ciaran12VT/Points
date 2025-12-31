@@ -68,6 +68,18 @@
                     BackgroundColor="Black"
                     VerticalOptions="Center"/>
 
+                <!-- Reports -->
+                <Button Text="📊"
+                Command="{Binding OpenReportsCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                VerticalOptions="Center"/>
+
 
                 <!-- Date Range -->
                 <Button Text="📅"

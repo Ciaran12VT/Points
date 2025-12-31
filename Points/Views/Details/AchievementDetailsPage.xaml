@@ -10,9 +10,22 @@
         <ScrollView Grid.Row="0">
             <VerticalStackLayout Spacing="14">
 
-                <!-- Title -->
-                <Label Text="Title" FontAttributes="Bold"/>
+                <!-- Title + Pinned -->
+                <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center">
+                    <Label Text="Title" FontAttributes="Bold" VerticalOptions="Center"/>
+
+                    <HorizontalStackLayout 
+                        Grid.Column="1"
+                        Spacing="6"
+                        VerticalOptions="Center">
+                        
+                      <CheckBox IsChecked="{Binding IsPinned}" />
+                      <Label Text="Pinned" VerticalOptions="Center" FontSize="12"/>
+                    </HorizontalStackLayout>
+                </Grid>
+
                 <Entry Text="{Binding Title}" Placeholder="Enter title"/>
+
 
                 <!-- Status (read-only) -->
                 <Label Text="Status" FontAttributes="Bold"/>
@@ -66,6 +79,13 @@
                     ItemsSource="{Binding GoalTypeOptions}"
                     SelectedItem="{Binding GoalType}" />
 
+                <!-- Difficulty Level -->
+                <Label Text="Difficulty Level" FontAttributes="Bold"/>
+                <Picker x:Name="DifficultyLevelPicker"
+                    Title="Select goal type"
+                    ItemsSource="{Binding DifficultyLevelOptions}"
+                    SelectedItem="{Binding DifficultyLevel}" />
+
                 <!-- Target for VALUE -->
                 <VerticalStackLayout IsVisible="{Binding IsValueTargetVisible}">
                     <Label Text="Target Value" FontAttributes="Bold"/>
@@ -112,6 +132,12 @@
                     <Entry Text="{Binding TargetValueText}"
                            Keyboard="Numeric"
                            Placeholder="e.g. 50" />
+                </VerticalStackLayout>
+                
+                <!-- Target for Custom (Reports) -->
+                <VerticalStackLayout IsVisible="{Binding IsCustomReportTargetVisible}">
+                    <Label Text="Report" FontAttributes="Bold"/>
+                    <Picker x:Name="CustomReportPicker" Title="Select report" SelectedItem="{Binding ReportName}" />
                 </VerticalStackLayout>
 
                 <!-- Target for Achievements -->
@@ -242,6 +268,10 @@
 
         <Button Grid.Row="1"
                 Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
                 Command="{Binding SaveCommand}"
                 HeightRequest="48"/>
     </Grid>

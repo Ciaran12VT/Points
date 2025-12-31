@@ -5,7 +5,8 @@
         ActiveTime,
         Value,
         Steps,
-        Achievements
+        Achievements,
+        Custom
         // (You mentioned “Achievements” in target logic later — we can add that when you implement meta-achievements)
     }
 }

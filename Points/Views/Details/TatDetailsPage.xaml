@@ -163,6 +163,74 @@
                             Clicked="OnEditActiveTimeClicked"/>
                 </Grid>
 
+                <!-- ValueRates header + add button -->
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                   VerticalOptions="Center"
+                   ColumnSpacing="12"
+                   Margin="0,0,0,4">
+                    <Label Grid.Column="0"
+                        Text="Value Rates"
+                        FontAttributes="Bold"
+                        VerticalOptions="Center"/>
+
+                    <!-- spacer -->
+                    <BoxView Grid.Column="1" Opacity="0" />
+                    <Button Grid.Column="2"
+                            Text="+"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            FontAttributes="Bold"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            TextColor="White"
+                            BackgroundColor="Green"
+                            Command="{Binding AddValueRateCommand}"
+                            VerticalOptions="Center"/>
+                </Grid>
+
+                <CollectionView ItemsSource="{Binding ValueRates}"
+                             SelectionMode="None"
+                             Margin="0,4,0,0">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Padding="10"
+                                Margin="0,6"
+                                CornerRadius="10"
+                                HasShadow="True">
+                                <Grid ColumnDefinitions="*,50,40"
+                                   RowDefinitions="Auto"
+                                   ColumnSpacing="10">
+
+                                    <!-- Rate Name -->
+                                    <Entry Grid.Row="0" Grid.Column="0"
+                                        Text="{Binding RateName}"
+                                        Placeholder="Step title"/>
+
+                                    <!-- ValuePerMinute -->
+                                    <Entry Grid.Row="0" Grid.Column="1"
+                                        Keyboard="Numeric"
+                                        Text="{Binding ValuePerMinute}"
+                                        Placeholder="Value"
+                                        HorizontalTextAlignment="End"/>
+
+                                    <!-- Delete -->
+                                    <Button Grid.Row="0" Grid.Column="2"
+                                         Text="✕"
+                                         Command="{Binding DeleteValueRateCommand}"
+                                         BackgroundColor="DarkRed"
+                                         TextColor="White"
+                                         WidthRequest="36"
+                                         HeightRequest="36"
+                                         CornerRadius="8"
+                                         Padding="0"/>
+
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
                 <!-- Description (EXCEPTION: label + editor remain stacked) -->
                 <Label Text="Description" FontAttributes="Bold"/>
                 <Editor AutoSize="TextChanges"

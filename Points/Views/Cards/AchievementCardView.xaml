@@ -16,6 +16,7 @@
             <!-- Row 1: Title -->
             <Label Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
                    Text="{Binding Title}"
+                   TextColor="{Binding CardForeColor}"
                    FontSize="18"
                    FontAttributes="Bold"
                    VerticalOptions="Center" />
@@ -52,11 +53,13 @@
             <!-- Row 5: Current Value (L) + Target (R) -->
             <Label Grid.Row="4" Grid.Column="0"
                    Text="{Binding CurrentValueText}"
+                   TextColor="{Binding CardForeColor}"
                    FontSize="14" />
 
             <Label Grid.Row="4" Grid.Column="1"
                    Text="{Binding TargetText}"
                    FontSize="14"
+                   TextColor="{Binding CardForeColor}"
                    HorizontalTextAlignment="End" />
 
             <!-- Row 6: Completion Time -->

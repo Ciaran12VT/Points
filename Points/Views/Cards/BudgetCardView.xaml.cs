@@ -95,7 +95,7 @@ public partial class BudgetCardView : ContentView
             //    owner?.RemoveCard(m);
             //};
 
-            await vm.OpenExistingCardAsync((IActiveCardModel)BindingContext);
+            await vm.OpenExistingCardAsync((ICardModel)BindingContext);
         }
 
         //await Shell.Current.Navigation.PushAsync(new BudgetDetailsPage(model, onSaved, onDelete));

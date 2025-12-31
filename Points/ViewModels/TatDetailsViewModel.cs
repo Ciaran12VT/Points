@@ -21,7 +21,11 @@ namespace Points.ViewModels
         public bool HasTargetActiveTime => TargetActiveTime != null;
         public string ActiveTimeTargetLabelColor => HasTargetActiveTime ? "Yellow" : "White";
 
+        public ObservableCollection<ValueRateModel> ValueRates { get; } = new();
+
         public Command CancelCommand { get; }
+
+        public Command AddValueRateCommand { get; }
 
         private readonly IDispatcherTimer _timer;
         public void StopTimer() => _timer?.Stop();
@@ -33,6 +37,7 @@ namespace Points.ViewModels
             ToggleSignCommand = new Command(ToggleSign);
             SaveCommand = new Command(async () => await SaveAsync());
             CancelCommand = new Command(async () => await OnCancelAsync());
+            AddValueRateCommand = new Command(AddValueRate);
             AvailableTagList = availableTagsList;
 
             // Tick every second
@@ -57,6 +62,14 @@ namespace Points.ViewModels
             Description = _model.Description;
             ValuePerMinuteText = Math.Abs(_model.ValuePerMinute).ToString("0.##", CultureInfo.InvariantCulture);
             _isNegative = _model.ValuePerMinute < 0;
+
+            // Copy steps into a local collection (edit freely, commit on save)
+            foreach (var r in _model.ValueRates)
+            {
+                var rate = r ?? new ValueRateModel { RateName = "", ValuePerMinute = 0 };
+                HookRate(rate);
+                ValueRates.Add(rate);
+            }
 
             RaiseComputed();
         }
@@ -137,7 +150,6 @@ namespace Points.ViewModels
         }
 
         public Command SaveCommand { get; }
-
         private async Task SaveAsync()
         {
             // Parse numeric
@@ -151,6 +163,17 @@ namespace Points.ViewModels
             _model.Tags = Tags;
             _model.Description = Description;
             _model.ValuePerMinute = vpm;
+
+            // Commit steps back to model
+            _model.ValueRates.Clear();
+            foreach (var v in ValueRates)
+            {
+                _model.ValueRates.Add(new ValueRateModel
+                {
+                    RateName = v.RateName,
+                    ValuePerMinute = _isNegative ? (v.ValuePerMinute < 0 ? v.ValuePerMinute : v.ValuePerMinute * -1) : (v.ValuePerMinute < 0 ? v.ValuePerMinute * -1 : v.ValuePerMinute )
+                });
+            }
 
             if (_onSaved != null) _onSaved(_model);
 
@@ -171,6 +194,20 @@ namespace Points.ViewModels
                 _onDelete?.Invoke(_model);
                 await Shell.Current.Navigation.PopAsync();
             }
+        }
+
+        private void AddValueRate()
+        {
+            var rate = new ValueRateModel { RateName="", ValuePerMinute=0};
+            HookRate(rate);
+            ValueRates.Add(rate);
+
+            RaiseComputed();
+        }
+
+        private void HookRate(ValueRateModel rate)
+        {
+            rate.PropertyChanged += (_, __) => RaiseComputed();
         }
 
         private void RaiseComputed()

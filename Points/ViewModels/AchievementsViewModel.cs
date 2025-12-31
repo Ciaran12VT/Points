@@ -54,7 +54,8 @@ namespace Points.ViewModels
                 CompletionType = AchievementCompletionType.Range,
                 RangeUnit = AchievementRangeUnit.Days,
                 RangeAmount = 7,
-                Deadline = DateTime.Now
+                Deadline = DateTime.Now,
+                IsPinned = true,
             };
 
             var allTags = GetAllTags();

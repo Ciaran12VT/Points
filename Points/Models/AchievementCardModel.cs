@@ -12,6 +12,10 @@ namespace Points.Models
         public DateTime AddedAt { get; set; } = DateTime.Now;
     }
 
+    public enum AchievementDifficultyLevels
+    {
+        Easy, Medium, Hard, Ridiculous, Special
+    }
 
     public class AchievementCardModel : ObservableObject, ICardModel
     {
@@ -89,6 +93,16 @@ namespace Points.Models
             }
         }
 
+        private bool _isPinned;
+        public bool IsPinned
+        {
+            get => _isPinned;
+            set
+            {
+                SetProperty(ref _isPinned, value);
+            }
+        }
+
         public bool IsLockedThisRange
         {
             get
@@ -133,8 +147,74 @@ namespace Points.Models
             }
         }
 
-        public Color CardBackgroundColor => IsLockedThisRange ? Color.FromArgb("#2A2A2A") : Colors.Black;
+        public Color CardBackgroundColor => IsLockedThisRange ? Color.FromArgb("#2A2A2A") : GetBackColorBasedOnDifficulty();
 
+        public Color CardForeColor => IsLockedThisRange ? Colors.White : GetForeColorBasedOnDifficulty();
+
+        private Color GetBackColorBasedOnDifficulty()
+        {
+            switch (Difficulty)
+            {
+                case AchievementDifficultyLevels.Easy:
+                    return Colors.White;
+                    break;
+                case AchievementDifficultyLevels.Medium:
+                    return Colors.LightGreen;
+                    break;
+                case AchievementDifficultyLevels.Hard:
+                    return Colors.Brown;
+                    break;
+                case AchievementDifficultyLevels.Ridiculous:
+                    return Colors.Black;
+                    break;
+                case AchievementDifficultyLevels.Special:
+                    return Colors.DarkBlue;
+                    break;
+                default:
+                    return Colors.White;
+                    break;
+            }
+        }
+
+        private Color GetForeColorBasedOnDifficulty()
+        {
+            switch (Difficulty)
+            {
+                case AchievementDifficultyLevels.Easy:
+                    return Colors.Black;
+                    break;
+                case AchievementDifficultyLevels.Medium:
+                    return Colors.Black;
+                    break;
+                case AchievementDifficultyLevels.Hard:
+                    return Colors.White;
+                    break;
+                case AchievementDifficultyLevels.Ridiculous:
+                    return Colors.White;
+                    break;
+                case AchievementDifficultyLevels.Special:
+                    return Colors.White;
+                    break;
+                default:
+                    return Colors.Black;
+                    break;
+            }
+        }
+
+        private AchievementDifficultyLevels _difficulty = AchievementDifficultyLevels.Easy;
+        public AchievementDifficultyLevels Difficulty
+        {
+            get => _difficulty;
+            set
+            {
+                if (SetProperty(ref _difficulty, value))
+                {
+                    RaisePropertyChanged(nameof(Difficulty));
+                    RaisePropertyChanged(nameof(CardBackgroundColor));
+                    RaisePropertyChanged(nameof(CardForeColor));
+                }
+            }
+        }
 
 
         // For Steps: which step name + numeric target

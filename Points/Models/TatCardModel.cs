@@ -21,6 +21,12 @@ namespace Points.Models
         // Requested shape
         public List<Tuple<DateTime, DateTime>> Activity { get; set; } = new();
 
+        public ValueRateModel? SelectedValueRateModel { get; set; }
+
+        public List<ValueRateModel> ValueRates { get; set; } = new();
+
+        public List<Tuple<DateTime, ValueRateModel>> ActivityValues { get; set; } = new();
+
         private double _valuePerMinute = 1.0;
         public double ValuePerMinute
         {
@@ -56,6 +62,7 @@ namespace Points.Models
             set => SetProperty(ref _description, value);
         }
 
+        public bool HasMultipleValueRates => ValueRates.Count > 0;
 
         public ICommand ToggleActivityCommand { get; }
 
@@ -72,6 +79,7 @@ namespace Points.Models
             {
                 // Start: store (start, DateTime.MinValue) to mean "open interval"
                 Activity.Add(Tuple.Create(now, DateTime.MinValue));
+                ActivityValues.Add(Tuple.Create(now, SelectedValueRateModel ?? new ValueRateModel() { RateName = "Base Rate", ValuePerMinute = ValuePerMinute }));
                 IsActive = true;
                 RaisePropertyChanged(nameof(Activity));
                 return;
@@ -92,6 +100,7 @@ namespace Points.Models
 
             // If we got here, state was inconsistent; recover by starting a new interval
             Activity.Add(Tuple.Create(now, DateTime.MinValue));
+            ActivityValues.Add(Tuple.Create(now, SelectedValueRateModel ?? new ValueRateModel() { RateName = "Base Rate", ValuePerMinute = ValuePerMinute }));
             IsActive = true;
             RaisePropertyChanged(nameof(Activity));
         }
@@ -142,9 +151,41 @@ namespace Points.Models
 
         public virtual double GetValue(DateTime start, DateTime end)
         {
-            var active = GetActiveTime(start, end);
-            return active.TotalMinutes * ValuePerMinute;
+            //var active = GetActiveTime(start, end);
+            //return active.TotalMinutes * ValuePerMinute;
+
+            if (end <= start) return 0;
+
+            double totalValue = 0;
+
+            foreach (var period in Activity)
+            {
+                var aStart = period.Item1;
+                var aEnd = period.Item2 == DateTime.MinValue ? Min(end, DateTime.Now) : period.Item2;
+
+                var overlapStart = aStart > start ? aStart : start;
+                var overlapEnd = aEnd < end ? aEnd : end;
+
+                if (overlapEnd > overlapStart)
+                {
+                    var totalMinutes = (overlapEnd - overlapStart).TotalMinutes;
+
+                    double currentRate = ActivityValues.FirstOrDefault(x => AreWithinThreshold(x.Item1,aStart))?.Item2.ValuePerMinute ?? ValuePerMinute;
+
+                    totalValue += currentRate * totalMinutes;
+                }
+                    
+            }
+
+            return totalValue;
+
         }
+
+        bool AreWithinThreshold(DateTime a, DateTime b)
+        {
+            return Math.Abs((a - b).TotalMilliseconds) <= 200;
+        }
+
 
         DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
 

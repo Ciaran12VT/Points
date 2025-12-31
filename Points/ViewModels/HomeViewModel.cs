@@ -29,6 +29,7 @@ namespace Points.ViewModels
 
         public Command OpenDateRangePickerViewCommand { get; }
         public Command OpenSettingsCommand { get; }
+        public Command OpenReportsCommand { get; }
 
         //public Command<MissionCardModel> MissionCancelCommand { get; }
         #endregion
@@ -181,6 +182,7 @@ namespace Points.ViewModels
             OpenAchievementsCommand = new Command(async () => await OpenAchievementsAsync());
             OpenDateRangePickerViewCommand = new Command(async () => await OpenDateRangePickerViewAsync());
             OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
+            OpenReportsCommand = new Command(async () => await OpenReportsAsync());
             //MissionCancelCommand = new Command<MissionCardModel>(async m => await OnMissionCancelAsync(m));
 
             // Pages + mock data moved out of constructor logic
@@ -453,9 +455,14 @@ namespace Points.ViewModels
             var budgets = Pages.First(p => p.Name == "Budgets");
 
             // Main Quest mocks (commit through single route)
+            var testValueRates = new List<ValueRateModel>
+            {
+                new ValueRateModel() { RateName = "Higher Rate", ValuePerMinute = 5 }
+            };
+
             var mainQuestMocks = new IActiveCardModel[]
             {
-                new TatCardModel { Title = "TAT 1", ValuePerMinute = 1.25 },
+                new TatCardModel { Title = "TAT 1", ValuePerMinute = 1.25, ValueRates = testValueRates },
                 new ScCardModel  { Title = "SC 1",  ValuePerMinute = 1.00 },
                 new TatCardModel { Title = "TAT 2", ValuePerMinute = 0.75 },
                 new TatCardModel { Title = "TAT 3", ValuePerMinute = -1.00 },
@@ -607,7 +614,7 @@ namespace Points.ViewModels
 
         #region Methods (existing behavior preserved)
 
-        public void RequestActivate(IActiveCardModel card)
+        public async void RequestActivate(IActiveCardModel card)
         {
             if (card == null) return;
 
@@ -618,6 +625,27 @@ namespace Points.ViewModels
                 _activeCard = null;
                 OnPropertyChanged(nameof(HasActiveCard));
                 return;
+            }
+
+            if(card is TatCardModel tat && tat.ValueRates.Count > 0)
+            {
+                List<string> rateNames = ["Base Rate", .. tat.ValueRates.Select(x => x.RateName)];
+
+                var choice = await Shell.Current.DisplayActionSheet(
+                    "Choose Rate",
+                    "Cancel",
+                    null,
+                    rateNames.ToArray()
+                );
+
+                if (!string.IsNullOrEmpty(choice))
+                {
+                    tat.SelectedValueRateModel = choice == "Base Rate" ? null : tat.ValueRates.FirstOrDefault(x => x.RateName == choice);
+                }
+                else
+                {
+                    return;
+                }
             }
 
             // Deactivate previous
@@ -878,6 +906,11 @@ namespace Points.ViewModels
             await Shell.Current.Navigation.PushAsync(new Points.Views.Settings.SettingsPage(new SettingsViewModel(new MockDbService())));
         }
 
+        private async Task OpenReportsAsync()
+        {
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Reports.ReportPage());
+        }
+
         public void FailMission(MissionCardModel model)
         {
             model.Fail(DateTime.Now);
@@ -897,7 +930,7 @@ namespace Points.ViewModels
             OnPropertyChanged(nameof(HasNegativeAvailableMission));
         }
 
-        public async Task OpenExistingCardAsync(IActiveCardModel model)
+        public async Task OpenExistingCardAsync(ICardModel model)
         {
             if (model == null) return;
 
