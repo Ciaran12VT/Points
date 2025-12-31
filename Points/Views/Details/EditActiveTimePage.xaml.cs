@@ -1,4 +1,5 @@
 using Microsoft.Maui.Graphics.Text;
+using Points.Models;
 using Points.ViewModels;
 
 namespace Points.Views.Details;
@@ -6,9 +7,9 @@ namespace Points.Views.Details;
 public partial class EditActiveTimePage : ContentPage
 {
     // Returns edited tuples to the caller
-    private readonly TaskCompletionSource<List<Tuple<DateTime, DateTime>>> _tcs;
+    private readonly TaskCompletionSource<List<ActivityModel>> _tcs;
 
-    public EditActiveTimePage(List<Tuple<DateTime, DateTime>> activity, TaskCompletionSource<List<Tuple<DateTime, DateTime>>> tcs)
+    public EditActiveTimePage(List<ActivityModel> activity, TaskCompletionSource<List<ActivityModel>> tcs)
     {
         InitializeComponent();
         _tcs = tcs;
@@ -26,13 +27,6 @@ public partial class EditActiveTimePage : ContentPage
                 return result;
             });
     }
-
-    //protected override void OnDisappearing()
-    //{
-    //    base.OnDisappearing();
-    //    // If user backs out without saving, don't leave caller hanging.
-    //    _tcs.TrySetCanceled();
-    //}
 }
 
 internal static class DateTimePickerSheet

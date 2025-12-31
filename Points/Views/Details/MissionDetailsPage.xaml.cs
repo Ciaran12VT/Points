@@ -84,7 +84,7 @@ public partial class MissionDetailsPage : ContentPage
 
     private async void OnEditActiveTimeClicked(object sender, EventArgs e)
     {
-        var tcs = new TaskCompletionSource<List<Tuple<DateTime, DateTime>>>();
+        var tcs = new TaskCompletionSource<List<ActivityModel>>();
 
         var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs);
         await Navigation.PushAsync(page);

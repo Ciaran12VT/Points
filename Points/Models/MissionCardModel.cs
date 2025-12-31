@@ -185,7 +185,7 @@ namespace Points.Models
 
         public ICommand ToggleActivityCommand { get; }
 
-        public List<Tuple<DateTime, DateTime>> Activity { get; set; } = new();
+        public List<ActivityModel> Activity { get; set; } = new();
 
         private double _valuePerMinute = 0;
         public double ValuePerMinute
@@ -226,10 +226,12 @@ namespace Points.Models
         {
             var now = DateTime.Now;
 
+            var valueRate = new ValueRateModel() { RateName = "Base Rate", ValuePerMinute = ValuePerMinute };
+
             if (!IsActive)
             {
-                // Start: store (start, DateTime.MinValue) to mean "open interval"
-                Activity.Add(Tuple.Create(now, DateTime.MinValue));
+                // Start: store (start, DateTime.MinValue) to mean "open interval"          
+                Activity.Add(new ActivityModel(now, DateTime.MinValue, valueRate.RateName, valueRate.ValuePerMinute));
                 IsActive = true;
                 RaisePropertyChanged(nameof(Activity));
                 return;
@@ -238,10 +240,9 @@ namespace Points.Models
             // Stop: close the most recent open interval
             for (int i = Activity.Count - 1; i >= 0; i--)
             {
-                var (start, end) = (Activity[i].Item1, Activity[i].Item2);
-                if (end == DateTime.MinValue)
+                if (Activity[i].EndDate == DateTime.MinValue)
                 {
-                    Activity[i] = Tuple.Create(start, now);
+                    Activity[i].EndDate = now;
                     IsActive = false;
                     RaisePropertyChanged(nameof(Activity));
                     return;
@@ -249,20 +250,52 @@ namespace Points.Models
             }
 
             // If we got here, state was inconsistent; recover by starting a new interval
-            Activity.Add(Tuple.Create(now, DateTime.MinValue));
+            Activity.Add(new ActivityModel(now, DateTime.MinValue, valueRate.RateName, valueRate.ValuePerMinute));
             IsActive = true;
             RaisePropertyChanged(nameof(Activity));
         }
 
-        public void Complete(DateTime? completedAt = null)
+        public void StopActivity()
         {
-            if (IsComplete) return;
+            if (!IsActive) return;
 
-            IsComplete = true;
-            Status = "Complete";
-            CompletedDate = completedAt ?? DateTime.Now;
+            var now = DateTime.Now;
 
-            CompleteCommand.ChangeCanExecute();
+            for (int i = Activity.Count - 1; i >= 0; i--)
+            {
+                if (Activity[i].EndDate == DateTime.MinValue)
+                {
+                    Activity[i].EndDate = now;
+                    IsActive = false;
+                    RaisePropertyChanged(nameof(Activity));
+                    return;
+                }
+            }
+
+            // If somehow there was no open interval, just mark inactive.
+            IsActive = false;
+        }
+
+
+        public TimeSpan GetActiveTime(DateTime start, DateTime end)
+        {
+            if (end <= start) return TimeSpan.Zero;
+
+            double totalMinutes = 0;
+
+            foreach (var period in Activity)
+            {
+                var aStart = period.StartDate;
+                var aEnd = period.EndDate == DateTime.MinValue ? Min(end, DateTime.Now) : period.EndDate;
+
+                var overlapStart = aStart > start ? aStart : start;
+                var overlapEnd = aEnd < end ? aEnd : end;
+
+                if (overlapEnd > overlapStart)
+                    totalMinutes += (overlapEnd - overlapStart).TotalMinutes;
+            }
+
+            return TimeSpan.FromMinutes(totalMinutes);
         }
 
         private double GetCompletionValueAt(DateTime t)
@@ -346,47 +379,15 @@ namespace Points.Models
             return GetCompletionValueAt(now);
         }
 
-        public void StopActivity()
+        public void Complete(DateTime? completedAt = null)
         {
-            if (!IsActive) return;
+            if (IsComplete) return;
 
-            var now = DateTime.Now;
+            IsComplete = true;
+            Status = "Complete";
+            CompletedDate = completedAt ?? DateTime.Now;
 
-            for (int i = Activity.Count - 1; i >= 0; i--)
-            {
-                var (start, end) = (Activity[i].Item1, Activity[i].Item2);
-                if (end == DateTime.MinValue)
-                {
-                    Activity[i] = Tuple.Create(start, now);
-                    IsActive = false;
-                    RaisePropertyChanged(nameof(Activity));
-                    return;
-                }
-            }
-
-            // If somehow there was no open interval, just mark inactive.
-            IsActive = false;
-        }
-
-        public TimeSpan GetActiveTime(DateTime start, DateTime end)
-        {
-            if (end <= start) return TimeSpan.Zero;
-
-            double totalMinutes = 0;
-
-            foreach (var period in Activity)
-            {
-                var aStart = period.Item1;
-                var aEnd = period.Item2 == DateTime.MinValue ? Min(end, DateTime.Now) : period.Item2;
-
-                var overlapStart = aStart > start ? aStart : start;
-                var overlapEnd = aEnd < end ? aEnd : end;
-
-                if (overlapEnd > overlapStart)
-                    totalMinutes += (overlapEnd - overlapStart).TotalMinutes;
-            }
-
-            return TimeSpan.FromMinutes(totalMinutes);
+            CompleteCommand.ChangeCanExecute();
         }
 
         public virtual DateTime GetLastActiveTime()
@@ -395,7 +396,7 @@ namespace Points.Models
 
             if (Activity.Count == 0) return DateTime.MinValue;
 
-            return Activity.Select(x => x.Item2).Max();
+            return Activity.Select(x => x.EndDate).Max();
         }
     }
 }

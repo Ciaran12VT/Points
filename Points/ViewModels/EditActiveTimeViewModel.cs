@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Points.Models;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -11,6 +12,8 @@ namespace Points.ViewModels
     {
         private DateTime _start;
         private DateTime _end;
+        private string _rateName;
+        private double _valuePerMinute;
 
         public DateTime Start
         {
@@ -39,10 +42,15 @@ namespace Points.ViewModels
         public string StartText => Start.ToString("yyyy-MM-dd HH:mm:ss");
         public string EndText => End.ToString("yyyy-MM-dd HH:mm:ss");
 
-        public EditActiveTimeRow(DateTime start, DateTime end)
+        public string RateName => _rateName;
+        public double ValuePerMinute => _valuePerMinute;
+
+        public EditActiveTimeRow(DateTime start, DateTime end, string rateName, double valuePerMinute)
         {
             _start = start;
             _end = end;
+            _rateName = rateName;
+            _valuePerMinute = valuePerMinute;
         }
 
         public void SetStart(DateTime dt) => Start = dt;
@@ -52,7 +60,7 @@ namespace Points.ViewModels
     public sealed class EditActiveTimeViewModel : BindableObject
     {
         private readonly Func<DateTime, Task<DateTime?>> _pickDateTime;
-        private readonly Action<List<Tuple<DateTime, DateTime>>> _onSave;
+        private readonly Action<List<ActivityModel>> _onSave;
 
         public ObservableCollection<EditActiveTimeRow> Rows { get; } = new();
 
@@ -60,19 +68,15 @@ namespace Points.ViewModels
         public Command<EditActiveTimeRow> EditEndCommand { get; }
         public Command SaveCommand { get; }
 
-        public EditActiveTimeViewModel(
-            List<Tuple<DateTime, DateTime>> activity,
-            Action<List<Tuple<DateTime, DateTime>>> onSave,
-            Func<DateTime, Task<DateTime?>> pickDateTime)
+        public EditActiveTimeViewModel(List<ActivityModel> activity, Action<List<ActivityModel>> onSave, Func<DateTime, Task<DateTime?>> pickDateTime)
         {
             _onSave = onSave;
             _pickDateTime = pickDateTime;
 
             // Sort: most recent first, using Item1
-            foreach (var t in activity
-                .OrderByDescending(x => x.Item1))
+            foreach (var t in activity.OrderByDescending(x => x.StartDate))
             {
-                Rows.Add(new EditActiveTimeRow(t.Item1, t.Item2));
+                Rows.Add(new EditActiveTimeRow(t.StartDate, t.EndDate, t.RateName, t.ValuePerMinute));
             }
 
             EditStartCommand = new Command<EditActiveTimeRow>(async row =>
@@ -104,7 +108,7 @@ namespace Points.ViewModels
             {
                 var edited = Rows
                     .OrderByDescending(r => r.Start)
-                    .Select(r => Tuple.Create(r.Start, r.End))
+                    .Select(r => new ActivityModel(r.Start, r.End, r.RateName, r.ValuePerMinute))
                     .ToList();
 
                 _onSave(edited);
