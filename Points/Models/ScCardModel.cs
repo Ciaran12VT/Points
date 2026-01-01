@@ -11,7 +11,7 @@ namespace Points.Models
 {
     public class ScCardModel : TatCardModel
     {
-
+        public int Id { get; set; }
         public bool IsSingleStep => Steps.Count == 1;
 
         public double FirstStepRepCount => Steps.Count > 0 ? Steps[0].Reps.Count : 0;

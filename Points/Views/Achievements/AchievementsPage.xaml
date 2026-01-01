@@ -68,13 +68,13 @@
 
     <ContentPage.Resources>
         <ResourceDictionary>
-            <cards:AchievementCardTemplateSelector x:Key="AchievementSelector">
-                <cards:AchievementCardTemplateSelector.AchievementTemplate>
+            <cards:CardTemplateSelector x:Key="AchievementSelector">
+                <cards:CardTemplateSelector.AchievementTemplate>
                     <DataTemplate>
                         <cards:AchievementCardView />
                     </DataTemplate>
-                </cards:AchievementCardTemplateSelector.AchievementTemplate>
-            </cards:AchievementCardTemplateSelector>
+                </cards:CardTemplateSelector.AchievementTemplate>
+            </cards:CardTemplateSelector>
         </ResourceDictionary>
     </ContentPage.Resources>
 

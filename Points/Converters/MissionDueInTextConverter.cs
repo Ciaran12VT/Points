@@ -25,11 +25,14 @@ namespace Points.Converters
 
             string result = "";
 
-            if(mission.IsAvailable)
+            if(mission.IsAvailable && !mission.IsComplete)
             {
                 var timeLeft = (mission.DueDate - DateTime.Now);
                 var totalHours = (int)timeLeft.TotalHours;
-                result = $"Due In: {totalHours}:{timeLeft.Minutes:D2}:{timeLeft.Seconds:D2}";
+
+                var labelText = timeLeft > TimeSpan.Zero ? "Due In" : "Overdue By";
+
+                result = $"{labelText}: {totalHours}:{timeLeft.Minutes:D2}:{timeLeft.Seconds:D2}";
             }
             else if(mission.IsComplete)
             {

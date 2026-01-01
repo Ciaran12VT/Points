@@ -4,11 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Points.Models
+namespace Points.Models.DbModels
 {
-    public class ValueRateModel : ObservableObject
+    public class ValueRateDbModel
     {
-        public int Id { get; set; }
+        public int TatCardValueRateID { get; set; }
+        public int TatCardID { get; set; }
         public string RateName { get; set; }
         public double ValuePerMinute { get; set; }
     }

@@ -9,7 +9,7 @@ namespace Points.Models
 {
     public class MissionCardModel : ObservableObject, IActiveCardModel
     {
-        public string Id { get; } = Guid.NewGuid().ToString();
+        public int Id { get; set; }
 
         private string _title = "Mission";
         public string Title
@@ -140,8 +140,7 @@ namespace Points.Models
         {
             get
             {
-                if (!IsPending)
-                    return string.Empty;
+                if (!IsPending) return string.Empty;
 
                 var now = DateTime.Now;
 
@@ -323,6 +322,11 @@ namespace Points.Models
 
         public double GetValue(DateTime start, DateTime end)
         {
+            return GetPrizeValue(start, end) + GetValueFromValuePerMinute(start, end);
+        }
+
+        public double GetPrizeValue(DateTime start, DateTime end)
+        {
             if (end <= start) return 0;
 
             if (IsFailed) return Value * -1;
@@ -359,6 +363,34 @@ namespace Points.Models
 
             // Negative stream
             return -slope * minutesOverdue;
+        }
+
+        public virtual double GetValueFromValuePerMinute(DateTime start, DateTime end)
+        {
+            if (end <= start) return 0;
+
+            double totalValue = 0;
+
+            foreach (var period in Activity)
+            {
+                var aStart = period.StartDate;
+                var aEnd = period.EndDate == DateTime.MinValue ? Min(end, DateTime.Now) : period.EndDate;
+
+                var overlapStart = aStart > start ? aStart : start;
+                var overlapEnd = aEnd < end ? aEnd : end;
+
+                if (overlapEnd > overlapStart)
+                {
+                    var totalMinutes = (overlapEnd - overlapStart).TotalMinutes;
+
+                    double currentRate = period.ValuePerMinute;
+
+                    totalValue += currentRate * totalMinutes;
+                }
+
+            }
+
+            return totalValue;
         }
 
         // helpers

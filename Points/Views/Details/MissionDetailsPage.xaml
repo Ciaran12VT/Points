@@ -97,11 +97,29 @@
                            VerticalOptions="Center"/>
                 </Grid>
 
+                <!-- Value Per Minute (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Value Per Minute" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
+                           Text="{Binding ValuePerMinText}"
+                           Keyboard="Numeric"
+                           Placeholder="e.g. 0.1"
+                           IsReadOnly="{Binding IsReadOnly}"
+                           VerticalOptions="Center"/>
+                </Grid>
+
                 <!-- Created Date (read-only) (same row) -->
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
                     <Label Grid.Column="0" Text="Created Date" FontAttributes="Bold" VerticalOptions="Center"/>
                     <Label Grid.Column="1" Text="{Binding CreatedDateText}" TextColor="Gray" VerticalOptions="Center"/>
                 </Grid>
+
+                <!-- Complete Date (read-only) (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center" IsVisible="{Binding IsComplete}">
+                    <Label Grid.Column="0" Text="Completed Date" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Label Grid.Column="1" Text="{Binding CompletedDateText}" TextColor="Gray" VerticalOptions="Center"/>
+                </Grid>
+
 
                 <!-- Available From (same row: label + date + time) -->
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">

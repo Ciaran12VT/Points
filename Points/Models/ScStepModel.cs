@@ -8,6 +8,8 @@ namespace Points.Models
 {
     public class ScStepModel : ObservableObject
     {
+        public int Id { get; set; }
+
         private int _order;
         public int Order
         {

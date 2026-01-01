@@ -9,8 +9,6 @@ namespace Points.Models
 {
     public class BudgetCardModel : ObservableObject, ICardModel
     {
-        public string Id { get; } = Guid.NewGuid().ToString();
-
         private string _title = "Daily Calories";
         public string Title { get => _title; set => SetProperty(ref _title, value); }
 
@@ -38,6 +36,7 @@ namespace Points.Models
 
         public ObservableCollection<ScheduledTopUp> TopUps { get; } = new();
         public ObservableCollection<BudgetTransaction> Transactions { get; } = new();
+        public int Id { get; set; }
 
         // ---- Core calculations ----
 
@@ -100,7 +99,19 @@ namespace Points.Models
         }
 
         // This is what contributes to the global top-right total
-        public double GetValue(DateTime start, DateTime end) => GetCashedInValue(start, end);
+        public double GetValue(DateTime start, DateTime end)
+        {
+            double cashedInValue = GetCashedInValue(start, end);
+
+            double currentValue = GetGlobalValueRemaining(end > DateTime.Now ? DateTime.Now : end);
+
+            if(currentValue < 0)
+            {
+                cashedInValue += currentValue;
+            }
+
+            return cashedInValue;
+        }
 
         // ---- Commands/helpers you'll hook up later via forms/buttons ----
 

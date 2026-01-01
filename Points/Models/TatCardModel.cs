@@ -9,7 +9,7 @@ namespace Points.Models
 {
     public class TatCardModel : ObservableObject, IActiveCardModel
     {
-        public string Id { get; } = Guid.NewGuid().ToString();
+        public int Id { get; set; }
 
         private string _title = "TAT Card";
         public string Title

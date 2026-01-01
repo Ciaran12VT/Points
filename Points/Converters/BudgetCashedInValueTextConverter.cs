@@ -26,7 +26,7 @@ namespace Points.Converters
             if (startObj is not DateTime start) return "Value: --";
             if (endObj is not DateTime end) return "Value: --";
 
-            var v = b.GetCashedInValue(start, end);
+            var v = b.GetValue(start, end);
             return $"Value: {v:0}";
         }
 

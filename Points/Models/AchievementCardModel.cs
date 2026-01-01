@@ -6,7 +6,6 @@ namespace Points.Models
 
     public class TrophyItem
     {
-        public string Id { get; } = Guid.NewGuid().ToString();
         public string DisplayName { get; set; } = "";
         public string LocalPath { get; set; } = "";
         public DateTime AddedAt { get; set; } = DateTime.Now;
@@ -24,13 +23,14 @@ namespace Points.Models
             Trophies.CollectionChanged += (_, __) => RaisePropertyChanged(nameof(TrophyCount));
         }
 
-        public string Id { get; } = Guid.NewGuid().ToString();
-
         private string _title = "New Achievement";
         public string Title { get => _title; set => SetProperty(ref _title, value); }
 
         private string _status = "In-Progress";
         public string Status { get => _status; set => SetProperty(ref _status, value); }
+
+        private string _description = "";
+        public string Description { get => _description; set => SetProperty(ref _description, value); }
 
         private string _tags = "";
         public string Tags { get => _tags; set => SetProperty(ref _tags, value); }
@@ -368,6 +368,8 @@ namespace Points.Models
         public ObservableCollection<string> Trophies { get; } = new();
 
         public int TrophyCount => Trophies.Count;
+
+        public int Id { get; set; }
 
 
         // For now: Achievements don’t contribute to global value until you define how they pay out.

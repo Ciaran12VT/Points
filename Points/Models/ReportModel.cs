@@ -8,7 +8,7 @@ namespace Points.Models
 {
     public sealed class ReportModel
     {
-        public string Id { get; init; } = Guid.NewGuid().ToString("N");
+        public int Id { get; set; }
         public string Title { get; init; } = "";
         public string SQLQuery { get; set; } = "";
         public DateTime? LastRunOn { get; set; }

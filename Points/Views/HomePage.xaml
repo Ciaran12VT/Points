@@ -307,6 +307,12 @@
                     </DataTemplate>
                 </cards:CardTemplateSelector.DateHeaderCardTemplate>
 
+                <cards:CardTemplateSelector.AchievementTemplate>
+                    <DataTemplate>
+                        <cards:AchievementCardView />
+                    </DataTemplate>
+                </cards:CardTemplateSelector.AchievementTemplate>
+
             </cards:CardTemplateSelector>
 
             <converters:GlobalValueColorConverter x:Key="GlobalValueColorConverter" />

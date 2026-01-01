@@ -51,6 +51,7 @@ namespace Points.ViewModels
 
             // Read-only
             CreatedDateText = _model.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+            CompletedDateText = _model.CompletedDate.HasValue ? _model.CompletedDate.Value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) : "--";
 
             EstimatedTimeText = _model.EstCompletionTimeText;
             EstimatedTimeTs = _model.EstCompletionTime.HasValue ? _model.EstCompletionTime.Value : TimeSpan.Zero;
@@ -60,6 +61,7 @@ namespace Points.ViewModels
             Tags = _model.Tags;
             Description = _model.Description;
             ValueText = _model.Value.ToString("0.##", CultureInfo.InvariantCulture);
+            ValuePerMinText = _model.ValuePerMinute.ToString("0.##", CultureInfo.InvariantCulture);
 
             SubTypeOptions = new ObservableCollection<MissionSubType>(
                 Enum.GetValues<MissionSubType>());
@@ -87,6 +89,10 @@ namespace Points.ViewModels
         private string _valueText = "0";
         public string ValueText { get => _valueText; set => SetProperty(ref _valueText, value); }
 
+        private string _valuePerMinText = "0";
+        public string ValuePerMinText { get => _valuePerMinText; set => SetProperty(ref _valuePerMinText, value); }
+
+
         private string _estimatedTimeText = "00:00:00";
         public string EstimatedTimeText { get => _estimatedTimeText; set => SetProperty(ref _estimatedTimeText, value); }
 
@@ -105,7 +111,11 @@ namespace Points.ViewModels
         // Read-only
         public string Status => _model.Status;
 
+        public bool IsComplete => _model.IsComplete;
+
         public string CreatedDateText { get; }
+
+        public string CompletedDateText { get; }
 
         // Available From (Date + Time)
         private DateTime _availableFromDate;
@@ -168,6 +178,14 @@ namespace Points.ViewModels
             }
 
             _model.Value = value;
+
+            if (!double.TryParse(ValuePerMinText, NumberStyles.Float, CultureInfo.InvariantCulture, out var valuePerMin))
+            {
+                await Shell.Current.DisplayAlert("Invalid Value Per Minute", "Please enter a valid numeric value.", "OK");
+                return;
+            }
+
+            _model.ValuePerMinute = valuePerMin;
 
             // CreatedDate stays as originally set (auto)
             // Status stays non-editable here

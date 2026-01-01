@@ -6,7 +6,7 @@
         public int BudgetCardID { get; set; }
 
         public double Amount { get; set; }
-        public DateTime NextTopUpAt { get; set; }
+        public TimeSpan TimeOfDay { get; set; }
     }
 
 }

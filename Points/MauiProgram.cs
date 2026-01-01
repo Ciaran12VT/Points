@@ -34,7 +34,7 @@ namespace Points
             builder.Services.AddTransient<HomePage>();      // <-- add this
             builder.Services.AddTransient<HomeViewModel>();
             builder.Services.AddSingleton<AppShell>();      // <-- add this
-            builder.Services.AddSingleton<IDbService, MockDbService>();
+            builder.Services.AddSingleton<IDbService, JsonDbService>();
 
             return builder.Build();
         }

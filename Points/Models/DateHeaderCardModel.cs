@@ -8,8 +8,7 @@ namespace Points.Models
 {
     internal class DateHeaderCardModel : ICardModel
     {
-        public string Id { get; } = Guid.NewGuid().ToString();
-
+        public int Id { get; set; }
         public string Title { get; set; } = "";
 
         public string Tags { get; set; } = "";

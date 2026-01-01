@@ -8,6 +8,8 @@ namespace Points.Models
 {
     public class TrophyModel
     {
+        public int Id { get; set; }
+
         public string Title { get; set; } = "";
         public DateTime EarnedOn { get; set; }
 

@@ -8,6 +8,8 @@ namespace Points.Models
 {
     public class ScheduledTopUp
     {
+        public int Id { get; set; }
+
         // Time of day the top-up happens (local time)
         public TimeSpan TimeOfDay { get; set; }
 

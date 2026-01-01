@@ -10,6 +10,7 @@ namespace Points.Models
 {
     public interface IActiveCardModel : ICardModel
     {
+        public int Id { get; set; }
         bool IsActive { get; }
         ICommand ToggleActivityCommand { get; }
 

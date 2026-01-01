@@ -229,6 +229,7 @@ namespace Points.ViewModels
                 var mainQuest = Pages.First(p => p.Name == "Main Quest");
                 var mission = Pages.First(p => p.Name == "Mission");
                 var budgets = Pages.First(p => p.Name == "Budgets");
+                var achievements = Pages.First(p => p.Name == "Challenges & Pinned Achievements");
 
                 foreach (var c in seed.MainQuestCards)
                     CommitCardToPage(mainQuest, c);
@@ -238,6 +239,9 @@ namespace Points.ViewModels
 
                 foreach (var c in seed.BudgetCards)
                     CommitCardToPage(budgets, c);
+
+                foreach (var c in seed.Achievements)
+                    CommitCardToPage(achievements, c);
 
                 SortMissionCards();
                 OnPropertyChanged(nameof(HasNegativeAvailableMission));
@@ -396,8 +400,15 @@ namespace Points.ViewModels
                 page.AddCard(card);
             }
 
+            CommitCardToDb(card);
+
             // Post-commit hooks centralized here
             AfterCardCommitted(page, card);
+        }
+
+        private void CommitCardToDb(ICardModel card)
+        {
+             _db.SaveCardModelAsync(card);
         }
 
         private void AfterCardCommitted(HomePageModel page, ICardModel card)
@@ -496,6 +507,7 @@ namespace Points.ViewModels
             Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<IActiveCardModel>()));
             Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>()));
             Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>()));
+            Pages.Add(new HomePageModel("Challenges & Pinned Achievements", Enumerable.Empty<ICardModel>()));
         }
 
         #endregion

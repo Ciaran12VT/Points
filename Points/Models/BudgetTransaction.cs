@@ -14,6 +14,7 @@ namespace Points.Models
 
     public class BudgetTransaction
     {
+        public int Id { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
         public BudgetTransactionType Type { get; set; }
 

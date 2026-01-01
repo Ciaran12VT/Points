@@ -15,6 +15,8 @@
             <converters:ActiveVsEstimatePercentColorConverter x:Key="ActiveVsEstimatePercentColorConverter" />
             <converters:MissionDueInTextConverter x:Key="MissionDueInTextConverter" />
             <converters:MissionDueInColorConverter x:Key="MissionDueInColorConverter" />
+            <converters:MissionCurrentValueFromValuePerMinuteTextConverter  x:Key="MissionCurrentValueFromValuePerMinuteTextConverter" />
+            <converters:MissionCurrentValueFromValuePerMinuteColorConverter  x:Key="MissionCurrentValueFromValuePerMinuteColorConverter" />
         </ResourceDictionary>
     </ContentView.Resources>
 
@@ -194,8 +196,7 @@
 
             </HorizontalStackLayout>
 
-            <!-- Row 2: Value (right, green) -->
-            
+            <!-- Row 2: Value (right, green) -->           
             <Label Grid.Row="2" Grid.Column="1" FontSize="14" HorizontalTextAlignment="End">
                 <Label.Text>
                     <MultiBinding Converter="{StaticResource MissionCurrentValueTextConverter}">
@@ -238,9 +239,26 @@
                     </Label.TextColor>
                 </Label>
 
-
+                
 
             </HorizontalStackLayout>
+
+            <Label Grid.Row="3" Grid.Column="1" FontSize="14" HorizontalTextAlignment="End">
+                <Label.Text>
+                    <MultiBinding Converter="{StaticResource MissionCurrentValueFromValuePerMinuteTextConverter}">
+                        <!-- the card -->
+                        <Binding Path="." />
+                        <!-- current time -->
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
+                    </MultiBinding>
+                </Label.Text>
+                <Label.TextColor>
+                    <MultiBinding Converter="{StaticResource MissionCurrentValueFromValuePerMinuteColorConverter}">
+                        <Binding Path="." />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
+                    </MultiBinding>
+                </Label.TextColor>
+            </Label>
 
         </Grid>
 
