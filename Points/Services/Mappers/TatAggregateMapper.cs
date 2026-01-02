@@ -103,7 +103,7 @@ namespace Points.Services.Mappers
         // -----------------------
         // Business -> Db
         // -----------------------
-        public CardDbModel MapToCardDb(TatCardModel model, int cardId, string? existingCardStringId = null)
+        public CardDbModel MapToCardDb(TatCardModel model, int cardId)
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
 
@@ -112,10 +112,10 @@ namespace Points.Services.Mappers
                 CardID = cardId,
                 Title = model.Title ?? "",
                 Tags = model.Tags ?? "",
-                // keep existing if present; otherwise give something stable
-                Id = string.IsNullOrWhiteSpace(existingCardStringId)
-                    ? Guid.NewGuid().ToString("N")
-                    : existingCardStringId
+                //// keep existing if present; otherwise give something stable
+                //Id = string.IsNullOrWhiteSpace(existingCardStringId)
+                //    ? Guid.NewGuid().ToString("N")
+                //    : existingCardStringId
             };
         }
 

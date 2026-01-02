@@ -58,9 +58,9 @@ namespace Points.ViewModels
             _isNegative = _model.ValuePerMinute < 0;
 
             // Copy steps into a local collection (edit freely, commit on save)
-            foreach (var s in _model.Steps.OrderBy(x => x.Order))
+            foreach (var s in _model.Steps.OrderBy(x => x.SortOrder))
             {
-                var step = s ?? new ScStepModel { Order = Steps.Count + 1, StepValue = 1.0 };
+                var step = s ?? new ScStepModel { SortOrder = Steps.Count + 1, StepValue = 1.0 };
                 HookStep(step);
                 Steps.Add(step);
             }
@@ -148,7 +148,7 @@ namespace Points.ViewModels
         public Command AddStepCommand { get; }
         private void AddStep()
         {
-            var step = new ScStepModel { Order = Steps.Count + 1, StepValue = 1.0 };
+            var step = new ScStepModel { SortOrder = Steps.Count + 1, StepValue = 1.0 };
             HookStep(step);
             Steps.Add(step);
 
@@ -174,7 +174,7 @@ namespace Points.ViewModels
             {
                 _model.Steps.Add(new ScStepModel
                 {
-                    Order = order++,
+                    SortOrder = order++,
                     Title = s.Title,
                     StepValue = s.StepValue,
                     Reps = s.Reps

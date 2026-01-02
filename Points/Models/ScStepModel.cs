@@ -10,11 +10,11 @@ namespace Points.Models
     {
         public int Id { get; set; }
 
-        private int _order;
-        public int Order
+        private int _sortOrder;
+        public int SortOrder
         {
-            get => _order;
-            set => SetProperty(ref _order, value);
+            get => _sortOrder;
+            set => SetProperty(ref _sortOrder, value);
         }
 
         private string _title = "";

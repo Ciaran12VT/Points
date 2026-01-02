@@ -11,53 +11,77 @@ namespace Points.Services
     public interface IDbService : IDatabaseMaintenance
     {
         // -----------------------
+        // Initialisation
+        // -----------------------
+
+        Task InitializeAsync();
+
+
+        // -----------------------
         // Reads
         // -----------------------
 
         Task<HomeSeedData> GetHomeSeedDataAsync();
 
-        public Task<List<ValueRateModel>> GetValueRateModelDataAsync();
+        public Task<List<ValueRateModel>> GetValueRateModelsDataAsync(string whereClause = null);
 
-        public Task<List<IActiveCardModel>> GetMainQuestModelDataAsync();
+        public Task<List<IActiveCardModel>> GetMainQuestModelsDataAsync(string whereClause = null);
 
-        public Task<List<TatCardModel>> GetTatModelDataAsync();
+        public Task<List<TatCardModel>> GetTatModelsDataAsync(string whereClause = null);
 
-        public Task<List<ScCardModel>> GetScModelDataAsync();
+        public Task<List<ScCardModel>> GetScModelsDataAsync(string whereClause = null);
 
-        public Task<List<MissionCardModel>> GetMissionCardModelDataAsync();
+        public Task<List<MissionCardModel>> GetMissionCardModelsDataAsync(string whereClause = null);
 
-        public Task<List<BudgetCardModel>> GetBudgetCardModelDataAsync();
+        public Task<List<BudgetCardModel>> GetBudgetCardModelsDataAsync(string whereClause = null);
 
-        public Task<List<AchievementCardModel>> GetAchievementCardModelDataAsync();
+        public Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null);
+
+        public Task<ValueRateModel> GetValueRateModelDataAsync(int id);
+
+        public Task<TatCardModel> GetTatModelDataAsync(int id);
+
+        public Task<ScCardModel> GetScModelDataAsync(int id);
+
+        public Task<MissionCardModel> GetMissionCardModelDataAsync(int id);
+
+        public Task<BudgetCardModel> GetBudgetCardModelDataAsync(int id);
+
+        public Task<AchievementCardModel> GetAchievementCardModelDataAsync(int id);
+
 
         // -----------------------
         // Writes
         // -----------------------
 
-        Task SaveCardModelAsync(List<ICardModel> models);
+        Task SaveCardModelsAsync(List<ICardModel> models);
+
+        Task SaveValueRateModelsDataAsync(List<ValueRateModel> models);
+
+        Task SaveTatModelsDataAsync(List<TatCardModel> models);
+
+        Task SaveScModelsDataAsync(List<ScCardModel> models);
+
+        Task SaveMissionCardModelsDataAsync(List<MissionCardModel> models);
+
+        Task SaveBudgetCardModelsDataAsync(List<BudgetCardModel> models);
+
+        Task SaveAchievementCardModelsDataAsync(List<AchievementCardModel> models);
+
+
         Task SaveCardModelAsync(ICardModel model);
 
-        Task SaveValueRateModelDataAsync(List<ValueRateModel> models);
+        Task SaveValueRateModelDataAsync(ValueRateModel model);
 
-        Task SaveTatModelDataAsync(List<TatCardModel> models);
+        Task SaveTatModelDataAsync(TatCardModel model);
 
-        Task SaveScModelDataAsync(List<ScCardModel> models);
+        Task SaveScModelDataAsync(ScCardModel model);
 
-        Task SaveMissionCardModelDataAsync(List<MissionCardModel> models);
+        Task SaveMissionCardModelDataAsync(MissionCardModel model);
 
-        Task SaveBudgetCardModelDataAsync(List<BudgetCardModel> models);
+        Task SaveBudgetCardModelDataAsync(BudgetCardModel model);
 
-        Task SaveAchievementCardModelDataAsync(List<AchievementCardModel> models);
-
-        Task SaveTatModelAsync(TatCardModel model);
-
-        Task SaveScModelAsync(ScCardModel model);
-
-        Task SaveMissionCardModelAsync(MissionCardModel model);
-
-        Task SaveBudgetCardModelAsync(BudgetCardModel model);
-
-        Task SaveAchievementCardModelAsync(AchievementCardModel model);
+        Task SaveAchievementCardModelDataAsync(AchievementCardModel model);
 
 
     }

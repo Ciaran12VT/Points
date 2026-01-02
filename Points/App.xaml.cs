@@ -1,12 +1,17 @@
-﻿namespace Points
+﻿using Points.Services;
+
+namespace Points
 {
     public partial class App : Application
     {
-        public App(AppShell shell)
+        public App(IDbService db, AppShell shell)
         {
             InitializeComponent();
 
             MainPage = shell;
+
+            // Kick off init (don’t block UI thread).
+            _ = db.InitializeAsync();
         }
     }
 }

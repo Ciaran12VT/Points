@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Points.Interfaces;
 using Points.Services;
+using Points.Services.Sqlite;
 using Points.ViewModels;
 using Points.Views;
 
@@ -34,7 +35,7 @@ namespace Points
             builder.Services.AddTransient<HomePage>();      // <-- add this
             builder.Services.AddTransient<HomeViewModel>();
             builder.Services.AddSingleton<AppShell>();      // <-- add this
-            builder.Services.AddSingleton<IDbService, JsonDbService>();
+            builder.Services.AddSingleton<IDbService, SqliteDbService>();
 
             return builder.Build();
         }

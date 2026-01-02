@@ -85,7 +85,7 @@ namespace Points.Models
         public DateTime? CompletedDate
         {
             get => _completedDate;
-            private set => SetProperty(ref _completedDate, value);
+            set => SetProperty(ref _completedDate, value);
         }
 
         private TimeSpan? _estCompletionTime;
@@ -172,7 +172,7 @@ namespace Points.Models
         public bool IsFailed
         {
             get => _isFailed;
-            private set => SetProperty(ref _isFailed, value);
+            set => SetProperty(ref _isFailed, value);
         }
 
         private bool _isActive;
@@ -422,7 +422,7 @@ namespace Points.Models
             CompleteCommand.ChangeCanExecute();
         }
 
-        public virtual DateTime GetLastActiveTime()
+        public DateTime GetLastActiveTime()
         {
             if (IsActive) return DateTime.Now;
 
