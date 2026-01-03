@@ -66,13 +66,19 @@ namespace Points.ViewModels
             // Copy steps into a local collection (edit freely, commit on save)
             foreach (var r in _model.ValueRates)
             {
-                var rate = r ?? new ValueRateModel { RateName = "", ValuePerMinute = 0 };
+                var rate = new ValueRateModel(DeleteValueRate) {Id = r.Id, RateName = r.RateName, ValuePerMinute = r.ValuePerMinute };
                 HookRate(rate);
                 ValueRates.Add(rate);
             }
 
             RaiseComputed();
         }
+
+        private void DeleteValueRate(ValueRateModel rate)
+        {
+            ValueRates.Remove(rate);
+        }
+
 
         private DateTime _rangeStart = GlobalVariables.RangeStart;
         public DateTime RangeStart
@@ -158,6 +164,8 @@ namespace Points.ViewModels
 
             var vpm = _isNegative ? -Math.Abs(vpmAbs) : Math.Abs(vpmAbs);
 
+
+
             // Apply to model
             _model.Title = Title;
             _model.Tags = Tags;
@@ -170,6 +178,7 @@ namespace Points.ViewModels
             {
                 _model.ValueRates.Add(new ValueRateModel
                 {
+                    Id = v.Id,
                     RateName = v.RateName,
                     ValuePerMinute = _isNegative ? (v.ValuePerMinute < 0 ? v.ValuePerMinute : v.ValuePerMinute * -1) : (v.ValuePerMinute < 0 ? v.ValuePerMinute * -1 : v.ValuePerMinute )
                 });

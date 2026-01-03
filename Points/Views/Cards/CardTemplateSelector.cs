@@ -1,4 +1,5 @@
 ﻿using Points.Models;
+using Points.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,6 +16,7 @@ namespace Points.Views.Cards
         public DataTemplate? BudgetTemplate { get; set; }
         public DataTemplate? DateHeaderCardTemplate { get; set; }
         public DataTemplate? AchievementTemplate { get; set; }
+        public DataTemplate? TrackerTemplate { get; set; }
 
         protected override DataTemplate OnSelectTemplate(object item, BindableObject container)
         {
@@ -26,6 +28,7 @@ namespace Points.Views.Cards
                 TatCardModel => TatTemplate!,
                 DateHeaderCardModel => DateHeaderCardTemplate!,
                 AchievementCardModel => AchievementTemplate!,
+                TrackerCardModel => TrackerTemplate!,
                 _ => TatTemplate!
             };
         }

@@ -174,6 +174,7 @@ namespace Points.ViewModels
             {
                 _model.Steps.Add(new ScStepModel
                 {
+                    Id = s.Id,
                     SortOrder = order++,
                     Title = s.Title,
                     StepValue = s.StepValue,

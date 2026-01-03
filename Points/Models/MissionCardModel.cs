@@ -179,7 +179,7 @@ namespace Points.Models
         public bool IsActive
         {
             get => _isActive;
-            private set => SetProperty(ref _isActive, value);
+            set => SetProperty(ref _isActive, value);
         }
 
         public ICommand ToggleActivityCommand { get; }
@@ -252,6 +252,13 @@ namespace Points.Models
             Activity.Add(new ActivityModel(now, DateTime.MinValue, valueRate.RateName, valueRate.ValuePerMinute));
             IsActive = true;
             RaisePropertyChanged(nameof(Activity));
+        }
+
+        public void Activitate()
+        {
+            IsActive = true;
+            RaisePropertyChanged(nameof(Activity));
+            return;
         }
 
         public void StopActivity()

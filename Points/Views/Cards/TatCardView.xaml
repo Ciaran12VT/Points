@@ -16,13 +16,17 @@
             <!-- Row 0: Title (top-left) -->
             <Label Grid.Row="0" Grid.Column="0"
                    Text="{Binding Title}"
+                   TextColor="{Binding TextColor}"
                    FontSize="16"
-                   VerticalOptions="Center" />
-           
-            <!-- Row 0: Activity toggle (top-right) -->
-            <Grid Grid.Row="0"
+                   VerticalOptions="Center">
+            </Label>
+
+                <!-- Row 0: Activity toggle (top-right) -->
+            <HorizontalStackLayout Grid.Row="0"
                   Grid.Column="1"
                   HorizontalOptions="End">
+
+                <Label Text="{Binding SelectedRateName}" VerticalOptions="Center" HorizontalOptions="Start" Margin="9" TextColor="Yellow" IsVisible="{Binding ShowRateNameOnCard}"/>
 
                 <Button Text="●"
                     WidthRequest="36"
@@ -43,7 +47,7 @@
                     </Button.BackgroundColor>
                 </Button>
 
-            </Grid>
+            </HorizontalStackLayout>
 
             <!-- Row 1: Status (left, grey) -->
             <Label Grid.Row="1" Grid.Column="0"

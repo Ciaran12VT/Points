@@ -11,7 +11,6 @@ namespace Points.Models
 {
     public class ScCardModel : TatCardModel
     {
-        public int Id { get; set; }
         public bool IsSingleStep => Steps.Count == 1;
 
         public double FirstStepRepCount => Steps.Count > 0 ? Steps[0].Reps.Count : 0;
@@ -48,7 +47,7 @@ namespace Points.Models
             }
         }
 
-        public ObservableCollection<ScStepModel> Steps { get; } = new();
+        public ObservableCollection<ScStepModel> Steps { get; set; } = new();
 
         // SC value is: sum( StepValue * Count ) with sign controlled by ValuePerMinute sign
         // We’ll use ValuePerMinute’s sign as the “Positive/Negative toggle”, but treat its magnitude as irrelevant.

@@ -34,8 +34,8 @@ namespace Points.Models
         private string _description = "";
         public string Description { get => _description; set => SetProperty(ref _description, value); }
 
-        public ObservableCollection<ScheduledTopUp> TopUps { get; } = new();
-        public ObservableCollection<BudgetTransaction> Transactions { get; } = new();
+        public ObservableCollection<ScheduledTopUp> TopUps { get; set; } = new();
+        public ObservableCollection<BudgetTransaction> Transactions { get; set; } = new();
         public int Id { get; set; }
 
         // ---- Core calculations ----

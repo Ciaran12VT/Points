@@ -69,7 +69,9 @@ public partial class MissionCardView : ContentView
                     if (model.CompleteCommand?.CanExecute(null) == true)
                         model.CompleteCommand.Execute(null);
 
-                    return; // done; don't open details after completing (remove if you want both)
+                    await Task.Yield();
+                    await vm.SaveMission(model);
+                    
                 }
             }
         }

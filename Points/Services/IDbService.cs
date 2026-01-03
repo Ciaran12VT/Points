@@ -17,73 +17,65 @@ namespace Points.Services
         Task InitializeAsync();
 
 
+        // -------------------------
+        // Backups and DB Maintenance
+        // -------------------------
+
+        Task BackupAsync();
+        Task WipeAsync();
+        Task RestoreAsync(string backupFilePath);
+        DateTime? GetLastBackupUtc();
+
         // -----------------------
         // Reads
         // -----------------------
 
-        Task<HomeSeedData> GetHomeSeedDataAsync();
+        // Achievement
+        //Task<AchievementCardModel> GetAchievementCardModelDataAsync(int id);
+        //Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null);
 
-        public Task<List<ValueRateModel>> GetValueRateModelsDataAsync(string whereClause = null);
+        // Budget
+        Task<BudgetCardModel> GetBudgetCardModelDataAsync(int id);
+        Task<List<BudgetCardModel>> GetBudgetCardModelsDataAsync(string whereClause = null);
 
-        public Task<List<IActiveCardModel>> GetMainQuestModelsDataAsync(string whereClause = null);
+        // Home seed
+        Task<HomeSeedData> GetHomeSeedDataAsync(DateTime rangeStart, DateTime rangeEnd);
 
-        public Task<List<TatCardModel>> GetTatModelsDataAsync(string whereClause = null);
+        // Main Quest (combined)
+        Task<List<IActiveCardModel>> GetMainQuestModelsDataAsync(DateTime rangeStart, DateTime rangeEnd);
 
-        public Task<List<ScCardModel>> GetScModelsDataAsync(string whereClause = null);
+        // Mission
+        Task<MissionCardModel> GetMissionCardModelDataAsync(int id);
+        Task<List<MissionCardModel>> GetMissionCardModelsDataAsync(string whereClause = null);
 
-        public Task<List<MissionCardModel>> GetMissionCardModelsDataAsync(string whereClause = null);
+        // SC
+        Task<ScCardModel> GetScModelDataAsync(int id);
+        Task<List<ScCardModel>> GetScModelsDataAsync(DateTime rangeStart, DateTime rangeEnd);
 
-        public Task<List<BudgetCardModel>> GetBudgetCardModelsDataAsync(string whereClause = null);
-
-        public Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null);
-
-        public Task<ValueRateModel> GetValueRateModelDataAsync(int id);
-
-        public Task<TatCardModel> GetTatModelDataAsync(int id);
-
-        public Task<ScCardModel> GetScModelDataAsync(int id);
-
-        public Task<MissionCardModel> GetMissionCardModelDataAsync(int id);
-
-        public Task<BudgetCardModel> GetBudgetCardModelDataAsync(int id);
-
-        public Task<AchievementCardModel> GetAchievementCardModelDataAsync(int id);
+        // TAT
+        Task<TatCardModel> GetTatModelDataAsync(int id);
+        Task<List<TatCardModel>> GetTatModelsDataAsync(DateTime rangeStart, DateTime rangeEnd);
 
 
         // -----------------------
         // Writes
         // -----------------------
 
+        Task SaveCardModelAsync(ICardModel model);
         Task SaveCardModelsAsync(List<ICardModel> models);
 
-        Task SaveValueRateModelsDataAsync(List<ValueRateModel> models);
+        // Adds a new entity to ScCardStepRep for the step
+        Task AddRepForStep(int scCardStepID, DateTime repTime, double stepValue);
 
-        Task SaveTatModelsDataAsync(List<TatCardModel> models);
+        // Removes the last rep before/at the given time (your implementation treats param as ScCardStepID)
+        Task RemoveRepForStep(int scCardStepID, DateTime repTime);
 
-        Task SaveScModelsDataAsync(List<ScCardModel> models);
+        // Adds an Activity row for the card resolved via model type + model.Id
+        Task<int> AddActivity(IActiveCardModel model, DateTime startTime);
 
-        Task SaveMissionCardModelsDataAsync(List<MissionCardModel> models);
-
-        Task SaveBudgetCardModelsDataAsync(List<BudgetCardModel> models);
-
-        Task SaveAchievementCardModelsDataAsync(List<AchievementCardModel> models);
-
-
-        Task SaveCardModelAsync(ICardModel model);
-
-        Task SaveValueRateModelDataAsync(ValueRateModel model);
-
-        Task SaveTatModelDataAsync(TatCardModel model);
-
-        Task SaveScModelDataAsync(ScCardModel model);
-
-        Task SaveMissionCardModelDataAsync(MissionCardModel model);
-
-        Task SaveBudgetCardModelDataAsync(BudgetCardModel model);
-
-        Task SaveAchievementCardModelDataAsync(AchievementCardModel model);
-
-
+        // Ends the most recent/open Activity row for the card resolved via model type + model.Id
+        Task EndActivity(IActiveCardModel model, DateTime endTime);
+        Task<Tuple<DateTime,DateTime>> GetPreviousAndNextActivePeriodDateTimes(DateTime current);
     }
 
     public sealed class HomeSeedData

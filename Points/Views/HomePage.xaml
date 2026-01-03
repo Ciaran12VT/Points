@@ -313,6 +313,18 @@
                     </DataTemplate>
                 </cards:CardTemplateSelector.AchievementTemplate>
 
+                <cards:CardTemplateSelector.TrackerTemplate>
+                    <DataTemplate>
+                        <cards:TrackerCardView
+                            Title="{Binding Title}"
+                            Unit="{Binding Unit}"
+                            Values="{Binding Values}"
+                            FirstRecordedDate="{Binding FirstRecordedDate}"
+                            AddValueCommand="{Binding AddValueCommand}"/>
+
+                    </DataTemplate>
+                </cards:CardTemplateSelector.TrackerTemplate>
+
             </cards:CardTemplateSelector>
 
             <converters:GlobalValueColorConverter x:Key="GlobalValueColorConverter" />

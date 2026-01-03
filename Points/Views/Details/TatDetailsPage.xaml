@@ -15,11 +15,13 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
                     <Label Grid.Column="0"
                            Text="Title"
+                           
                            FontAttributes="Bold"
                            VerticalOptions="Center"/>
 
                     <Entry Grid.Column="1"
                            Text="{Binding Title}"
+                           x:Name="TitleEntry"
                            Placeholder="Enter title"
                            VerticalOptions="Center"/>
 

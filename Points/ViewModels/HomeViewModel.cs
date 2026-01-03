@@ -8,6 +8,8 @@ using System.Runtime.CompilerServices;
 using Points.Models;
 using Points.Global;
 using Points.Services;
+using System.Diagnostics;
+using Points.Views.Details;
 
 namespace Points.ViewModels
 {
@@ -221,7 +223,7 @@ namespace Points.ViewModels
         private async Task LoadAsync()
         {
             // Get seed data (mock now, sqlite later)
-            var seed = await _db.GetHomeSeedDataAsync();
+            var seed = await _db.GetHomeSeedDataAsync(GlobalVariables.RangeStart, GlobalVariables.RangeEnd);
 
             // Make sure we touch ObservableCollection on UI thread
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -230,18 +232,41 @@ namespace Points.ViewModels
                 var mission = Pages.First(p => p.Name == "Mission");
                 var budgets = Pages.First(p => p.Name == "Budgets");
                 var achievements = Pages.First(p => p.Name == "Challenges & Pinned Achievements");
+                var trackers = Pages.First(p => p.Name == "Arcs");
+
+                //Activate any card that was set to active when the app was last closed
+                foreach (var item in seed.MainQuestCards)
+                {
+                    if(item.Activity.Count > 0 && item.Activity.OrderByDescending(x => x.StartDate).ToArray()[0].EndDate == DateTime.MinValue)
+                    {
+                        item.Activitate();
+                        _activeCard = item;
+                        break;
+                    }
+                }
 
                 foreach (var c in seed.MainQuestCards)
-                    CommitCardToPage(mainQuest, c);
+                    CommitCardToPage(mainQuest, c, true);
 
                 foreach (var c in seed.MissionCards)
-                    CommitCardToPage(mission, c);
+                    CommitCardToPage(mission, c, true);
 
                 foreach (var c in seed.BudgetCards)
-                    CommitCardToPage(budgets, c);
+                    CommitCardToPage(budgets, c, true);
 
                 foreach (var c in seed.Achievements)
-                    CommitCardToPage(achievements, c);
+                    CommitCardToPage(achievements, c, true);
+
+                //for (int i = 0; i < 1; i++)
+                //{
+                //    var tkr = new TrackerCardModel();
+                //    tkr.SetValues(new List<double>{100,101, 99, 97, 98});
+                //    tkr.Title = "Body Weight";
+                //    tkr.Unit = "Kg";
+                //    tkr.FirstRecordedDate = DateTime.Today.AddDays(-200);
+
+                //    CommitCardToPage(trackers, tkr, true);
+                //}
 
                 SortMissionCards();
                 OnPropertyChanged(nameof(HasNegativeAvailableMission));
@@ -323,6 +348,11 @@ namespace Points.ViewModels
                 return CreateDefaultBudget();
             }
 
+            if (page.Name == "Arcs")
+            {
+                return CreateDefaultTracker();
+            }
+
             return null;
         }
 
@@ -338,7 +368,8 @@ namespace Points.ViewModels
                         sc,
                         saved => CommitCardToPage(page, saved),
                         deleted => RemoveCardFromPage(page, deleted),
-                        GetTags()
+                        GetTags(),
+                        _db
                     )
                 );
                 return;
@@ -351,7 +382,8 @@ namespace Points.ViewModels
                         tat,
                         saved => CommitCardToPage(page, saved),
                         deleted => RemoveCardFromPage(page, deleted),
-                        GetTags()
+                        GetTags(),
+                        _db
                     )
                 );
                 return;
@@ -365,7 +397,8 @@ namespace Points.ViewModels
                         saved => CommitCardToPage(page, saved),
                         onDelete: m => DeleteMission(m),
                         onFail: m => FailMission(m),
-                        GetTags()
+                        GetTags(),
+                        _db
                     )
                 );
                 return;
@@ -383,13 +416,25 @@ namespace Points.ViewModels
                 );
                 return;
             }
+
+            if (model is TrackerCardModel tracker)
+            {
+                await Shell.Current.Navigation.PushAsync(
+                    new TrackerDetailsPage(
+                        tracker,
+                        saved => CommitCardToPage(page, saved),
+                        onCancelled: () => { }
+                    )
+                );
+                return;
+            }
         }
 
         /// <summary>
         /// The ONE AND ONLY way a card gets added to a page.
         /// All callers (mock seeding + UI save callbacks) must use this.
         /// </summary>
-        private void CommitCardToPage(HomePageModel page, ICardModel card)
+        private void CommitCardToPage(HomePageModel page, ICardModel card, bool noDb = false)
         {
             if (page == null || card == null) return;
 
@@ -400,7 +445,7 @@ namespace Points.ViewModels
                 page.AddCard(card);
             }
 
-            CommitCardToDb(card);
+            if(!noDb) CommitCardToDb(card);
 
             // Post-commit hooks centralized here
             AfterCardCommitted(page, card);
@@ -444,7 +489,7 @@ namespace Points.ViewModels
         {
             return new TatCardModel
             {
-                Title = "New TAT",
+                Title = "",
                 Status = "In-Progress",
                 Tags = "",
                 Description = "",
@@ -456,7 +501,7 @@ namespace Points.ViewModels
         {
             return new ScCardModel
             {
-                Title = "New SC",
+                Title = "",
                 Status = "In-Progress",
                 Tags = "",
                 Description = "",
@@ -470,7 +515,7 @@ namespace Points.ViewModels
 
             return new MissionCardModel
             {
-                Title = "New Mission",
+                Title = "",
                 Status = "In-Progress",                 // non-editable in form
                 Tags = "",
                 SubType = MissionSubType.Stable,
@@ -486,13 +531,23 @@ namespace Points.ViewModels
         {
             return new BudgetCardModel
             {
-                Title = "New Budget",
+                Title = "",
                 Status = "In-Progress",
                 Tags = "",
                 Currency = "Kcal",
                 ExchangeRate = 0.01,
                 StartDate = DateTime.Now,
                 InitialBalance = 0
+            };
+        }
+
+        private static TrackerCardModel CreateDefaultTracker()
+        {
+            return new TrackerCardModel
+            {
+                FirstRecordedDate = DateTime.Today,
+                ScheduleEvery = 1,
+                ScheduleUnit = "Week"
             };
         }
 
@@ -508,6 +563,7 @@ namespace Points.ViewModels
             Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>()));
             Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>()));
             Pages.Add(new HomePageModel("Challenges & Pinned Achievements", Enumerable.Empty<ICardModel>()));
+            Pages.Add(new HomePageModel("Arcs", Enumerable.Empty<ICardModel>()));
         }
 
         #endregion
@@ -522,6 +578,7 @@ namespace Points.ViewModels
             if (ReferenceEquals(_activeCard, card))
             {
                 card.StopActivity();
+                await _db.EndActivity(card, DateTime.Now);
                 _activeCard = null;
                 OnPropertyChanged(nameof(HasActiveCard));
                 return;
@@ -550,12 +607,21 @@ namespace Points.ViewModels
 
             // Deactivate previous
             _activeCard?.StopActivity();
+            if(_activeCard != null) await _db.EndActivity(_activeCard, DateTime.Now);
 
             // Activate new
             if (!card.IsActive && card.ToggleActivityCommand.CanExecute(null))
                 card.ToggleActivityCommand.Execute(null);
 
             _activeCard = card;
+
+            //DEBUG 
+            string testStart = _activeCard.Activity[0].StartDate.ToString("MMM-dd, yyyy HH:mm:ss");
+            string testEnd = _activeCard.Activity[0].EndDate.ToString("MMM-dd, yyyy HH:mm:ss");
+            bool endDateIsDateTimeMin = _activeCard.Activity[0].EndDate == DateTime.MinValue;
+
+            await _db.AddActivity(_activeCard, DateTime.Now);
+
             OnPropertyChanged(nameof(HasActiveCard));
         }
 
@@ -716,7 +782,9 @@ namespace Points.ViewModels
             if (missionCards.Count == sorted.Count)
             {
                 bool sameOrder = true;
-                bool hasDateHeaderCards = missionPage.AllCards.OfType<DateHeaderCardModel>().Count() > 0;
+                bool hasDateHeaderCards = 
+                    missionPage.AllCards.OfType<MissionCardModel>().Select(x => x.AvailableFromDate.Date).Distinct().Count() ==
+                    missionPage.AllCards.OfType<DateHeaderCardModel>().Select(y => y.Title).Distinct().Count();
 
                 for (int i = 0; i < missionCards.Count; i++)
                 {
@@ -865,6 +933,16 @@ namespace Points.ViewModels
 
         private void OnPropertyChanged([CallerMemberName] string? name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+        internal async Task IncrementFirstStep(ScCardModel model)
+        {
+            await _db.AddRepForStep(model.Steps[0].Id, DateTime.Now, model.Steps[0].StepValue);
+        }
+
+        internal async Task SaveMission(MissionCardModel model)
+        {
+            await _db.SaveCardModelAsync(model);
+        }
     }
 
     public class HomePageModel

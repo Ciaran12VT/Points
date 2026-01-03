@@ -180,6 +180,7 @@ namespace Points.Services.Sqlite
                     CardID          INTEGER NOT NULL,
                     Start           TEXT    NOT NULL, -- ISO-8601 datetime
                     ""End""         TEXT    NOT NULL, -- ISO-8601 datetime
+                    ValueRateName   TEXT    NOT NULL,
                     ValuePerMinute  REAL    NOT NULL,
                     FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE
                 );
@@ -210,6 +211,38 @@ namespace Points.Services.Sqlite
                 CREATE INDEX IF NOT EXISTS IX_Activity_Start              ON Activity(Start);
                 ";
         }
+
+        public static string GenerateDbWipeDataScript()
+        {
+            // Wipes data only (keeps tables + indexes). Uses FK OFF to avoid delete-order constraints.
+            return @"
+                    PRAGMA foreign_keys = OFF;
+
+                    DELETE FROM AchievementTrophy;
+                    DELETE FROM AchievementCard;
+
+                    DELETE FROM BudgetCardTransaction;
+                    DELETE FROM BudgetCardScheduledTopUp;
+                    DELETE FROM BudgetCard;
+
+                    DELETE FROM MissionCard;
+
+                    DELETE FROM ScCardStepRep;
+                    DELETE FROM ScCardStep;
+                    DELETE FROM ScCard;
+
+                    DELETE FROM TatCardValueRate;
+                    DELETE FROM TatCard;
+
+                    DELETE FROM Activity;
+
+                    -- Card is the parent of most entities, delete it last
+                    DELETE FROM Card;
+
+                    PRAGMA foreign_keys = ON;
+                ";
+        }
+
 
     }
 }

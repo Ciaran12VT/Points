@@ -14,6 +14,7 @@
                     <Label Grid.Column="0" Text="Title" FontAttributes="Bold" VerticalOptions="Center"/>
 
                     <Entry Grid.Column="1"
+                           x:Name="TitleEntry"
                            Text="{Binding Title}"
                            Placeholder="Enter title"
                            IsReadOnly="{Binding IsReadOnly}"
@@ -124,8 +125,8 @@
                 <!-- Available From (same row: label + date + time) -->
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
                     <Label Grid.Column="0" Text="Available From" FontAttributes="Bold" VerticalOptions="Center"/>
-                    <DatePicker Grid.Column="1" Date="{Binding AvailableFromDate}" IsEnabled="{Binding CanEdit}"/>
-                    <TimePicker Grid.Column="2" Time="{Binding AvailableFromTime}" IsEnabled="{Binding CanEdit}"/>
+                    <DatePicker Grid.Column="1" Date="{Binding AvailableFromDate}" IsEnabled="{Binding CanEdit}" DateSelected="OnAvailableFromDateSelected"/>
+                    <TimePicker Grid.Column="2" Time="{Binding AvailableFromTime}" IsEnabled="{Binding CanEdit}" />
                 </Grid>
 
                 <!-- Due By (same row: label + date + time) -->

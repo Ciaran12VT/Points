@@ -31,7 +31,8 @@ namespace Points.Converters
 
             // ProgressBar should show "used", like your orange fill showing spent.
             var pctUsed = 1.0 - pctRemaining;
-            return Math.Clamp(pctUsed, 0, 1);
+
+            return Math.Clamp(pctRemaining, 0, 1);
         }
 
         public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture)

@@ -161,6 +161,12 @@ namespace Points.ViewModels
             }
 
             // Apply edits back to model
+            if (string.IsNullOrEmpty(Title))
+            {
+                await Shell.Current.DisplayAlert("Missing Title", "Please fill in the Title.", "OK");
+                return;
+            }
+
             _model.Title = Title;
             _model.Tags = Tags;
             _model.Description = Description;
@@ -168,6 +174,12 @@ namespace Points.ViewModels
             _model.SubType = SelectedSubType;
             _model.AvailableFromDate = available;
             _model.DueDate = due;
+
+            if (EstimatedTimeTs == TimeSpan.Zero)
+            {
+                await Shell.Current.DisplayAlert("Missing Est Time", "Please estimate the time required.", "OK");
+                return;
+            }
 
             _model.EstCompletionTime = EstimatedTimeTs;
 

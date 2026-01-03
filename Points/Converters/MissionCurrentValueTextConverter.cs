@@ -36,13 +36,13 @@ namespace Points.Converters
                 // DEBUG
                 if (cardObj is MissionCardModel mc)
                 {
-                    if (mc.Title == "Rot - Available, Overdue & Incomplete")
+                    if (mc.Title == "Mission B")
                     {
 
                     }
                 }
 
-                var v = mission.GetCurrentValue(now);
+                var v = mission.IsPending ? mission.Value : mission.GetCurrentValue(now);
                 var formatted = $"Value: {v:F2}";
                 return formatted;
             }

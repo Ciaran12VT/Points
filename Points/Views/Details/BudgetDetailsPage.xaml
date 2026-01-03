@@ -29,7 +29,7 @@
                             Command="{Binding CancelCommand}"
 />
                 </Grid>
-                <Entry Text="{Binding Title}" Placeholder="Enter title"/>
+                <Entry Text="{Binding Title}" Placeholder="Enter title" x:Name="TitleEntry"/>
 
                 <!-- Status (read-only) -->
                 <Label Text="Status" FontAttributes="Bold"/>

@@ -1,4 +1,5 @@
 using Points.Models;
+using Points.Services;
 using Points.ViewModels;
 using System.Diagnostics;
 
@@ -7,14 +8,55 @@ namespace Points.Views.Details;
 public partial class TatDetailsPage : ContentPage
 {
     private readonly TatCardModel _model;
+    private readonly IDbService _db;
     private readonly List<string> _allTags;
 
-    public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList)
+    public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList, Services.IDbService db)
     {
         InitializeComponent();
         BindingContext = new TatDetailsViewModel(model, onSaved, onDelete, availableTagsList);
         _model = model;
+        _db = db;
         _allTags = availableTagsList;
+        Loaded += OnPageLoaded;
+    }
+
+    private async void OnPageLoaded(object? sender, EventArgs e)
+    {
+        await TryFocusTitleIfEmptyAsync();
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await TryFocusTitleIfEmptyAsync();
+    }
+
+    private async Task TryFocusTitleIfEmptyAsync()
+    {
+        if (TitleEntry == null)
+            return;
+
+        // If text is not empty, do nothing.
+        if (!string.IsNullOrWhiteSpace(TitleEntry.Text))
+            return;
+
+        // If it can't be focused, do nothing.
+        if (!TitleEntry.IsEnabled || TitleEntry.IsReadOnly || !TitleEntry.IsVisible)
+            return;
+
+        // Let navigation + layout settle
+        await Task.Delay(50);
+
+        // Focus can still fail; retry a couple of times
+        for (int i = 0; i < 3; i++)
+        {
+            MainThread.BeginInvokeOnMainThread(() => TitleEntry.Focus());
+            await Task.Delay(50);
+
+            if (TitleEntry.IsFocused)
+                return;
+        }
     }
 
     private async void OnEditTagsClicked(object sender, EventArgs e)
@@ -51,7 +93,7 @@ public partial class TatDetailsPage : ContentPage
     {
         var tcs = new TaskCompletionSource<List<ActivityModel>>();
 
-        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs);
+        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs, _db);
         await Navigation.PushAsync(page);
 
         try

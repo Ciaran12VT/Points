@@ -24,7 +24,7 @@
                     </HorizontalStackLayout>
                 </Grid>
 
-                <Entry Text="{Binding Title}" Placeholder="Enter title"/>
+                <Entry Text="{Binding Title}" Placeholder="Enter title" x:Name="TitleEntry"/>
 
 
                 <!-- Status (read-only) -->

@@ -10,10 +10,11 @@ namespace Points.Models
 {
     public interface IActiveCardModel : ICardModel
     {
-        bool IsActive { get; }
+        bool IsActive { get; set; }
         ICommand ToggleActivityCommand { get; }
 
         void StopActivity();
+        void Activitate();
 
         // Keep your requested shape for now
         List<ActivityModel> Activity { get; }

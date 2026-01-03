@@ -1,4 +1,5 @@
 using Points.Models;
+using Points.Services;
 using Points.ViewModels;
 using System.Collections.Specialized;
 
@@ -8,14 +9,16 @@ public partial class ScDetailsPage : ContentPage
 {
     INotifyCollectionChanged? _stepsNotify;
     private readonly TatCardModel _model;
+    private readonly IDbService _db;
     private readonly List<string> _allTags;
 
-    public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList)
+    public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, Services.IDbService db)
     {
         InitializeComponent();
         BindingContext = new ScDetailsViewModel(model, onSaved, onDelete, availableTagsList);
         _allTags = availableTagsList;
         _model = model;
+        _db = db;
         // 1) First scroll: only after the page is actually loaded + laid out
         Loaded += async (_, __) =>
         {
@@ -96,7 +99,7 @@ public partial class ScDetailsPage : ContentPage
     {
         var tcs = new TaskCompletionSource<List<ActivityModel>>();
 
-        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs);
+        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs, _db);
         await Navigation.PushAsync(page);
 
         try

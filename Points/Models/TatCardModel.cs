@@ -23,20 +23,29 @@ namespace Points.Models
 
         public ValueRateModel? SelectedValueRateModel { get; set; }
 
+
+        public string SelectedRateName => SelectedValueRateModel?.RateName ?? "Base Rate";
+
         public List<ValueRateModel> ValueRates { get; set; } = new();
 
         private double _valuePerMinute = 1.0;
         public double ValuePerMinute
         {
             get => _valuePerMinute;
-            set => SetProperty(ref _valuePerMinute, value);
+            set
+            {
+                SetProperty(ref _valuePerMinute, value);
+                RaisePropertyChanged(nameof(TextColor));
+            }
         }
+
+        public string TextColor => ValuePerMinute < 0 ? "Pink" : "White";
 
         private bool _isActive;
         public bool IsActive
         {
             get => _isActive;
-            private set => SetProperty(ref _isActive, value);
+            set => SetProperty(ref _isActive, value);
         }
 
         private string _status = "In-Progress";
@@ -62,11 +71,22 @@ namespace Points.Models
 
         public bool HasMultipleValueRates => ValueRates.Count > 0;
 
+        public bool ShowRateNameOnCard => HasMultipleValueRates && IsActive;
+
         public ICommand ToggleActivityCommand { get; }
 
         public TatCardModel()
         {
             ToggleActivityCommand = new Command(ToggleActivity);
+        }
+
+        public void Activitate()
+        {
+            IsActive = true;
+            RaisePropertyChanged(nameof(Activity));
+            RaisePropertyChanged(nameof(ShowRateNameOnCard));
+            RaisePropertyChanged(nameof(SelectedRateName));
+            return;
         }
 
         private void ToggleActivity()
@@ -81,6 +101,8 @@ namespace Points.Models
                 Activity.Add(new ActivityModel(now, DateTime.MinValue, valueRate.RateName, valueRate.ValuePerMinute));          
                 IsActive = true;
                 RaisePropertyChanged(nameof(Activity));
+                RaisePropertyChanged(nameof(ShowRateNameOnCard));
+                RaisePropertyChanged(nameof(SelectedRateName));
                 return;
             }
 
@@ -92,6 +114,8 @@ namespace Points.Models
                     Activity[i].EndDate = now;
                     IsActive = false;
                     RaisePropertyChanged(nameof(Activity));
+                    RaisePropertyChanged(nameof(ShowRateNameOnCard));
+                    RaisePropertyChanged(nameof(SelectedRateName));
                     return;
                 }
             }
@@ -100,6 +124,8 @@ namespace Points.Models
             Activity.Add(new ActivityModel(now, DateTime.MinValue, valueRate.RateName, valueRate.ValuePerMinute));
             IsActive = true;
             RaisePropertyChanged(nameof(Activity));
+            RaisePropertyChanged(nameof(ShowRateNameOnCard));
+            RaisePropertyChanged(nameof(SelectedRateName));
         }
 
         public void StopActivity()
@@ -115,6 +141,8 @@ namespace Points.Models
                     Activity[i].EndDate = now;
                     IsActive = false;
                     RaisePropertyChanged(nameof(Activity));
+                    RaisePropertyChanged(nameof(ShowRateNameOnCard));
+                    RaisePropertyChanged(nameof(SelectedRateName));
                     return;
                 }
             }
