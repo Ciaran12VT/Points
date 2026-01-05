@@ -11,6 +11,7 @@ namespace Points.Global
         public static string Root => FileSystem.AppDataDirectory; // maps tp "/data/data/<your.package.name>/files"
 
         public static string DbFolder => Ensure("db");
+        public static string DbBackupsFolder => Ensure("db/backups");
         public static string LogsFolder => Ensure("logs");
         public static string CacheFolder => Ensure("cache");
 

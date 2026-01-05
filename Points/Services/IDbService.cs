@@ -26,6 +26,10 @@ namespace Points.Services
         Task RestoreAsync(string backupFilePath);
         DateTime? GetLastBackupUtc();
 
+        Task CloseDatabaseAsync();
+
+        Task ReinitializeDatabaseAsync();
+
         // -----------------------
         // Reads
         // -----------------------
@@ -57,6 +61,14 @@ namespace Points.Services
         Task<List<TatCardModel>> GetTatModelsDataAsync(DateTime rangeStart, DateTime rangeEnd);
 
 
+        // Trackers
+        Task<ValueTrackerCardModel> GetValueTrackerCardModelDataAsync(int id);
+        Task<List<ValueTrackerCardModel>> GetValueTrackerCardModelsDataAsync(string whereClause = null);
+
+        Task<EventTrackerCardModel> GetEventTrackerCardModelDataAsync(int id);
+        Task<List<EventTrackerCardModel>> GetEventTrackerCardModelsDataAsync(string whereClause = null);
+
+
         // -----------------------
         // Writes
         // -----------------------
@@ -76,6 +88,8 @@ namespace Points.Services
         // Ends the most recent/open Activity row for the card resolved via model type + model.Id
         Task EndActivity(IActiveCardModel model, DateTime endTime);
         Task<Tuple<DateTime,DateTime>> GetPreviousAndNextActivePeriodDateTimes(DateTime current);
+
+
     }
 
     public sealed class HomeSeedData
@@ -84,5 +98,7 @@ namespace Points.Services
         public IReadOnlyList<IActiveCardModel> MissionCards { get; init; } = new List<IActiveCardModel>();
         public IReadOnlyList<ICardModel> BudgetCards { get; init; } = new List<ICardModel>();
         public IReadOnlyList<ICardModel> Achievements { get; init; } = new List<ICardModel>();
+        public IReadOnlyList<ICardModel> ValueTrackers { get; init; } = new List<ICardModel>();
+        public IReadOnlyList<ICardModel> EventTrackers { get; init; } = new List<ICardModel>();
     }
 }

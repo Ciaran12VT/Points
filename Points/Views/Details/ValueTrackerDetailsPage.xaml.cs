@@ -3,15 +3,15 @@ using Points.Models;
 
 namespace Points.Views.Details;
 
-public partial class TrackerDetailsPage : ContentPage
+public partial class ValueTrackerDetailsPage : ContentPage
 {
-    private readonly TrackerCardModel _model;
-    private readonly Action<TrackerCardModel> _onSaved;
+    private readonly ValueTrackerCardModel _model;
+    private readonly Action<ValueTrackerCardModel> _onSaved;
     private readonly Action _onCancelled;
 
-    public TrackerDetailsPage(
-        TrackerCardModel model,
-        Action<TrackerCardModel> onSaved,
+    public ValueTrackerDetailsPage(
+        ValueTrackerCardModel model,
+        Action<ValueTrackerCardModel> onSaved,
         Action onCancelled)
     {
         InitializeComponent();
@@ -23,8 +23,8 @@ public partial class TrackerDetailsPage : ContentPage
         BindingContext = _model;
 
         // Defaults
-        if (_model.FirstRecordedDate == default)
-            _model.FirstRecordedDate = DateTime.Today;
+        if (_model.CreatedDate == default)
+            _model.CreatedDate = DateTime.Today;
 
         // Schedule picker options
         UnitPicker.ItemsSource = new List<string> { "Minute", "Hour", "Day", "Week", "Month", "Year" };
@@ -76,7 +76,7 @@ public partial class TrackerDetailsPage : ContentPage
         _model.Title = title;
         _model.Unit = unit;
 
-        _model.FirstRecordedDate = StartDatePicker.Date;
+        _model.RangeStart = StartDatePicker.Date;
 
         _model.ScheduleEvery = every;
         _model.ScheduleUnit = scheduleUnit;

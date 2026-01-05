@@ -15,18 +15,30 @@
 
     <!-- TOP TOOLBAR (in the actual top title bar area) -->
     <Shell.TitleView>
-        <Grid ColumnDefinitions="*,Auto,Auto"
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
           Padding="12,0"
           VerticalOptions="Center"
           ColumnSpacing="6">
 
-            <Label Grid.Column="0"
-               Text="{Binding HeaderDate}"
-               FontSize="26"
-               VerticalOptions="Center" 
-               HorizontalOptions="Start"/>
+            <!-- Left: Header date + active phase -->
+            <VerticalStackLayout Grid.Column="0"
+                             Spacing="0"
+                             VerticalOptions="Center">
 
-            <Label Grid.Column="1"
+                <Label Text="{Binding HeaderDate}"
+                   FontSize="22"
+                   VerticalOptions="Center"
+                   HorizontalOptions="Start"/>
+
+                <Label Text="{Binding ActivePhaseName}"
+                   FontSize="22"
+                   TextColor="{Binding ActivePhaseColor}}"
+                   HorizontalOptions="Start"/>
+                
+            </VerticalStackLayout>
+
+            <!-- Warning -->
+            <Label Grid.Column="2"
                Text="!"
                TextColor="Red"
                FontSize="26"
@@ -34,7 +46,8 @@
                IsVisible="{Binding HasNegativeAvailableMission}"
                VerticalOptions="Center" />
 
-            <Label Grid.Column="2"
+            <!-- Top-right value -->
+            <Label Grid.Column="3"
                Text="{Binding TopRightValue, StringFormat='{0:F2}'}"
                FontSize="26"
                VerticalOptions="Center"
@@ -42,6 +55,7 @@
                TextColor="{Binding TopRightValue, Converter={StaticResource GlobalValueColorConverter}}" />
         </Grid>
     </Shell.TitleView>
+
 
 
     <!-- PAGE CONTENT: top toolbar + carousel + bottom toolbar -->
@@ -320,7 +334,7 @@
                             Unit="{Binding Unit}"
                             Values="{Binding Values}"
                             FirstRecordedDate="{Binding FirstRecordedDate}"
-                            AddValueCommand="{Binding AddValueCommand}"/>
+                            AddValueCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueCommand}"/>
 
                     </DataTemplate>
                 </cards:CardTemplateSelector.TrackerTemplate>

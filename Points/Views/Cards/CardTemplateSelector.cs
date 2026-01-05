@@ -28,7 +28,8 @@ namespace Points.Views.Cards
                 TatCardModel => TatTemplate!,
                 DateHeaderCardModel => DateHeaderCardTemplate!,
                 AchievementCardModel => AchievementTemplate!,
-                TrackerCardModel => TrackerTemplate!,
+                ValueTrackerCardModel => TrackerTemplate!,
+                EventTrackerCardModel => TrackerTemplate!,
                 _ => TatTemplate!
             };
         }

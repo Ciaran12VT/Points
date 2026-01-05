@@ -186,6 +186,47 @@ namespace Points.Services.Sqlite
                 );
 
                 -- =========================
+                -- Trackers
+                -- =========================
+
+                CREATE TABLE IF NOT EXISTS ValueTrackerCard (
+                    ValueTrackerCardID  INTEGER PRIMARY KEY,
+                    CardID              INTEGER NOT NULL,
+
+                    Unit                TEXT    NOT NULL DEFAULT '',
+                    CreatedDate         TEXT    NOT NULL, -- ISO-8601 datetime
+                    RangeStart          TEXT    NOT NULL, -- ISO-8601 datetime
+
+                    ScheduleEvery       INTEGER NOT NULL DEFAULT 1,
+                    ScheduleUnit        TEXT    NOT NULL DEFAULT 'Week',
+
+                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS EventTrackerCard (
+                    EventTrackerCardID  INTEGER PRIMARY KEY,
+                    CardID              INTEGER NOT NULL,
+
+                    Unit                TEXT    NOT NULL DEFAULT '',
+                    CreatedDate         TEXT    NOT NULL, -- ISO-8601 datetime
+                    RangeStart          TEXT    NOT NULL, -- ISO-8601 datetime
+
+                    GroupByPeriod       TEXT    NOT NULL DEFAULT 'Day',
+
+                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+
+                -- Stores raw points/events for BOTH tracker types (linked via CardID)
+                CREATE TABLE IF NOT EXISTS TrackerValue (
+                    TrackerValueID  INTEGER PRIMARY KEY,
+                    CardID          INTEGER NOT NULL,
+                    TimeStamp       TEXT    NOT NULL, -- ISO-8601 datetime
+                    Value           REAL    NOT NULL,
+                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+
+
+                -- =========================
                 -- Helpful indexes
                 -- =========================
                 CREATE INDEX IF NOT EXISTS IX_TatCard_CardID              ON TatCard(CardID);
@@ -209,6 +250,13 @@ namespace Points.Services.Sqlite
 
                 CREATE INDEX IF NOT EXISTS IX_Activity_CardID             ON Activity(CardID);
                 CREATE INDEX IF NOT EXISTS IX_Activity_Start              ON Activity(Start);
+
+                CREATE INDEX IF NOT EXISTS IX_ValueTracker_CardID      ON ValueTrackerCard(CardID);
+                CREATE INDEX IF NOT EXISTS IX_EventTracker_CardID      ON EventTrackerCard(CardID);
+
+                CREATE INDEX IF NOT EXISTS IX_TrackerValue_CardID      ON TrackerValue(CardID);
+                CREATE INDEX IF NOT EXISTS IX_TrackerValue_TimeStamp   ON TrackerValue(TimeStamp);
+
                 ";
         }
 
@@ -216,30 +264,8 @@ namespace Points.Services.Sqlite
         {
             // Wipes data only (keeps tables + indexes). Uses FK OFF to avoid delete-order constraints.
             return @"
-                    PRAGMA foreign_keys = OFF;
-
                     DELETE FROM AchievementTrophy;
                     DELETE FROM AchievementCard;
-
-                    DELETE FROM BudgetCardTransaction;
-                    DELETE FROM BudgetCardScheduledTopUp;
-                    DELETE FROM BudgetCard;
-
-                    DELETE FROM MissionCard;
-
-                    DELETE FROM ScCardStepRep;
-                    DELETE FROM ScCardStep;
-                    DELETE FROM ScCard;
-
-                    DELETE FROM TatCardValueRate;
-                    DELETE FROM TatCard;
-
-                    DELETE FROM Activity;
-
-                    -- Card is the parent of most entities, delete it last
-                    DELETE FROM Card;
-
-                    PRAGMA foreign_keys = ON;
                 ";
         }
 

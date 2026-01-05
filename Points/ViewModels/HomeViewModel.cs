@@ -10,6 +10,7 @@ using Points.Global;
 using Points.Services;
 using System.Diagnostics;
 using Points.Views.Details;
+using System.Windows.Input;
 
 namespace Points.ViewModels
 {
@@ -35,12 +36,14 @@ namespace Points.ViewModels
         public Command OpenSettingsCommand { get; }
         public Command OpenReportsCommand { get; }
 
+        public ICommand AddTrackerValueCommand { get; }
+
         #endregion
 
         #region Fields
 
         //Used to check if there is an card currenty active
-        public bool HasActiveCard => _activeCard != null;
+        public bool HasActiveCard => _activeCard is not null;
 
         //Returns the Carousel page that is currently displayed
         private HomePageModel CurrentPage => Pages[Math.Clamp(Position, 0, Pages.Count - 1)];
@@ -86,7 +89,54 @@ namespace Points.ViewModels
                 }
             }
         }
-        
+
+        //ActivePhaseName
+        public string ActivePhaseName
+        {
+            get
+            {
+                try
+                {
+                    // IMPORTANT: log both HasActiveCard and the runtime type
+                    System.Diagnostics.Debug.WriteLine(
+                        $"ActivePhaseName evaluated. HasActiveCard={HasActiveCard}, _activeCardType={_activeCard?.GetType().FullName ?? "null"}"
+                    );
+
+                    if (!HasActiveCard)
+                        return "Dead Air";
+
+                    return _activeCard?.Title ?? "";
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"ActivePhaseName threw: {ex}");
+                    return "";
+                }
+            }
+        }
+        public string ActivePhaseColor
+        {
+            get
+            {
+                try
+                {
+                    // IMPORTANT: log both HasActiveCard and the runtime type
+                    System.Diagnostics.Debug.WriteLine(
+                        $"ActivePhaseName evaluated. HasActiveCard={HasActiveCard}, _activeCardType={_activeCard?.GetType().FullName ?? "null"}"
+                    );
+
+                    if (!HasActiveCard) return "Gray";
+
+                    return _activeCard?.ValuePerMinute >= 0 ? "Green" : "Red";
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"ActivePhaseName threw: {ex}");
+                    return "Gray";
+                }
+            }
+        }
+
         //Provides the color for the Global Value (top-right total value of app) based on its current value
         public Color GlobalValueColor
         {
@@ -206,6 +256,36 @@ namespace Points.ViewModels
             OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
             OpenReportsCommand = new Command(async () => await OpenReportsAsync());
 
+            AddTrackerValueCommand = new Command<TrackerCardModel>(async (card) =>
+            {
+                if (card is ValueTrackerCardModel valueCard)
+                {
+                    var page = Shell.Current?.CurrentPage;
+                    if (page == null) return;
+
+                    var input = await page.DisplayPromptAsync("Add Value", "Enter a value:",
+                        accept: "OK", cancel: "Cancel", keyboard: Keyboard.Numeric);
+
+                    if (string.IsNullOrWhiteSpace(input)) return;
+
+                    if (!double.TryParse(input, out var v))
+                    {
+                        await page.DisplayAlert("Invalid value", "Please enter a valid number.", "OK");
+                        return;
+                    }
+
+                    valueCard.AddValue(v);
+                    await _db.SaveCardModelAsync(valueCard);
+                }
+                else if (card is EventTrackerCardModel eventCard)
+                {
+                    eventCard.AddValue();
+                    await _db.SaveCardModelAsync(eventCard);
+                }
+
+                
+            });
+
             // Pages + mock data moved out of constructor logic
             InitializePages();        // defines pages (empty)
                                       //SeedMockCards();          // adds mocks via the SAME route as UI adds
@@ -257,20 +337,17 @@ namespace Points.ViewModels
                 foreach (var c in seed.Achievements)
                     CommitCardToPage(achievements, c, true);
 
-                //for (int i = 0; i < 1; i++)
-                //{
-                //    var tkr = new TrackerCardModel();
-                //    tkr.SetValues(new List<double>{100,101, 99, 97, 98});
-                //    tkr.Title = "Body Weight";
-                //    tkr.Unit = "Kg";
-                //    tkr.FirstRecordedDate = DateTime.Today.AddDays(-200);
+                foreach (var c in seed.ValueTrackers)
+                    CommitCardToPage(trackers, c, true);
 
-                //    CommitCardToPage(trackers, tkr, true);
-                //}
+                foreach (var c in seed.EventTrackers)
+                    CommitCardToPage(trackers, c, true);
 
                 SortMissionCards();
                 OnPropertyChanged(nameof(HasNegativeAvailableMission));
                 OnPropertyChanged(nameof(GlobalValueColor));
+                OnPropertyChanged(nameof(ActivePhaseName));
+                OnPropertyChanged(nameof(ActivePhaseColor));
             });
         }
 
@@ -350,7 +427,23 @@ namespace Points.ViewModels
 
             if (page.Name == "Arcs")
             {
-                return CreateDefaultTracker();
+                var choice = await Shell.Current.DisplayActionSheet(
+                    "Add Card",
+                    "Cancel",
+                    null,
+                    "Value Tracker",
+                    "Event Tracker");
+
+                if (choice == "Value Tracker")
+                {
+                    return CreateDefaultValueTracker();
+                }
+                else if (choice == "Event Tracker")
+                {
+                    return CreateDefaultEventTracker();
+                }
+
+                return null;
             }
 
             return null;
@@ -417,11 +510,23 @@ namespace Points.ViewModels
                 return;
             }
 
-            if (model is TrackerCardModel tracker)
+            if (model is ValueTrackerCardModel valueTracker)
             {
                 await Shell.Current.Navigation.PushAsync(
-                    new TrackerDetailsPage(
-                        tracker,
+                    new ValueTrackerDetailsPage(
+                        valueTracker,
+                        saved => CommitCardToPage(page, saved),
+                        onCancelled: () => { }
+                    )
+                );
+                return;
+            }
+
+            if (model is EventTrackerCardModel eventTracker)
+            {
+                await Shell.Current.Navigation.PushAsync(
+                    new EventTrackerDetailsPage(
+                        eventTracker,
                         saved => CommitCardToPage(page, saved),
                         onCancelled: () => { }
                     )
@@ -541,13 +646,25 @@ namespace Points.ViewModels
             };
         }
 
-        private static TrackerCardModel CreateDefaultTracker()
+        private static ValueTrackerCardModel CreateDefaultValueTracker()
         {
-            return new TrackerCardModel
+            return new ValueTrackerCardModel
             {
-                FirstRecordedDate = DateTime.Today,
+                CreatedDate = DateTime.Today,
                 ScheduleEvery = 1,
-                ScheduleUnit = "Week"
+                ScheduleUnit = "Week",
+                Unit = "Values"
+            };
+        }
+
+        private static EventTrackerCardModel CreateDefaultEventTracker()
+        {
+            return new EventTrackerCardModel
+            {
+                CreatedDate = DateTime.Today,
+                GroupByPeriod = "Day",
+                RangeStart = DateTime.Now,
+                Unit = "Events"
             };
         }
 
@@ -581,6 +698,8 @@ namespace Points.ViewModels
                 await _db.EndActivity(card, DateTime.Now);
                 _activeCard = null;
                 OnPropertyChanged(nameof(HasActiveCard));
+                OnPropertyChanged(nameof(ActivePhaseName));
+                OnPropertyChanged(nameof(ActivePhaseColor));
                 return;
             }
 
@@ -615,14 +734,11 @@ namespace Points.ViewModels
 
             _activeCard = card;
 
-            //DEBUG 
-            string testStart = _activeCard.Activity[0].StartDate.ToString("MMM-dd, yyyy HH:mm:ss");
-            string testEnd = _activeCard.Activity[0].EndDate.ToString("MMM-dd, yyyy HH:mm:ss");
-            bool endDateIsDateTimeMin = _activeCard.Activity[0].EndDate == DateTime.MinValue;
-
             await _db.AddActivity(_activeCard, DateTime.Now);
 
             OnPropertyChanged(nameof(HasActiveCard));
+            OnPropertyChanged(nameof(ActivePhaseName));
+            OnPropertyChanged(nameof(ActivePhaseColor));
         }
 
         private void ApplyPositiveFilter()
@@ -942,6 +1058,11 @@ namespace Points.ViewModels
         internal async Task SaveMission(MissionCardModel model)
         {
             await _db.SaveCardModelAsync(model);
+        }
+
+        public async Task SaveBudget(BudgetCardModel b)
+        {
+            await _db.SaveCardModelAsync(b);
         }
     }
 

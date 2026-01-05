@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
@@ -294,11 +295,13 @@ namespace Points.Models
                 var aStart = period.StartDate;
                 var aEnd = period.EndDate == DateTime.MinValue ? Min(end, DateTime.Now) : period.EndDate;
 
-                var overlapStart = aStart > start ? aStart : start;
-                var overlapEnd = aEnd < end ? aEnd : end;
+                //var overlapStart = aStart > start ? aStart : start;
+                //var overlapEnd = aEnd < end ? aEnd : end;
 
-                if (overlapEnd > overlapStart)
-                    totalMinutes += (overlapEnd - overlapStart).TotalMinutes;
+                //if (overlapEnd > overlapStart)
+                //    totalMinutes += (overlapEnd - overlapStart).TotalMinutes;
+
+                totalMinutes += (aStart - aEnd).TotalMinutes;
             }
 
             return TimeSpan.FromMinutes(totalMinutes);

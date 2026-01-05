@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Globalization;
 using System.Windows.Input;
 using Microsoft.Maui.Controls;
+using Points.Models;
 
 namespace Points.Views.Cards;
 
@@ -17,6 +18,15 @@ public partial class TrackerCardView : ContentView
         SparklineView.Drawable = _drawable;
         SyncDrawableAndInvalidate();
     }
+
+    protected override void OnBindingContextChanged()
+    {
+        base.OnBindingContextChanged();
+
+        var t = BindingContext?.GetType().FullName ?? "<null>";
+        System.Diagnostics.Debug.WriteLine($"TrackerCardView BC = {t}");
+    }
+
 
     // -----------------------------
     // Bindable Properties (inputs)
@@ -48,14 +58,14 @@ public partial class TrackerCardView : ContentView
     public static readonly BindableProperty ValuesProperty =
         BindableProperty.Create(
             nameof(Values),
-            typeof(IList<double>),
+            typeof(IList<TrackerValueModel>),
             typeof(TrackerCardView),
             defaultValue: null,
             propertyChanged: OnValuesChanged);
 
-    public IList<double>? Values
+    public IList<TrackerValueModel>? Values
     {
-        get => (IList<double>?)GetValue(ValuesProperty);
+        get => (IList<TrackerValueModel>?)GetValue(ValuesProperty);
         set => SetValue(ValuesProperty, value);
     }
 
@@ -143,38 +153,41 @@ public partial class TrackerCardView : ContentView
 
     private async void OnAddValueClicked(object sender, EventArgs e)
     {
-        if (BindingContext is not Points.Models.TrackerCardModel t)
-            return;
+        //if (BindingContext is not Points.Models.ValueTrackerCardModel t)
+        //    return;
 
-        var unit = string.IsNullOrWhiteSpace(t.Unit) ? "" : $" ({t.Unit})";
+        //var unit = string.IsNullOrWhiteSpace(t.Unit) ? "" : $" ({t.Unit})";
 
-        var input = await Shell.Current.DisplayPromptAsync(
-            "Add Value",
-            $"Enter a value for {t.Title}{unit}",
-            accept: "OK",
-            cancel: "Cancel",
-            placeholder: "e.g. 72.4",
-            keyboard: Keyboard.Numeric);
+        //var input = await Shell.Current.DisplayPromptAsync(
+        //    "Add Value",
+        //    $"Enter a value for {t.Title}{unit}",
+        //    accept: "OK",
+        //    cancel: "Cancel",
+        //    placeholder: "e.g. 72.4",
+        //    keyboard: Keyboard.Numeric);
 
-        if (string.IsNullOrWhiteSpace(input))
-            return;
+        //if (string.IsNullOrWhiteSpace(input))
+        //    return;
 
-        // Budget card uses InvariantCulture parse; we’ll keep the same pattern for consistency.
-        // (If you want comma support later, we can add a fallback parse.)
-        if (!double.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-        {
-            await Shell.Current.DisplayAlert("Invalid number", "Please enter a valid number.", "OK");
-            return;
-        }
+        //// Budget card uses InvariantCulture parse; we’ll keep the same pattern for consistency.
+        //// (If you want comma support later, we can add a fallback parse.)
+        //if (!double.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+        //{
+        //    await Shell.Current.DisplayAlert("Invalid number", "Please enter a valid number.", "OK");
+        //    return;
+        //}
 
-        // Optional: prevent nonsense values (you can relax this if you want negative trackers)
-        // If you want to allow negatives for some trackers, remove this check or add a flag on the tracker.
-        // if (value < 0) return;
+        //// Optional: prevent nonsense values (you can relax this if you want negative trackers)
+        //// If you want to allow negatives for some trackers, remove this check or add a flag on the tracker.
+        //// if (value < 0) return;
 
-        t.AddValue(value);
+        //t.AddValue(value);
 
-        // If you have DB persistence already (or soon), this is where it should go:
-        // await vm.AddTrackerEntryAsync(t.Id, DateTime.Now, value);
+        //// If you have DB persistence already (or soon), this is where it should go:
+        //// await vm.AddTrackerEntryAsync(t.Id, DateTime.Now, value);
+        ///
+        if (AddValueCommand?.CanExecute(null) == true)
+            AddValueCommand.Execute(null);
     }
 
 
@@ -209,35 +222,44 @@ public partial class TrackerCardView : ContentView
 
     private void SyncDrawableAndInvalidate()
     {
-        _drawable.Values = Values ?? Array.Empty<double>();
-        RecomputeText();
+        var series = GetDisplaySeries();
+        _drawable.Values = series.Select(p => p.Value).ToArray();
+
+        RecomputeText(series);
         SparklineView?.Invalidate();
     }
 
-    private void RecomputeText()
+    private void RecomputeText(List<SeriesPoint>? series = null)
     {
-        var vals = Values;
-        var unit = string.IsNullOrWhiteSpace(Unit) ? "" : $" {Unit}";
+        series ??= GetDisplaySeries();
 
-        if (vals == null || vals.Count == 0)
+        var isEvent = BindingContext is EventTrackerCardModel;
+        var unitText = isEvent
+            ? " count"
+            : (string.IsNullOrWhiteSpace(Unit) ? "" : $" {Unit}");
+
+        if (series.Count == 0)
         {
             AverageText = "Avg: —";
             LatestValueText = "—";
             TrendArrow = "→";
-        }
-        else
-        {
-            var last = vals[^1];
-            var avg = vals.Average();
-            AverageText = $"Avg: {avg:0.###}{unit}";
-            LatestValueText = $"{last:0.###}{unit}";
-            TrendArrow = ComputeTrendArrow(vals, avg);
+            PeriodText = "Over the last —";
+            return;
         }
 
-        PeriodText = FirstRecordedDate.HasValue
-            ? BuildOverTheLastText(FirstRecordedDate.Value, DateTime.Now)
-            : "Over the last —";
+        var numeric = series.Select(s => s.Value).ToList();
+
+        var last = numeric[^1];
+        var avg = numeric.Average();
+
+        AverageText = $"Avg: {avg:0.###}{unitText}";
+        LatestValueText = $"{last:0.###}{unitText}";
+        TrendArrow = ComputeTrendArrow(numeric, avg);
+
+        var first = FirstRecordedDate ?? series.Min(s => s.BucketStart);
+        PeriodText = BuildOverTheLastText(first, DateTime.Now);
     }
+
 
     private static string BuildOverTheLastText(DateTime start, DateTime now)
     {
@@ -392,4 +414,82 @@ public partial class TrackerCardView : ContentView
         if (!upVsPrev && aboveAvg) return "↘";
         return "↓";
     }
+
+    private sealed record SeriesPoint(DateTime BucketStart, double Value);
+
+    private List<SeriesPoint> GetDisplaySeries()
+    {
+        var vals = Values;
+        if (vals == null || vals.Count == 0) return new List<SeriesPoint>();
+
+        // ValueTracker: use raw values
+        if (BindingContext is not EventTrackerCardModel ev)
+        {
+            return vals
+                .OrderBy(v => v.Timestamp)
+                .Select(v => new SeriesPoint(v.Timestamp, v.Value))
+                .ToList();
+        }
+
+        // EventTracker: aggregate by period
+        var period = (ev.GroupByPeriod ?? "Day").Trim();
+
+        DateTime Bucket(DateTime dt)
+        {
+            dt = dt.Date;
+
+            return period switch
+            {
+                "Day" => dt,
+                "Week" => StartOfWeek(dt, DayOfWeek.Monday),
+                "Month" => new DateTime(dt.Year, dt.Month, 1),
+                "Year" => new DateTime(dt.Year, 1, 1),
+                _ => dt
+            };
+        }
+
+        var grouped = vals
+            .GroupBy(v => Bucket(v.Timestamp))
+            .Select(g => new SeriesPoint(g.Key, g.Count())) // each event counts as 1
+            .OrderBy(p => p.BucketStart)
+            .ToList();
+
+        // Optional but nice: fill gaps so sparkline doesn’t “jump” over empty periods
+        return FillGaps(grouped, period);
+    }
+
+    private static DateTime StartOfWeek(DateTime date, DayOfWeek startOfWeek)
+    {
+        int diff = (7 + (date.DayOfWeek - startOfWeek)) % 7;
+        return date.AddDays(-diff).Date;
+    }
+
+    private static List<SeriesPoint> FillGaps(List<SeriesPoint> points, string period)
+    {
+        if (points.Count <= 1) return points;
+
+        var start = points.First().BucketStart;
+        var end = points.Last().BucketStart;
+
+        DateTime Next(DateTime d) => period switch
+        {
+            "Day" => d.AddDays(1),
+            "Week" => d.AddDays(7),
+            "Month" => d.AddMonths(1),
+            "Year" => d.AddYears(1),
+            _ => d.AddDays(1)
+        };
+
+        var map = points.ToDictionary(p => p.BucketStart, p => p.Value);
+        var filled = new List<SeriesPoint>();
+
+        for (var cur = start; cur <= end; cur = Next(cur))
+        {
+            map.TryGetValue(cur, out var v);
+            filled.Add(new SeriesPoint(cur, v));
+        }
+
+        return filled;
+    }
+
 }

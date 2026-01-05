@@ -51,7 +51,7 @@ namespace Points.Models
             return InitialBalance + totalTopUps - spent;
         }
 
-        public double GetTotalTopUpsApplied(DateTime now)
+        private double GetTotalTopUpsApplied(DateTime now)
         {
             if (now < StartDate) return 0;
 

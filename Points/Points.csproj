@@ -96,6 +96,9 @@
 	  <Compile Update="Views\Cards\DateHeaderCardView.xaml.cs">
 	    <DependentUpon>DateHeaderCardView.xaml</DependentUpon>
 	  </Compile>
+	  <Compile Update="Views\Details\ValueTrackerDetailsPage.xaml.cs">
+	    <DependentUpon>ValueTrackerDetailsPage.xaml</DependentUpon>
+	  </Compile>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -141,6 +144,9 @@
 	  <MauiXaml Update="Views\Details\EditActiveTimePage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Views\Details\EventTrackerDetailsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Views\Details\MissionDetailsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
@@ -156,7 +162,7 @@
 	  <MauiXaml Update="Views\Details\TatDetailsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
-	  <MauiXaml Update="Views\Details\TrackerDetailsPage.xaml">
+	  <MauiXaml Update="Views\Details\ValueTrackerDetailsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Views\HomePage.xaml">

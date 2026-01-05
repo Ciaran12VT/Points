@@ -53,36 +53,182 @@ namespace Points.Services.Sqlite
 
         #region Backups and DB Maintenance
 
-        public string BackupsFolderPath => throw new NotImplementedException();
-
-        public Task BackupAsync()
-        {
-            throw new NotImplementedException();
-        }
-
         public async Task WipeAsync()
         {
+            if (_db == null)
+                throw new InvalidOperationException("DB not initialized.");
+
             var script = SqlQueryService.GenerateDbWipeDataScript();
 
-            var statements = script.Split(';').Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+            // Split and filter, but also REMOVE any PRAGMA lines
+            var statements = script
+                .Split(';')
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Where(s => !s.StartsWith("PRAGMA", StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
-            await _db.RunInTransactionAsync(conn =>
+            // Toggle FK outside the transaction using ExecuteAsync (still fine here)
+            // If this still ever trips your wrapper, we can remove toggling entirely.
+            await _db.ExecuteAsync("PRAGMA foreign_keys = OFF;");
+
+            try
             {
-                conn.Execute("PRAGMA foreign_keys = ON;");
-                foreach (var stmt in statements)
-                    conn.Execute(stmt);
-            });
+                await _db.RunInTransactionAsync(conn =>
+                {
+                    foreach (var stmt in statements)
+                        conn.Execute(stmt);
+                });
+            }
+            finally
+            {
+                await _db.ExecuteAsync("PRAGMA foreign_keys = ON;");
+            }
         }
 
-        public Task RestoreAsync(string backupFilePath)
+
+        public string BackupsFolderPath => AppPaths.DbBackupsFolder;
+
+        /// <summary>
+        /// Creates a consistent snapshot of the current database into AppPaths.DbBackupsFolder.
+        /// Uses SQLite "VACUUM INTO" to avoid WAL/shm copy issues.
+        /// </summary>
+        public async Task BackupAsync()
         {
-            throw new NotImplementedException();
+            await InitializeAsync();
+
+            // Ensure backup folder exists
+            Directory.CreateDirectory(BackupsFolderPath);
+
+            // Use UTC in filenames so sorting is stable regardless of device timezone
+            var stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var backupFileName = $"points_{stamp}_utc.db3";
+            var backupPath = Path.Combine(BackupsFolderPath, backupFileName);
+
+            // Defensive: don't overwrite (in the extremely unlikely case of same-second calls)
+            if (File.Exists(backupPath))
+            {
+                stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff");
+                backupFileName = $"points_{stamp}_utc.db3";
+                backupPath = Path.Combine(BackupsFolderPath, backupFileName);
+            }
+
+            // Create the snapshot
+            // NOTE: must quote the path because it can contain '-' etc.
+            var escaped = backupPath.Replace("'", "''");
+            await Db.ExecuteAsync($"VACUUM INTO '{escaped}';");
+        }
+
+        /// <summary>
+        /// Restores the DB from a backup file. This will close the active SQLite connection and replace the DB file.
+        /// </summary>
+        public async Task RestoreAsync(string backupFilePath)
+        {
+            if (string.IsNullOrWhiteSpace(backupFilePath))
+                throw new ArgumentException("Backup path is required.", nameof(backupFilePath));
+
+            if (!File.Exists(backupFilePath))
+                throw new FileNotFoundException("Backup file not found.", backupFilePath);
+
+            // Ensure folder exists (db folder)
+            Directory.CreateDirectory(AppPaths.DbFolder);
+
+            // Close current connection if open
+            if (_db != null)
+            {
+                try
+                {
+                    await _db.CloseAsync();
+                }
+                finally
+                {
+                    _db = null;
+                }
+            }
+
+            // Replace the DB file
+            // Overwrite: true
+            File.Copy(backupFilePath, _dbPath, overwrite: true);
+
+            // Re-init connection
+            await InitializeAsync();
         }
 
         public DateTime? GetLastBackupUtc()
         {
-            return null;
+            try
+            {
+                if (!Directory.Exists(BackupsFolderPath))
+                    return null;
+
+                // Expecting files like: points_20260104_061530_utc.db3
+                // We’ll just use file timestamps as a fallback, but prefer parsing from filename if present.
+                var dir = new DirectoryInfo(BackupsFolderPath);
+                var latest = dir.GetFiles("points_*_utc.db3")
+                                .OrderByDescending(f => f.Name) // because yyyyMMdd_HHmmss sorts correctly
+                                .FirstOrDefault();
+
+                if (latest == null)
+                    return null;
+
+                // Parse from filename if possible
+                // points_yyyyMMdd_HHmmss_utc.db3
+                var name = Path.GetFileNameWithoutExtension(latest.Name); // points_20260104_061530_utc
+                var parts = name.Split('_');
+                if (parts.Length >= 4)
+                {
+                    var datePart = parts[1]; // yyyyMMdd
+                    var timePart = parts[2]; // HHmmss
+                    var combined = datePart + timePart;
+
+                    if (DateTime.TryParseExact(
+                            combined,
+                            "yyyyMMddHHmmss",
+                            CultureInfo.InvariantCulture,
+                            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                            out var parsedUtc))
+                    {
+                        return parsedUtc;
+                    }
+                }
+
+                // Fallback: file system timestamp (already UTC on many systems, but not guaranteed)
+                return latest.LastWriteTimeUtc;
+            }
+            catch
+            {
+                return null;
+            }
         }
+
+        public async Task CloseDatabaseAsync()
+        {
+            if (_db == null) return;
+
+            try
+            {
+                await _db.CloseAsync();
+            }
+            catch
+            {
+                // Ignore – connection may already be closed
+            }
+
+            _db = null;
+        }
+
+        public async Task ReinitializeDatabaseAsync()
+        {
+            var dbFolder = Path.Combine(FileSystem.AppDataDirectory, "db");
+            var dbPath = Path.Combine(dbFolder, "points.db3");
+
+            _db = new SQLiteAsyncConnection(dbPath,
+                SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache
+            );
+
+            await _db.ExecuteAsync("PRAGMA foreign_keys = ON;");
+        }
+
 
         #endregion
 
@@ -596,12 +742,18 @@ namespace Points.Services.Sqlite
 
             //var achievements = await GetAchievementCardModelsDataAsync();
 
+            var valueTrackers = await GetValueTrackerCardModelsDataAsync();
+
+            var eventTrackers = await GetEventTrackerCardModelsDataAsync();
+
             var seed = new HomeSeedData
             {
                 MainQuestCards = mainQuest,
                 MissionCards = mission,
                 BudgetCards = budget,
-                Achievements = new List<ICardModel>() //achievements
+                Achievements = new List<ICardModel>(), //achievements
+                ValueTrackers = valueTrackers,
+                EventTrackers = eventTrackers
             };
 
             return seed;
@@ -1511,6 +1663,311 @@ namespace Points.Services.Sqlite
             public string? NextStart { get; set; }
         }
 
+        public async Task<ValueTrackerCardModel> GetValueTrackerCardModelDataAsync(int id)
+        {
+            await InitializeAsync();
+
+            const string sql = @"
+                    SELECT
+                        vt.ValueTrackerCardID AS ValueTrackerCardID,
+                        vt.CardID             AS CardID,
+
+                        c.Title               AS Title,
+                        c.Tags                AS Tags,
+
+                        vt.Unit               AS Unit,
+                        vt.CreatedDate        AS CreatedDate,
+                        vt.RangeStart         AS RangeStart,
+
+                        vt.ScheduleEvery      AS ScheduleEvery,
+                        vt.ScheduleUnit       AS ScheduleUnit
+                    FROM ValueTrackerCard vt
+                    JOIN Card c ON c.CardID = vt.CardID
+                    WHERE vt.ValueTrackerCardID = ?
+                    LIMIT 1;
+                ";
+
+            var row = (await Db.QueryAsync<ValueTrackerJoinedRow>(sql, id)).FirstOrDefault();
+            if (row == null)
+                throw new KeyNotFoundException($"ValueTrackerCard not found. ValueTrackerCardID={id}");
+
+            var model = new ValueTrackerCardModel
+            {
+                Id = row.ValueTrackerCardID,
+                Title = row.Title ?? "",
+                Tags = row.Tags ?? "",
+                Unit = row.Unit ?? "",
+                CreatedDate = ParseIsoDateTime(row.CreatedDate),
+                RangeStart = ParseIsoDateTime(row.RangeStart),
+                ScheduleEvery = row.ScheduleEvery,
+                ScheduleUnit = row.ScheduleUnit ?? "Week"
+            };
+
+            // Load values
+            const string valuesSql = @"
+                    SELECT
+                        TrackerValueID AS TrackerValueID,
+                        CardID         AS CardID,
+                        TimeStamp      AS TimeStamp,
+                        Value          AS Value
+                    FROM TrackerValue
+                    WHERE CardID = ?
+                    ORDER BY TimeStamp;
+                ";
+
+            var valueRows = await Db.QueryAsync<TrackerValueRow>(valuesSql, row.CardID);
+
+            model.SetValues(valueRows.Select(v => new TrackerValueModel
+            {
+                Id = v.TrackerValueID,
+                Timestamp = ParseIsoDateTime(v.TimeStamp),
+                Value = v.Value
+            }).ToList());
+
+            return model;
+        }
+
+        public async Task<List<ValueTrackerCardModel>> GetValueTrackerCardModelsDataAsync(string whereClause = null)
+        {
+            await InitializeAsync();
+
+            const string sql = @"
+                SELECT
+                    vt.ValueTrackerCardID AS ValueTrackerCardID,
+                    vt.CardID             AS CardID,
+
+                    c.Title               AS Title,
+                    c.Tags                AS Tags,
+
+                    vt.Unit               AS Unit,
+                    vt.CreatedDate        AS CreatedDate,
+                    vt.RangeStart         AS RangeStart,
+
+                    vt.ScheduleEvery      AS ScheduleEvery,
+                    vt.ScheduleUnit       AS ScheduleUnit
+                FROM ValueTrackerCard vt
+                JOIN Card c ON c.CardID = vt.CardID
+                ORDER BY vt.ValueTrackerCardID;
+            ";
+
+            var rows = await Db.QueryAsync<ValueTrackerJoinedRow>(sql);
+            if (rows.Count == 0) return new List<ValueTrackerCardModel>();
+
+            // Materialize models (without values yet)
+            var models = rows.Select(r => new ValueTrackerCardModel
+            {
+                Id = r.ValueTrackerCardID,
+                Title = r.Title ?? "",
+                Tags = r.Tags ?? "",
+                Unit = r.Unit ?? "",
+                CreatedDate = ParseIsoDateTime(r.CreatedDate),
+                RangeStart = ParseIsoDateTime(r.RangeStart),
+                ScheduleEvery = r.ScheduleEvery,
+                ScheduleUnit = r.ScheduleUnit ?? "Week"
+            }).ToList();
+
+            // Bulk-load values for all trackers
+            var cardIds = rows.Select(r => r.CardID).Distinct().ToList();
+            var byCardId = models.ToDictionary(m => rows.First(r => r.ValueTrackerCardID == m.Id).CardID);
+
+            var placeholders = string.Join(", ", cardIds.Select(_ => "?"));
+            var valuesSql = $@"
+                SELECT
+                    TrackerValueID AS TrackerValueID,
+                    CardID         AS CardID,
+                    TimeStamp      AS TimeStamp,
+                    Value          AS Value
+                FROM TrackerValue
+                WHERE CardID IN ({placeholders})
+                ORDER BY CardID, TimeStamp;
+            ";
+
+            var valueRows = await Db.QueryAsync<TrackerValueRow>(valuesSql, cardIds.Cast<object>().ToArray());
+
+            foreach (var v in valueRows)
+            {
+                if (!byCardId.TryGetValue(v.CardID, out var parent))
+                    continue;
+
+                parent.Values.Add(new TrackerValueModel
+                {
+                    Id = v.TrackerValueID,
+                    Timestamp = ParseIsoDateTime(v.TimeStamp),
+                    Value = v.Value
+                });
+            }
+
+            return models;
+        }
+
+
+        private sealed class ValueTrackerJoinedRow
+        {
+            public int ValueTrackerCardID { get; set; }
+            public long CardID { get; set; }
+            public string? Title { get; set; }
+            public string? Tags { get; set; }
+
+            public string? Unit { get; set; }
+            public string CreatedDate { get; set; } = "";
+            public string RangeStart { get; set; } = "";
+
+            public int ScheduleEvery { get; set; }
+            public string? ScheduleUnit { get; set; }
+        }
+
+        private sealed class EventTrackerJoinedRow
+        {
+            public int EventTrackerCardID { get; set; }
+            public long CardID { get; set; }
+            public string? Title { get; set; }
+            public string? Tags { get; set; }
+
+            public string? Unit { get; set; }
+            public string CreatedDate { get; set; } = "";
+            public string RangeStart { get; set; } = "";
+
+            public string? GroupByPeriod { get; set; }
+        }
+
+        private sealed class TrackerValueRow
+        {
+            public int TrackerValueID { get; set; }
+            public long CardID { get; set; }
+            public string TimeStamp { get; set; } = "";
+            public double Value { get; set; }
+        }
+
+        public async Task<EventTrackerCardModel> GetEventTrackerCardModelDataAsync(int id)
+        {
+            await InitializeAsync();
+
+            const string sql = @"
+                SELECT
+                    et.EventTrackerCardID AS EventTrackerCardID,
+                    et.CardID             AS CardID,
+
+                    c.Title               AS Title,
+                    c.Tags                AS Tags,
+
+                    et.Unit               AS Unit,
+                    et.CreatedDate        AS CreatedDate,
+                    et.RangeStart         AS RangeStart,
+
+                    et.GroupByPeriod      AS GroupByPeriod
+                FROM EventTrackerCard et
+                JOIN Card c ON c.CardID = et.CardID
+                WHERE et.EventTrackerCardID = ?
+                LIMIT 1;
+            ";
+
+            var row = (await Db.QueryAsync<EventTrackerJoinedRow>(sql, id)).FirstOrDefault();
+            if (row == null)
+                throw new KeyNotFoundException($"EventTrackerCard not found. EventTrackerCardID={id}");
+
+            var model = new EventTrackerCardModel
+            {
+                Id = row.EventTrackerCardID,
+                Title = row.Title ?? "",
+                Tags = row.Tags ?? "",
+                Unit = row.Unit ?? "",
+                CreatedDate = ParseIsoDateTime(row.CreatedDate),
+                RangeStart = ParseIsoDateTime(row.RangeStart),
+                GroupByPeriod = row.GroupByPeriod ?? "Day"
+            };
+
+            const string valuesSql = @"
+                SELECT
+                    TrackerValueID AS TrackerValueID,
+                    CardID         AS CardID,
+                    TimeStamp      AS TimeStamp,
+                    Value          AS Value
+                FROM TrackerValue
+                WHERE CardID = ?
+                ORDER BY TimeStamp;
+            ";
+
+            var valueRows = await Db.QueryAsync<TrackerValueRow>(valuesSql, row.CardID);
+
+            model.SetValues(valueRows.Select(v => ParseIsoDateTime(v.TimeStamp)).ToList());
+
+            // Also keep IDs if you ever need them later:
+            // (optional) you can load as TrackerValueModel as well,
+            // but your EventTrackerCardModel currently exposes only SetValues(List<DateTime>)
+
+            return model;
+        }
+
+        public async Task<List<EventTrackerCardModel>> GetEventTrackerCardModelsDataAsync(string whereClause = null)
+        {
+            await InitializeAsync();
+
+            const string sql = @"
+                SELECT
+                    et.EventTrackerCardID AS EventTrackerCardID,
+                    et.CardID             AS CardID,
+
+                    c.Title               AS Title,
+                    c.Tags                AS Tags,
+
+                    et.Unit               AS Unit,
+                    et.CreatedDate        AS CreatedDate,
+                    et.RangeStart         AS RangeStart,
+
+                    et.GroupByPeriod      AS GroupByPeriod
+                FROM EventTrackerCard et
+                JOIN Card c ON c.CardID = et.CardID
+                ORDER BY et.EventTrackerCardID;
+            ";
+
+            var rows = await Db.QueryAsync<EventTrackerJoinedRow>(sql);
+            if (rows.Count == 0) return new List<EventTrackerCardModel>();
+
+            var models = rows.Select(r => new EventTrackerCardModel
+            {
+                Id = r.EventTrackerCardID,
+                Title = r.Title ?? "",
+                Tags = r.Tags ?? "",
+                Unit = r.Unit ?? "",
+                CreatedDate = ParseIsoDateTime(r.CreatedDate),
+                RangeStart = ParseIsoDateTime(r.RangeStart),
+                GroupByPeriod = r.GroupByPeriod ?? "Day"
+            }).ToList();
+
+            var cardIds = rows.Select(r => r.CardID).Distinct().ToList();
+            var byCardId = models.ToDictionary(m => rows.First(r => r.EventTrackerCardID == m.Id).CardID);
+
+            var placeholders = string.Join(", ", cardIds.Select(_ => "?"));
+            var valuesSql = $@"
+                SELECT
+                    TrackerValueID AS TrackerValueID,
+                    CardID         AS CardID,
+                    TimeStamp      AS TimeStamp,
+                    Value          AS Value
+                FROM TrackerValue
+                WHERE CardID IN ({placeholders})
+                ORDER BY CardID, TimeStamp;
+            ";
+
+            var valueRows = await Db.QueryAsync<TrackerValueRow>(valuesSql, cardIds.Cast<object>().ToArray());
+
+            foreach (var v in valueRows)
+            {
+                if (!byCardId.TryGetValue(v.CardID, out var parent))
+                    continue;
+
+                // For Event trackers, each row represents an event
+                parent.Values.Add(new TrackerValueModel
+                {
+                    Id = v.TrackerValueID,
+                    Timestamp = ParseIsoDateTime(v.TimeStamp),
+                    Value = 1
+                });
+            }
+
+            return models;
+        }
+
 
         #endregion
 
@@ -1643,6 +2100,9 @@ namespace Points.Services.Sqlite
                     model.Status, model.Description, model.Currency, model.ExchangeRate, model.StartDate.ToString("o"), model.InitialBalance, cardId);
             }
 
+            //Do a query to get all of the ValueRates for this Tat in the datbase
+            var existingTopUpsForThisBudgetModel = await Db.QueryAsync<BudgetCardScheduledTopUpRow>("SELECT * FROM BudgetCardScheduledTopUp WHERE BudgetCardID = ?", model.Id);
+
             foreach (var tu in model.TopUps)
             {
                 if (tu.Id == 0)
@@ -1658,7 +2118,17 @@ namespace Points.Services.Sqlite
                     await Db.ExecuteAsync(
                         "UPDATE BudgetCardScheduledTopUp SET Amount = ?, TimeOfDaySeconds = ? WHERE BudgetCardScheduledTopUpID = ?",
                         tu.Amount, tu.TimeOfDay.TotalSeconds, tu.Id);
+
+                    //Remove the ValueRate with this Id form the ValueRates list you got fomr the db
+                    var tuToLeaveInDb = existingTopUpsForThisBudgetModel.FirstOrDefault(x => x.BudgetCardScheduledTopUpID == tu.Id);
+                    if (tuToLeaveInDb != null) existingTopUpsForThisBudgetModel.Remove(tuToLeaveInDb);
                 }
+            }
+
+            //For any remainging Value rates in the list, remove them form the db
+            foreach (var vrToDelete in existingTopUpsForThisBudgetModel)
+            {
+                await Db.ExecuteAsync("DELETE FROM BudgetCardScheduledTopUp WHERE BudgetCardScheduledTopUpID = ?", vrToDelete.BudgetCardScheduledTopUpID);
             }
 
             foreach (var trans in model.Transactions)
@@ -1678,6 +2148,14 @@ namespace Points.Services.Sqlite
                         trans.CurrencyAmount, trans.Type, trans.Timestamp.ToString("o"), trans.Id);
                 }
             }
+        }
+
+        private sealed class BudgetCardScheduledTopUpRow
+        {
+            public int BudgetCardScheduledTopUpID { get; set; }
+            public int BudgetCardID { get; set; }
+            public double Amount { get; set; }
+            public int TimeOfDaySeconds { get; set; }
         }
 
         //Card
@@ -1726,6 +2204,15 @@ namespace Points.Services.Sqlite
                 {
                     //await SaveAchievementCardModelDataAsync(acm, cardId.Value);
                 }
+                else if (model is ValueTrackerCardModel vtc)
+                {
+                    await SaveValueTrackerCardModelDataAsync(vtc, cardId.Value);
+                }
+                else if (model is EventTrackerCardModel etc)
+                {
+                    await SaveEventTrackerCardModelDataAsync(etc, cardId.Value);
+                }
+
             }
         }
 
@@ -1759,6 +2246,22 @@ namespace Points.Services.Sqlite
             else if (model is AchievementCardModel acm)
             {
                 var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM AchievementCard WHERE AchievementCardID = ? LIMIT 1", model.Id);
+
+                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
+            }
+            else if (model is ValueTrackerCardModel vtc)
+            {
+                var ids = await Db.QueryScalarsAsync<long>(
+                    "SELECT CardID FROM ValueTrackerCard WHERE ValueTrackerCardID = ? LIMIT 1",
+                    model.Id);
+
+                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
+            }
+            else if (model is EventTrackerCardModel etc)
+            {
+                var ids = await Db.QueryScalarsAsync<long>(
+                    "SELECT CardID FROM EventTrackerCard WHERE EventTrackerCardID = ? LIMIT 1",
+                    model.Id);
 
                 return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
             }
@@ -2085,6 +2588,122 @@ namespace Points.Services.Sqlite
                 await Db.ExecuteAsync("DELETE FROM TatCardValueRate WHERE TatCardValueRateID = ?", vrToDelete.TatCardValueRateID);
             }
         }
+
+        private async Task SaveValueTrackerCardModelDataAsync(ValueTrackerCardModel model, long cardId)
+        {
+            if (model.Id == 0)
+            {
+                await Db.ExecuteAsync(
+                    @"INSERT INTO ValueTrackerCard
+              (CardID, Unit, CreatedDate, RangeStart, ScheduleEvery, ScheduleUnit)
+              VALUES (?, ?, ?, ?, ?, ?);",
+                    cardId,
+                    model.Unit ?? "",
+                    model.CreatedDate.ToString("o"),
+                    model.RangeStart.ToString("o"),
+                    model.ScheduleEvery,
+                    model.ScheduleUnit ?? "Week"
+                );
+
+                model.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+            }
+            else
+            {
+                await Db.ExecuteAsync(
+                    @"UPDATE ValueTrackerCard
+              SET Unit = ?, CreatedDate = ?, RangeStart = ?, ScheduleEvery = ?, ScheduleUnit = ?
+              WHERE CardID = ?;",
+                    model.Unit ?? "",
+                    model.CreatedDate.ToString("o"),
+                    model.RangeStart.ToString("o"),
+                    model.ScheduleEvery,
+                    model.ScheduleUnit ?? "Week",
+                    cardId
+                );
+            }
+
+            await SaveTrackerValuesAsync(cardId, model.Values);
+        }
+
+        private async Task SaveEventTrackerCardModelDataAsync(EventTrackerCardModel model, long cardId)
+        {
+            if (model.Id == 0)
+            {
+                await Db.ExecuteAsync(
+                    @"INSERT INTO EventTrackerCard
+              (CardID, Unit, CreatedDate, RangeStart, GroupByPeriod)
+              VALUES (?, ?, ?, ?, ?);",
+                    cardId,
+                    model.Unit ?? "",
+                    model.CreatedDate.ToString("o"),
+                    model.RangeStart.ToString("o"),
+                    model.GroupByPeriod ?? "Day"
+                );
+
+                model.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+            }
+            else
+            {
+                await Db.ExecuteAsync(
+                    @"UPDATE EventTrackerCard
+              SET Unit = ?, CreatedDate = ?, RangeStart = ?, GroupByPeriod = ?
+              WHERE CardID = ?;",
+                    model.Unit ?? "",
+                    model.CreatedDate.ToString("o"),
+                    model.RangeStart.ToString("o"),
+                    model.GroupByPeriod ?? "Day",
+                    cardId
+                );
+            }
+
+            // Events are still persisted via the same TrackerValue table
+            await SaveTrackerValuesAsync(cardId, model.Values);
+        }
+
+        private async Task SaveTrackerValuesAsync(long cardId, IEnumerable<TrackerValueModel> values)
+        {
+            // Existing rows in DB for this card
+            var existing = await Db.QueryAsync<TrackerValueRow>(
+                "SELECT TrackerValueID AS TrackerValueID, CardID AS CardID, TimeStamp AS TimeStamp, Value AS Value FROM TrackerValue WHERE CardID = ?;",
+                cardId);
+
+            // Track what remains after processing (anything left gets deleted)
+            var remaining = existing.ToList();
+
+            foreach (var v in values)
+            {
+                if (v.Id == 0)
+                {
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO TrackerValue (CardID, TimeStamp, Value) VALUES (?, ?, ?);",
+                        cardId,
+                        v.Timestamp.ToString("o"),
+                        v.Value
+                    );
+
+                    v.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                }
+                else
+                {
+                    await Db.ExecuteAsync(
+                        @"UPDATE TrackerValue SET TimeStamp = ?, Value = ? WHERE TrackerValueID = ?;",
+                        v.Timestamp.ToString("o"),
+                        v.Value,
+                        v.Id
+                    );
+
+                    var keep = remaining.FirstOrDefault(x => x.TrackerValueID == v.Id);
+                    if (keep != null) remaining.Remove(keep);
+                }
+            }
+
+            // Delete anything not present in the model anymore
+            foreach (var toDelete in remaining)
+            {
+                await Db.ExecuteAsync("DELETE FROM TrackerValue WHERE TrackerValueID = ?;", toDelete.TrackerValueID);
+            }
+        }
+
 
         #endregion
 

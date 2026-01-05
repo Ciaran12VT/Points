@@ -1,5 +1,6 @@
 using Points.Helpers;
 using Points.Models;
+using Points.Services;
 using Points.ViewModels;
 using Points.Views.Details;
 
@@ -7,10 +8,10 @@ namespace Points.Views.Cards;
 
 public partial class BudgetCardView : ContentView
 {
-	public BudgetCardView()
+    public BudgetCardView()
 	{
 		InitializeComponent();
-	}
+    }
     private async void OnSpendClicked(object sender, EventArgs e)
     {
         if (BindingContext is not Points.Models.BudgetCardModel b)
@@ -38,6 +39,12 @@ public partial class BudgetCardView : ContentView
             return;
 
         b.AddSpend(amount);
+
+        var page = this.FindParentOfType<ContentPage>();
+        if (page?.BindingContext is HomeViewModel vm)
+        {
+            await vm.SaveBudget(b);
+        }
     }
 
     private async void OnCashInClicked(object sender, EventArgs e)
@@ -67,6 +74,12 @@ public partial class BudgetCardView : ContentView
             return;
 
         b.AddCashIn(amount);
+
+        var page = this.FindParentOfType<ContentPage>();
+        if (page?.BindingContext is HomeViewModel vm)
+        {
+            await vm.SaveBudget(b);
+        }
     }
 
 
@@ -74,9 +87,6 @@ public partial class BudgetCardView : ContentView
     {
         if (BindingContext is not Points.Models.BudgetCardModel model)
             return;
-
-        Action<BudgetCardModel> onSaved = _ => { };
-        Action<BudgetCardModel> onDelete = _ => { };
 
         var page = this.FindParentOfType<ContentPage>();
         if (page?.BindingContext is HomeViewModel vm)

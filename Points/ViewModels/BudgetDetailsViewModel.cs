@@ -73,6 +73,7 @@ namespace Points.ViewModels
                 {
                     TopUps.Add(new BudgetTopUpEditItem
                     {
+                        Id = t.Id,
                         AmountText = t.Amount.ToString("0.##", CultureInfo.InvariantCulture),
                         TimeOfDay = t.TimeOfDay
                     });
@@ -184,6 +185,7 @@ namespace Points.ViewModels
 
                 parsedTopUps.Add(new ScheduledTopUp
                 {
+                    Id = t.Id,
                     Amount = amt,
                     TimeOfDay = t.TimeOfDay
                 });

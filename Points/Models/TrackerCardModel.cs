@@ -1,54 +1,54 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Input;
 
-namespace Points.Models;
-
-public partial class TrackerCardModel : ObservableObject, ICardModel
+namespace Points.Models
 {
-    // ---- Data ----
-
-    /// <summary>
-    /// Ordered list of values (oldest → newest).
-    /// This is what the card binds to for the sparkline.
-    /// </summary>
-    public ObservableCollection<double> Values { get; } = new();
-
-    public ICommand AddValueCommand { get; }
-
-    public string Unit { get; set; } = "";
-
-
-    // Schedule recording (not executed yet)
-    public int ScheduleEvery { get; set; } = 1;
-    public string ScheduleUnit { get; set; } = "Week";
-
-    public int Id { get; set; }
-
-    public string Title { get; set; }
-
-    public string Tags { get; set; }
-
-    public DateTime? FirstRecordedDate { get; set; }
-
-    public void AddValue(double value)
+    public abstract class TrackerCardModel : ObservableObject, ICardModel
     {
-        Values.Add(value);
-        // No further action needed: TrackerCardView listens to collection changes
-    }
 
-    public void SetValues(List<double> values)
-    {
-        Values.Clear();
-        foreach (double value in values)
+        public int Id { get; set; }
+
+        public string Title { get; set; } = "";
+
+        public string Tags { get; set; } = "";
+
+
+        public ObservableCollection<TrackerValueModel> Values { get; } = new();
+
+        public ICommand? AddValueCommand { get; protected set; }
+
+        public string Unit { get; set; } = "";
+
+        public DateTime CreatedDate { get; set; }
+
+        public DateTime RangeStart { get; set; }
+
+        public virtual void AddValue(TrackerValueModel value) => Values.Add(value);
+
+        public virtual void SetValues(List<TrackerValueModel> values)
         {
-            Values.Add(value);
+            Values.Clear();
+            foreach (TrackerValueModel value in values)
+            {
+                Values.Add(value);
+            }
         }
-        // No further action needed: TrackerCardView listens to collection changes
+
+        public double GetValue(DateTime start, DateTime end) => 0;
+
     }
 
-    public double GetValue(DateTime start, DateTime end)
+    public class TrackerValueModel
     {
-        return 0;
+        public int Id { get; set; }
+
+        public DateTime Timestamp { get; set; }
+
+        public double Value { get; set; }
     }
 }

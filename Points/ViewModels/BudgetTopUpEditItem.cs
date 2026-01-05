@@ -16,6 +16,8 @@ namespace Points.ViewModels
             set => SetProperty(ref _amountText, value);
         }
 
+        public int Id { get; set; }
+
         private TimeSpan _timeOfDay = new(7, 0, 0);
         public TimeSpan TimeOfDay
         {
