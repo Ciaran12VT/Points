@@ -227,6 +227,109 @@ namespace Points.Services.Sqlite
 
 
                 -- =========================
+                -- Settings / StatusConditions / Themes
+                -- =========================
+
+                CREATE TABLE IF NOT EXISTS StatusCondition (
+                    StatusConditionID            INTEGER PRIMARY KEY,
+                    StatusConditionName          TEXT    NOT NULL DEFAULT '',
+                    StatusConditionMultiplierValue REAL   NOT NULL DEFAULT 1.0
+                );
+
+                CREATE TABLE IF NOT EXISTS Theme (
+                    ThemeID      INTEGER PRIMARY KEY,
+                    ThemeName    TEXT    NOT NULL DEFAULT ''
+                );
+
+                CREATE TABLE IF NOT EXISTS ThemeConfiguration (
+                    ThemesConfigID  INTEGER PRIMARY KEY,
+                    ThemeID         INTEGER NOT NULL,
+
+                    -- Main page
+                    MainPageBackColor  TEXT NOT NULL DEFAULT '',
+                    MainPageForeColor  TEXT NOT NULL DEFAULT '',
+                    GlobalFontFamily   TEXT NOT NULL DEFAULT '',
+
+                    -- Cards
+                    ScCardBackColor      TEXT NOT NULL DEFAULT '',
+                    ScCardForeColor      TEXT NOT NULL DEFAULT '',
+                    TatCardBackColor     TEXT NOT NULL DEFAULT '',
+                    TatCardForeColor     TEXT NOT NULL DEFAULT '',
+                    MissionCardBackColor TEXT NOT NULL DEFAULT '',
+                    MissionCardForeColor TEXT NOT NULL DEFAULT '',
+                    BudgetCardBackColor  TEXT NOT NULL DEFAULT '',
+                    BudgetCardForeColor  TEXT NOT NULL DEFAULT '',
+
+                    -- Labels
+                    DueInLabelForeColor  TEXT NOT NULL DEFAULT '',
+
+                    -- Negative button
+                    NegativeButtonBackColor        TEXT NOT NULL DEFAULT '',
+                    NegativeButtonForeColor        TEXT NOT NULL DEFAULT '',
+                    NegativeButtonStyle            TEXT NOT NULL DEFAULT 'Round',
+                    NegativeButtonBorderThickness  REAL NOT NULL DEFAULT 0,
+                    NegativeButtonBorderColor      TEXT NOT NULL DEFAULT '',
+
+                    -- Positive button
+                    PositiveButtonBackColor        TEXT NOT NULL DEFAULT '',
+                    PositiveButtonForeColor        TEXT NOT NULL DEFAULT '',
+                    PositiveButtonStyle            TEXT NOT NULL DEFAULT 'Round',
+                    PositiveButtonBorderThickness  REAL NOT NULL DEFAULT 0,
+                    PositiveButtonBorderColor      TEXT NOT NULL DEFAULT '',
+
+                    -- Active toggle ON
+                    ActiveToggleOnBackColor              TEXT NOT NULL DEFAULT '',
+                    ActiveToggleOnForeColor              TEXT NOT NULL DEFAULT '',
+                    ActiveToggleOnButtonStyle            TEXT NOT NULL DEFAULT 'Round',
+                    ActiveToggleOnButtonBorderThickness  REAL NOT NULL DEFAULT 0,
+                    ActiveToggleOnButtonBorderColor      TEXT NOT NULL DEFAULT '',
+
+                    -- Active toggle OFF
+                    ActiveToggleOffBackColor              TEXT NOT NULL DEFAULT '',
+                    ActiveToggleOffForeColor              TEXT NOT NULL DEFAULT '',
+                    ActiveToggleOffButtonStyle            TEXT NOT NULL DEFAULT 'Round',
+                    ActiveToggleOffButtonBorderThickness  REAL NOT NULL DEFAULT 0,
+                    ActiveToggleOffButtonBorderColor      TEXT NOT NULL DEFAULT '',
+
+                    -- Global value thresholds
+                    GlobalValueBelowZeroThresholdForeColor             TEXT NOT NULL DEFAULT '',
+                    GlobalValueNonZeroBelowThresholdForeColor          TEXT NOT NULL DEFAULT '',
+                    GlobalValueAboveThresholdForeColor                 TEXT NOT NULL DEFAULT '',
+                    GlobalValueAboveSecondaryThresholdForeColor        TEXT NOT NULL DEFAULT '',
+
+                    -- Card border
+                    CardBorderStyle       TEXT NOT NULL DEFAULT 'RoundedEdges',
+                    CardBorderThickness   REAL NOT NULL DEFAULT 0,
+                    CardBorderColor       TEXT NOT NULL DEFAULT '',
+
+                    -- Section display names
+                    MainQuestSectionDisplayName            TEXT NOT NULL DEFAULT '',
+                    MissionSectionDisplayName              TEXT NOT NULL DEFAULT '',
+                    BudgetSectionDisplayName               TEXT NOT NULL DEFAULT '',
+                    ArcsSectionDisplayName                 TEXT NOT NULL DEFAULT '',
+                    PinnedAchievementsSectionDisplayName   TEXT NOT NULL DEFAULT '',
+
+                    FOREIGN KEY (ThemeID) REFERENCES Theme(ThemeID) ON DELETE CASCADE
+                );
+
+                -- Singleton settings row pattern: one row with SettingsID=1
+                CREATE TABLE IF NOT EXISTS AppSettings (
+                    SettingsID  INTEGER PRIMARY KEY CHECK (SettingsID = 1),
+
+                    HardModeEnabled              INTEGER NOT NULL DEFAULT 0,
+                    HardModeDamagePerMinuteValue REAL    NOT NULL DEFAULT 0, -- store as NEGATIVE
+
+                    StatusConditionsEnabled         INTEGER NOT NULL DEFAULT 0,
+                    CurrentlyAppliedStatusConditionID INTEGER NULL,
+
+                    SelectedThemeID INTEGER NULL,
+
+                    FOREIGN KEY (CurrentlyAppliedStatusConditionID) REFERENCES StatusCondition(StatusConditionID) ON DELETE SET NULL,
+                    FOREIGN KEY (SelectedThemeID) REFERENCES Theme(ThemeID) ON DELETE SET NULL
+                );
+
+
+                -- =========================
                 -- Helpful indexes
                 -- =========================
                 CREATE INDEX IF NOT EXISTS IX_TatCard_CardID              ON TatCard(CardID);
@@ -256,6 +359,10 @@ namespace Points.Services.Sqlite
 
                 CREATE INDEX IF NOT EXISTS IX_TrackerValue_CardID      ON TrackerValue(CardID);
                 CREATE INDEX IF NOT EXISTS IX_TrackerValue_TimeStamp   ON TrackerValue(TimeStamp);
+
+                CREATE INDEX IF NOT EXISTS IX_ThemeConfiguration_ThemeID ON ThemeConfiguration(ThemeID);
+                CREATE INDEX IF NOT EXISTS IX_AppSettings_SelectedThemeID ON AppSettings(SelectedThemeID);
+                CREATE INDEX IF NOT EXISTS IX_AppSettings_StatusConditionID ON AppSettings(CurrentlyAppliedStatusConditionID);
 
                 ";
         }

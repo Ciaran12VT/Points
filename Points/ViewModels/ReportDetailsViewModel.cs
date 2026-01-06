@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Points.Models;
+using Points.Services;
 using System.Collections.ObjectModel;
 using System.Xml;
 
@@ -14,6 +15,7 @@ namespace Points.ViewModels
 
         [ObservableProperty]
         private string sqlText = "";
+        private IDbService _db;
 
         // For now, “results grid” = list of strings (each string = one row)
         public ObservableCollection<string> Results { get; } = new();
@@ -24,10 +26,11 @@ namespace Points.ViewModels
         [ObservableProperty]
         private bool isBusy;
 
-        public ReportDetailsViewModel(ReportModel report)
+        public ReportDetailsViewModel(ReportModel report, IDbService db)
         {
             Report = report;
             sqlText = report.SQLQuery;
+            _db = db;
         }
 
         [RelayCommand]
@@ -41,13 +44,14 @@ namespace Points.ViewModels
                 Results.Clear();
                 resultsMessage = "Executing...";
 
-                // TODO: Replace with real execution service (SQLite / SQL Server / API)
-                await Task.Delay(250);
+                var results = await _db.ExecuteSelectForReportAsync(sqlText);
 
-                // Fake output for now
-                Results.Add("Row 1: { Id: 1, Name: \"Example\" }");
-                Results.Add("Row 2: { Id: 2, Name: \"Example 2\" }");
-                resultsMessage = $"OK ({Results.Count} rows)";
+                foreach (var result in results)
+                {
+                    Results.Add(result);   
+                }
+
+                UpdateColumns();
 
                 // Persist edited SQL back to model (optional but usually handy)
                 Report.SQLQuery = sqlText;
@@ -60,6 +64,22 @@ namespace Points.ViewModels
             {
                 isBusy = false;
             }
+        }
+
+        public ColumnDefinitionCollection ColumnDefinitions { get; private set; }
+
+        private void UpdateColumns()
+        {
+            if (Results.Count == 0)
+                return;
+
+            var columnCount = Results[0].Split('|').Length;
+
+            ColumnDefinitions = new ColumnDefinitionCollection();
+            for (int i = 0; i < columnCount; i++)
+                ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+
+            OnPropertyChanged(nameof(ColumnDefinitions));
         }
     }
 }

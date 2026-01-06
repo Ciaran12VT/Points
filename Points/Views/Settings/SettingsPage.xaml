@@ -116,6 +116,308 @@
 
                                 </VerticalStackLayout>
                             </Frame>
+                            <!-- STATUS CONDITIONS -->
+                            <Frame Padding="12" CornerRadius="12" HasShadow="False" BorderColor="#DDDDDD">
+                                <VerticalStackLayout Spacing="10">
+
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <Label Text="Status Conditions" FontAttributes="Bold" VerticalOptions="Center" />
+
+                                        <Switch Grid.Column="1" IsToggled="{Binding StatusConditionsEnabled}" />
+                                    </Grid>
+
+                                    <Label Text="Apply a multiplier to point gain based on the current status condition." Opacity="0.7" FontSize="12" />
+
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" IsVisible="{Binding StatusConditionsEnabled}">
+                                        <Label Text="Current" VerticalOptions="Center" Opacity="0.7"/>
+
+                                        <Picker Grid.Column="1"
+                                                Title="Select status condition"
+                                                ItemsSource="{Binding StatusConditions}"
+                                                ItemDisplayBinding="{Binding StatusConditionName}"
+                                                SelectedItem="{Binding CurrentlyAppliedStatusCondition}" />
+                                    </Grid>
+
+                                    <!-- Optional manage buttons -->
+                                    <HorizontalStackLayout Spacing="10" IsVisible="{Binding StatusConditionsEnabled}">
+                                        <Button Text="Add" Command="{Binding AddStatusConditionCommand}" />
+                                        <Button Text="Edit" Command="{Binding EditStatusConditionCommand}"
+                                                IsEnabled="{Binding CurrentlyAppliedStatusCondition, Converter={StaticResource NullToBoolConverter}}" />
+                                        <Button Text="Delete"
+                                                BackgroundColor="#B00020"
+                                                TextColor="White"
+                                                Command="{Binding DeleteStatusConditionCommand}"
+                                                IsEnabled="{Binding CurrentlyAppliedStatusCondition, Converter={StaticResource NullToBoolConverter}}" />
+                                    </HorizontalStackLayout>
+
+                                </VerticalStackLayout>
+                            </Frame>
+
+                            <!-- THEMES -->
+                            <Frame Padding="12" CornerRadius="12" HasShadow="False" BorderColor="#DDDDDD">
+                                <VerticalStackLayout Spacing="10">
+
+                                    <Label Text="Theme" FontAttributes="Bold" />
+
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <Label Text="Selected" VerticalOptions="Center" Opacity="0.7"/>
+
+                                        <Picker Grid.Column="1"
+                                                Title="Select theme"
+                                                ItemsSource="{Binding Themes}"
+                                                ItemDisplayBinding="{Binding ThemeName}"
+                                                SelectedItem="{Binding SelectedTheme}" />
+                                    </Grid>
+
+                                    <!-- Optional manage theme buttons -->
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Button Text="Add Theme" Command="{Binding AddThemeCommand}" />
+                                        <Button Text="Rename" Command="{Binding RenameThemeCommand}" IsEnabled="{Binding SelectedTheme, Converter={StaticResource NullToBoolConverter}}" />
+                                    </HorizontalStackLayout>
+
+                                    <!-- Theme Configuration Editor -->
+                                    <toolkit:Expander IsExpanded="False" IsVisible="{Binding SelectedThemeConfig}">
+                                        <toolkit:Expander.Header>
+                                            <Grid ColumnDefinitions="*,Auto" Padding="8">
+                                                <Label Text="Theme Configuration" FontAttributes="Bold" />
+                                                <Label Grid.Column="1" Text="Edit" Opacity="0.6" VerticalOptions="Center"/>
+                                            </Grid>
+                                        </toolkit:Expander.Header>
+
+                                        <toolkit:Expander.Content>
+                                            <VerticalStackLayout Spacing="12" Padding="8">
+
+                                                <!-- Tip -->
+                                                <Label Text="Colors are stored as text (e.g. #RRGGBB or #AARRGGBB)." Opacity="0.7" FontSize="12"/>
+
+                                                <!-- MAIN PAGE -->
+                                                <Label Text="Main Page" FontAttributes="Bold"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Back" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.MainPageBackColor}" Placeholder="#101010"/>
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.MainPageForeColor}" Placeholder="#FFFFFF"/>
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Font" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.GlobalFontFamily}" Placeholder="OpenSansRegular"/>
+                                                </Grid>
+
+                                                <!-- CARDS -->
+                                                <Label Text="Cards" FontAttributes="Bold"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="SC Back" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.ScCardBackColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="SC Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.ScCardForeColor}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="TAT Back" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.TatCardBackColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="TAT Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.TatCardForeColor}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Mission Back" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.MissionCardBackColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Mission Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.MissionCardForeColor}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Budget Back" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.BudgetCardBackColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Budget Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.BudgetCardForeColor}" />
+                                                </Grid>
+
+                                                <!-- LABELS -->
+                                                <Label Text="Labels" FontAttributes="Bold"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="DueIn Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.DueInLabelForeColor}" />
+                                                </Grid>
+
+                                                <!-- BUTTONS -->
+                                                <Label Text="Buttons" FontAttributes="Bold"/>
+
+                                                <Label Text="Negative" Opacity="0.7"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Back" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.NegativeButtonBackColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.NegativeButtonForeColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Style" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Picker Grid.Column="1"
+                                                            ItemsSource="{Binding ButtonStyles}"
+                                                            SelectedItem="{Binding SelectedThemeConfig.NegativeButtonStyle}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Border Thk" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Keyboard="Numeric" Text="{Binding SelectedThemeConfig.NegativeButtonBorderThickness}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Border Col" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.NegativeButtonBorderColor}" />
+                                                </Grid>
+
+                                                <Label Text="Positive" Opacity="0.7"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Back" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.PositiveButtonBackColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.PositiveButtonForeColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Style" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Picker Grid.Column="1"
+                                                            ItemsSource="{Binding ButtonStyles}"
+                                                            SelectedItem="{Binding SelectedThemeConfig.PositiveButtonStyle}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Border Thk" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Keyboard="Numeric" Text="{Binding SelectedThemeConfig.PositiveButtonBorderThickness}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Border Col" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.PositiveButtonBorderColor}" />
+                                                </Grid>
+
+                                                <!-- TOGGLES -->
+                                                <Label Text="Active Toggle" FontAttributes="Bold"/>
+
+                                                <Label Text="ON" Opacity="0.7"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Back" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.ActiveToggleOnBackColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.ActiveToggleOnForeColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Style" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Picker Grid.Column="1"
+                                                            ItemsSource="{Binding ButtonStyles}"
+                                                            SelectedItem="{Binding SelectedThemeConfig.ActiveToggleOnButtonStyle}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Border Thk" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Keyboard="Numeric" Text="{Binding SelectedThemeConfig.ActiveToggleOnButtonBorderThickness}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Border Col" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.ActiveToggleOnButtonBorderColor}" />
+                                                </Grid>
+
+                                                <Label Text="OFF" Opacity="0.7"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Back" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.ActiveToggleOffBackColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Fore" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.ActiveToggleOffForeColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Style" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Picker Grid.Column="1"
+                                                            ItemsSource="{Binding ButtonStyles}"
+                                                            SelectedItem="{Binding SelectedThemeConfig.ActiveToggleOffButtonStyle}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Border Thk" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Keyboard="Numeric" Text="{Binding SelectedThemeConfig.ActiveToggleOffButtonBorderThickness}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Border Col" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.ActiveToggleOffButtonBorderColor}" />
+                                                </Grid>
+
+                                                <!-- GLOBAL VALUE THRESHOLDS -->
+                                                <Label Text="Global Value Colors" FontAttributes="Bold"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="less than 0" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.GlobalValueBelowZeroThresholdForeColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="greater than 0 (below)" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.GlobalValueNonZeroBelowThresholdForeColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Above" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.GlobalValueAboveThresholdForeColor}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Above (2nd)" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.GlobalValueAboveSecondaryThresholdForeColor}" />
+                                                </Grid>
+
+                                                <!-- CARD BORDER -->
+                                                <Label Text="Card Border" FontAttributes="Bold"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Style" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Picker Grid.Column="1"
+                                                            ItemsSource="{Binding CardBorderStyles}"
+                                                            SelectedItem="{Binding SelectedThemeConfig.CardBorderStyle}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Thickness" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Keyboard="Numeric" Text="{Binding SelectedThemeConfig.CardBorderThickness}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Color" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.CardBorderColor}" />
+                                                </Grid>
+
+                                                <!-- SECTION NAMES -->
+                                                <Label Text="Section Names" FontAttributes="Bold"/>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Main Quest" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.MainQuestSectionDisplayName}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Missions" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.MissionSectionDisplayName}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Budget" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.BudgetSectionDisplayName}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Arcs" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.ArcsSectionDisplayName}" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                    <Label Text="Pinned" Opacity="0.7" VerticalOptions="Center"/>
+                                                    <Entry Grid.Column="1" Text="{Binding SelectedThemeConfig.PinnedAchievementsSectionDisplayName}" />
+                                                </Grid>
+
+                                            </VerticalStackLayout>
+                                        </toolkit:Expander.Content>
+                                    </toolkit:Expander>
+
+                                </VerticalStackLayout>
+                            </Frame>
+
 
                         </VerticalStackLayout>
                     </toolkit:Expander.Content>

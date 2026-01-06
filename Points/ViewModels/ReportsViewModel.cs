@@ -1,16 +1,21 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Points.Models;
+using Points.Services;
 using System.Collections.ObjectModel;
 
 namespace Points.ViewModels
 {
     public sealed partial class ReportsViewModel : Models.ObservableObject
     {
+        private IDbService _db;
+
         public ObservableCollection<ReportsPageModel> Pages { get; } = new();
 
-        public ReportsViewModel()
+        public ReportsViewModel(IDbService db)
         {
+            _db = db;
+
             // Mock seed (replace later with SQLite fetch)
             var reports = new ObservableCollection<ReportModel>
             {
@@ -38,7 +43,7 @@ namespace Points.ViewModels
             // (No Shell routes required.)
             var page = new Points.Views.Details.ReportDetailsPage
             {
-                BindingContext = new ReportDetailsViewModel(report)
+                BindingContext = new ReportDetailsViewModel(report, _db)
             };
 
             await Application.Current!.MainPage!.Navigation.PushAsync(page);

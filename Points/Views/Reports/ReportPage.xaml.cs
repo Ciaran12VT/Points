@@ -8,6 +8,6 @@ public partial class ReportPage : ContentPage
 	{
 		InitializeComponent();
 
-        BindingContext = new ReportsViewModel();
+        BindingContext = new ReportsViewModel(_db);
     }
 }

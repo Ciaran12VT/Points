@@ -301,7 +301,7 @@ namespace Points.Models
                 //if (overlapEnd > overlapStart)
                 //    totalMinutes += (overlapEnd - overlapStart).TotalMinutes;
 
-                totalMinutes += (aStart - aEnd).TotalMinutes;
+                totalMinutes += (aEnd - aStart).TotalMinutes;
             }
 
             return TimeSpan.FromMinutes(totalMinutes);

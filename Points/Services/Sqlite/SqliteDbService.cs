@@ -2,6 +2,7 @@
 using Points.Global;
 using Points.Models;
 using SQLite;
+using SQLitePCL;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -2702,6 +2703,160 @@ namespace Points.Services.Sqlite
             {
                 await Db.ExecuteAsync("DELETE FROM TrackerValue WHERE TrackerValueID = ?;", toDelete.TrackerValueID);
             }
+        }
+
+
+        // -------------------------
+        // Reports / Ad-hoc SQL
+        // -------------------------
+
+        /// <summary>
+        /// Executes an arbitrary SELECT (or WITH...SELECT) and returns the result set as display lines
+        /// suitable for the ReportDetailsPage Results CollectionView (1 string per row).
+        /// </summary>
+        public async Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(
+             string sql,
+             bool includeHeaderRow = true,
+             params object?[] args)
+        {
+            await InitializeAsync();
+
+            if (string.IsNullOrWhiteSpace(sql))
+                return Array.Empty<string>();
+
+            var trimmed = sql.TrimStart();
+            if (!trimmed.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase) &&
+                !trimmed.StartsWith("WITH", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Only SELECT statements are allowed.");
+            }
+
+            return await Task.Run(() =>
+            {
+                sqlite3? db = null;
+                sqlite3_stmt? stmt = null;
+
+                try
+                {
+                    var rc = raw.sqlite3_open_v2(
+                        _dbPath,
+                        out db,
+                        raw.SQLITE_OPEN_READONLY,
+                        null);
+
+                    if (rc != raw.SQLITE_OK || db == null)
+                        throw new InvalidOperationException($"Failed to open SQLite database. rc={rc}");
+
+                    rc = raw.sqlite3_prepare_v2(db, sql, out stmt);
+                    if (rc != raw.SQLITE_OK || stmt == null)
+                        throw new InvalidOperationException($"sqlite3_prepare_v2 failed. rc={rc}. {raw.sqlite3_errmsg(db).utf8_to_string()}");
+
+                    // Bind params (?, ?, ?)
+                    if (args is { Length: > 0 })
+                    {
+                        for (int i = 0; i < args.Length; i++)
+                            BindParameter(stmt, i + 1, args[i]);
+                    }
+
+                    var results = new List<string>();
+                    int colCount = raw.sqlite3_column_count(stmt);
+
+                    if (includeHeaderRow && colCount > 0)
+                    {
+                        var headers = new string[colCount];
+                        for (int c = 0; c < colCount; c++)
+                        {
+                            var name = raw.sqlite3_column_name(stmt, c).utf8_to_string();
+                            headers[c] = string.IsNullOrEmpty(name) ? $"Col{c + 1}" : name;
+                        }
+                        results.Add(string.Join(" | ", headers));
+                    }
+
+                    while (true)
+                    {
+                        rc = raw.sqlite3_step(stmt);
+
+                        if (rc == raw.SQLITE_ROW)
+                        {
+                            var row = new string[colCount];
+                            for (int c = 0; c < colCount; c++)
+                                row[c] = ReadColumnAsText(stmt, c);
+
+                            results.Add(string.Join(" | ", row));
+                            continue;
+                        }
+
+                        if (rc == raw.SQLITE_DONE)
+                            break;
+
+                        throw new InvalidOperationException($"sqlite3_step failed. rc={rc}. {raw.sqlite3_errmsg(db).utf8_to_string()}");
+                    }
+
+                    if (results.Count == 0)
+                        results.Add("(no rows)");
+
+                    return (IReadOnlyList<string>)results;
+                }
+                finally
+                {
+                    if (stmt != null) raw.sqlite3_finalize(stmt);
+                    if (db != null) raw.sqlite3_close(db);
+                }
+            });
+        }
+
+        private static void BindParameter(sqlite3_stmt stmt, int index, object? value)
+        {
+            if (value == null)
+            {
+                raw.sqlite3_bind_null(stmt, index);
+                return;
+            }
+
+            switch (value)
+            {
+                case string s:
+                    raw.sqlite3_bind_text(stmt, index, s);
+                    return;
+
+                case bool b:
+                    raw.sqlite3_bind_int(stmt, index, b ? 1 : 0);
+                    return;
+
+                case byte or short or int or long:
+                    raw.sqlite3_bind_int64(stmt, index, Convert.ToInt64(value, CultureInfo.InvariantCulture));
+                    return;
+
+                case float or double or decimal:
+                    raw.sqlite3_bind_double(stmt, index, Convert.ToDouble(value, CultureInfo.InvariantCulture));
+                    return;
+
+                case DateTime dt:
+                    raw.sqlite3_bind_text(stmt, index, dt.ToString("o"));
+                    return;
+
+                default:
+                    raw.sqlite3_bind_text(stmt, index, value.ToString() ?? "");
+                    return;
+            }
+        }
+
+        private static string ReadColumnAsText(sqlite3_stmt stmt, int colIndex)
+        {
+            var t = raw.sqlite3_column_type(stmt, colIndex);
+
+            return t switch
+            {
+                raw.SQLITE_NULL => "NULL",
+                raw.SQLITE_INTEGER => raw.sqlite3_column_int64(stmt, colIndex).ToString(CultureInfo.InvariantCulture),
+                raw.SQLITE_FLOAT => raw.sqlite3_column_double(stmt, colIndex).ToString(CultureInfo.InvariantCulture),
+
+                // NOTE: column_text may also be utf8z depending on package version; this works reliably:
+                raw.SQLITE_TEXT => raw.sqlite3_column_text(stmt, colIndex).utf8_to_string() ?? "",
+
+                raw.SQLITE_BLOB => $"[BLOB {raw.sqlite3_column_bytes(stmt, colIndex)} bytes]",
+                _ => ""
+            };
         }
 
 

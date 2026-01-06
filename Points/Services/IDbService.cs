@@ -89,6 +89,7 @@ namespace Points.Services
         Task EndActivity(IActiveCardModel model, DateTime endTime);
         Task<Tuple<DateTime,DateTime>> GetPreviousAndNextActivePeriodDateTimes(DateTime current);
 
+        Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(string sql, bool includeHeaderRow = true, params object?[] args);
 
     }
 

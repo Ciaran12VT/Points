@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:behaviors="clr-namespace:Points.Behaviors"
              x:Class="Points.Views.Details.ReportDetailsPage"
              Title="Report">
 
@@ -42,7 +43,7 @@
                CornerRadius="8"
                BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
 
-            <CollectionView ItemsSource="{Binding Results}">
+            <!--<CollectionView ItemsSource="{Binding Results}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
                         <Label Text="{Binding .}"
@@ -51,7 +52,29 @@
                                LineBreakMode="WordWrap" />
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
+            </CollectionView>-->
+
+            <CollectionView
+                ItemsSource="{Binding Results}"
+                Margin="12"
+                SelectionMode="None">
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid
+                            ColumnDefinitions="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ColumnDefinitions}"
+                            Padding="6"
+                            ColumnSpacing="8">
+
+                            <Grid.Behaviors>
+                                <behaviors:SplitRowToGridBehavior Separator="|" />
+                            </Grid.Behaviors>
+
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
             </CollectionView>
+
 
         </Frame>
 
