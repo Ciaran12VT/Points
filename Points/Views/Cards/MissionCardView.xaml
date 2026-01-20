@@ -144,6 +144,13 @@
             --><!-- Row 1: Tags (right, grey) --><!--
             <Label Grid.Row="1" Grid.Column="1" Text="{Binding Tags, StringFormat='Tags: {0}'}" FontSize="13" TextColor="Gray" HorizontalTextAlignment="End" />-->
 
+            <Label Text="{Binding EventDateTimeText}"
+                   Grid.Row="1" Grid.Column="0" 
+                   FontSize="12"
+                   TextColor="Gray"
+                   IsVisible="{Binding HasEventDate}" />
+
+
             <!-- Row 2: SubType +Time summary -->
             <HorizontalStackLayout
                 Grid.Row="2"

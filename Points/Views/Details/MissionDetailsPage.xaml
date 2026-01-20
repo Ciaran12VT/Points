@@ -121,6 +121,19 @@
                     <Label Grid.Column="1" Text="{Binding CompletedDateText}" TextColor="Gray" VerticalOptions="Center"/>
                 </Grid>
 
+                <!-- Event Date (label + date + time + checkbox) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Event Date" FontAttributes="Bold" VerticalOptions="Center" />
+
+                    <!-- Date -->
+                    <DatePicker Grid.Column="1" Date="{Binding EventDateValue}" IsEnabled="{Binding HasEventDate}" />
+
+                    <!-- Time (no label) -->
+                    <TimePicker Grid.Column="2" Time="{Binding EventTimeValue}" IsEnabled="{Binding HasEventDate}" />
+
+                    <!-- Checkbox -->
+                    <CheckBox Grid.Column="3" IsChecked="{Binding HasEventDate}" VerticalOptions="Center" HorizontalOptions="End" />
+                </Grid>
 
                 <!-- Available From (same row: label + date + time) -->
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
@@ -202,7 +215,7 @@
                             VerticalOptions="Center"
                             Clicked="OnEditActiveTimeClicked"/>
                 </Grid>
-
+                
                 <!-- Description (UNCHANGED: stays label then editor) -->
                 <Label Text="Description" FontAttributes="Bold" />
                 <Editor AutoSize="TextChanges"

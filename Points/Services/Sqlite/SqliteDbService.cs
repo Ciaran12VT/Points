@@ -50,6 +50,22 @@ namespace Points.Services.Sqlite
             });
         }
 
+        public async Task<int> CloseAnyOpenActivitiesAsync()
+        {
+            await InitializeAsync();
+
+            var minIso = DateTime.MinValue.ToString("o");
+
+            // Set End = Start for any rows whose End is MinValue (i.e. still "open")
+            return await Db.ExecuteAsync(
+                @"UPDATE Activity
+                  SET ""End"" = ""Start""
+                  WHERE ""End"" = ?;",
+                minIso);
+        }
+
+
+
         #endregion
 
         #region Backups and DB Maintenance
@@ -795,6 +811,7 @@ namespace Points.Services.Sqlite
                     m.AvailableFromDate  AS AvailableFromDate,
                     m.DueDate            AS DueDate,
                     m.CompletedDate      AS CompletedDate,
+                    m.EventDate          AS EventDate,
 
                     m.EstCompletionTimeText AS EstCompletionTimeText,
                     m.IsFailed           AS IsFailed,
@@ -829,6 +846,7 @@ namespace Points.Services.Sqlite
                 AvailableFromDate = ParseIsoDateTime(row.AvailableFromDate),
                 DueDate = ParseIsoDateTime(row.DueDate),
                 CompletedDate = string.IsNullOrWhiteSpace(row.CompletedDate) ? (DateTime?)null : ParseIsoDateTime(row.CompletedDate),
+                EventDate = string.IsNullOrWhiteSpace(row.EventDate) ? (DateTime?)null : ParseIsoDateTime(row.EventDate),
 
                 EstCompletionTime = StringToTimeSpan(row.EstCompletionTimeText),
                 IsFailed = row.IsFailed != 0,
@@ -900,6 +918,7 @@ namespace Points.Services.Sqlite
             public string AvailableFromDate { get; set; } = "";
             public string DueDate { get; set; } = "";
             public string? CompletedDate { get; set; }
+            public string? EventDate { get; set; }
 
             public string? EstCompletionTimeText { get; set; }
 
@@ -943,6 +962,7 @@ namespace Points.Services.Sqlite
                     m.AvailableFromDate     AS AvailableFromDate,
                     m.DueDate               AS DueDate,
                     m.CompletedDate         AS CompletedDate,
+                    m.EventDate             AS EventDate,
 
                     m.EstCompletionTimeText AS EstCompletionTimeText,
                     m.IsFailed              AS IsFailed,
@@ -1004,6 +1024,8 @@ namespace Points.Services.Sqlite
 
                     // We'll restore IsComplete via Complete()/Fail() below.
                     CompletedDate = null,
+
+                    EventDate = string.IsNullOrWhiteSpace(row.EventDate)  ? (DateTime?)null : ParseIsoDateTime(row.EventDate),
 
                     EstCompletionTime = StringToTimeSpan(row.EstCompletionTimeText),
 
@@ -2162,6 +2184,14 @@ namespace Points.Services.Sqlite
         //Card
         public async Task SaveCardModelAsync(ICardModel model)
         {
+            if(model is IActiveCardModel acm)
+            {
+                if(acm.IsActive)
+                {
+                    await CloseAnyOpenActivitiesAsync();
+                }
+            }
+
             await SaveCardModelsAsync(new List<ICardModel>() { model });
         }
 
@@ -2437,35 +2467,82 @@ namespace Points.Services.Sqlite
         //Mission
         private async Task SaveMissionCardModelDataAsync(MissionCardModel model, long cardId)
         {
+            // Convert nullable dates to ISO-8601 strings (or null)
+            var createdDateText = model.CreatedDate.ToString("o");
+            var availableFromText = model.AvailableFromDate.ToString("o");
+            var dueDateText = model.DueDate.ToString("o");
+            var completedDateText = model.CompletedDate?.ToString("o");
+            var eventDateText = model.EventDate?.ToString("o");
+            var estCompletionTimeText = model.EstCompletionTimeText ?? "";
+
             if (model.Id == 0)
             {
-                // Insert the “typed” row (e.g. ScCard)
                 await Db.ExecuteAsync(
-                    @"INSERT INTO MissionCard (CardID, Status, Description, SubType, Value, CreatedDate, AvailableFromDate, DueDate, CompletedDate, EstCompletionTimeText, IsFailed, ValuePerMinute) 
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
-                cardId, model.Status, model.Description, model.SubType.ToString(), model.Value, model.CreatedDate.ToString("o"), model.AvailableFromDate.ToString("o"), model.DueDate.ToString("o"), model.CompletedDate?.ToString("o"), model.EstCompletionTimeText, model.IsFailed, model.ValuePerMinute);
+                    @"INSERT INTO MissionCard
+              (CardID,
+               Status,
+               Description,
+               SubType,
+               Value,
+               CreatedDate,
+               AvailableFromDate,
+               DueDate,
+               CompletedDate,
+               EventDate,
+               EstCompletionTimeText,
+               IsFailed,
+               ValuePerMinute)
+              VALUES
+              (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                    cardId,
+                    model.Status ?? "",
+                    model.Description ?? "",
+                    model.SubType.ToString(),
+                    model.Value,
+                    createdDateText,
+                    availableFromText,
+                    dueDateText,
+                    completedDateText,
+                    eventDateText,
+                    estCompletionTimeText,
+                    model.IsFailed ? 1 : 0,
+                    model.ValuePerMinute
+                );
 
                 model.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
             }
             else
             {
                 await Db.ExecuteAsync(
-                    "UPDATE MissionCard SET Status = ?, Description = ?, SubType = ?, Value = ?, CreatedDate = ?, AvailableFromDate = ?, DueDate = ?, CompletedDate = ?, EstCompletionTimeText = ?, IsFailed = ?, ValuePerMinute = ? WHERE CardID = ?",
-                    model.Status, model.Description, model.SubType.ToString(), model.Value, model.CreatedDate.ToString("o"), model.AvailableFromDate.ToString("o"), model.DueDate.ToString("o"), model.CompletedDate?.ToString("o"), model.EstCompletionTimeText, model.IsFailed, model.ValuePerMinute, cardId);
-
-                foreach (var act in model.Activity)
-                {
-                    if(act.Id == 0)
-                    {
-                        await Db.ExecuteAsync("INSERT INTO Activity (CardID, \"Start\", \"End\", ValueRateName, ValuePerMinute) VALUES(?, ?, ?, ?, ?)", cardId, act.StartDate.ToString("o"), act.EndDate.ToString("o"), "Base Rate", act.ValuePerMinute);
-                    }
-                    else
-                    {
-                        await Db.ExecuteAsync("UPDATE Activity SET \"Start\" = ? , \"End\" = ?, ValueRateName, ValuePerMinute = ? WHERE ActivityID = ?", act.StartDate.ToString("o"), act.EndDate.ToString("o"), "Base Rate", act.ValuePerMinute, act.Id);
-                    }
-                }
+                    @"UPDATE MissionCard
+              SET Status                 = ?,
+                  Description            = ?,
+                  SubType                = ?,
+                  Value                  = ?,
+                  AvailableFromDate      = ?,
+                  DueDate                = ?,
+                  CompletedDate          = ?,
+                  EventDate              = ?,
+                  EstCompletionTimeText  = ?,
+                  IsFailed               = ?,
+                  ValuePerMinute         = ?
+              WHERE CardID = ?;",
+                    model.Status ?? "",
+                    model.Description ?? "",
+                    model.SubType.ToString(),
+                    model.Value,
+                    availableFromText,
+                    dueDateText,
+                    completedDateText,
+                    eventDateText,
+                    estCompletionTimeText,
+                    model.IsFailed ? 1 : 0,
+                    model.ValuePerMinute,
+                    cardId
+                );
             }
         }
+
 
         //SC
         private async Task SaveScModelDataAsync(ScCardModel model, long cardId)

@@ -302,6 +302,10 @@ namespace Points.ViewModels
 
         private async Task LoadAsync()
         {
+            //await _db.CloseAnyOpenActivitiesAsync();
+
+            //await _db.BackupAsync();
+
             // Get seed data (mock now, sqlite later)
             var seed = await _db.GetHomeSeedDataAsync(GlobalVariables.RangeStart, GlobalVariables.RangeEnd);
 
@@ -315,7 +319,7 @@ namespace Points.ViewModels
                 var trackers = Pages.First(p => p.Name == "Arcs");
 
                 //Activate any card that was set to active when the app was last closed
-                foreach (var item in seed.MainQuestCards)
+                foreach (var item in seed.MainQuestCards.Concat(seed.MissionCards).ToList())
                 {
                     if(item.Activity.Count > 0 && item.Activity.OrderByDescending(x => x.StartDate).ToArray()[0].EndDate == DateTime.MinValue)
                     {

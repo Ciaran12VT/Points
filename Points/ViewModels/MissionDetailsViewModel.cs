@@ -74,6 +74,12 @@ namespace Points.ViewModels
 
             DueDate = _model.DueDate.Date;
             DueTime = _model.DueDate.TimeOfDay;
+
+            // NEW: Event date
+            HasEventDate = _model.EventDate.HasValue;
+            var eventDate = _model.EventDate ?? DateTime.Today;
+            EventDateValue = eventDate.Date;                // just the date
+            EventTimeValue = eventDate.TimeOfDay;          // time part (00:00 if none)
         }
 
         // Editable
@@ -147,6 +153,28 @@ namespace Points.ViewModels
             set => SetProperty(ref _dueTime, value);
         }
 
+        // NEW: Event Date + checkbox
+        private DateTime _eventDateValue;
+        public DateTime EventDateValue
+        {
+            get => _eventDateValue;
+            set => SetProperty(ref _eventDateValue, value);
+        }
+
+        private TimeSpan _eventTimeValue;
+        public TimeSpan EventTimeValue
+        {
+            get => _eventTimeValue;
+            set => SetProperty(ref _eventTimeValue, value);
+        }
+
+        private bool _hasEventDate;
+        public bool HasEventDate
+        {
+            get => _hasEventDate;
+            set => SetProperty(ref _hasEventDate, value);
+        }
+
         private async Task SaveAsync()
         {
             // Compose DateTime values
@@ -198,6 +226,18 @@ namespace Points.ViewModels
             }
 
             _model.ValuePerMinute = valuePerMin;
+
+            // NEW: apply Event Date
+            if (HasEventDate)
+            {
+                // Combine date + time into a single DateTime
+                _model.EventDate = EventDateValue.Date + EventTimeValue;
+            }
+            else
+            {
+                _model.EventDate = null;
+            }
+
 
             // CreatedDate stays as originally set (auto)
             // Status stays non-editable here

@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.Input;
 using Points.Models;
 using Points.Services;
 using System.Collections.ObjectModel;
-using System.Xml;
 
 namespace Points.ViewModels
 {
@@ -15,9 +14,10 @@ namespace Points.ViewModels
 
         [ObservableProperty]
         private string sqlText = "";
-        private IDbService _db;
 
-        // For now, “results grid” = list of strings (each string = one row)
+        private readonly IDbService _db;
+
+        // Each string = "col1|col2|..."
         public ObservableCollection<string> Results { get; } = new();
 
         [ObservableProperty]
@@ -26,60 +26,50 @@ namespace Points.ViewModels
         [ObservableProperty]
         private bool isBusy;
 
+        // 🔹 Fire this when the results set is ready
+        public event Action? ResultsUpdated;
+
         public ReportDetailsViewModel(ReportModel report, IDbService db)
         {
             Report = report;
-            sqlText = report.SQLQuery;
+            SqlText = report.SQLQuery;
             _db = db;
         }
 
         [RelayCommand]
         private async Task ExecuteAsync()
         {
-            if (isBusy) return;
-            isBusy = true;
+            if (IsBusy) return;
+            IsBusy = true;
 
             try
             {
                 Results.Clear();
-                resultsMessage = "Executing...";
+                ResultsMessage = "Executing...";
 
-                var results = await _db.ExecuteSelectForReportAsync(sqlText);
+                var results = await _db.ExecuteSelectForReportAsync(SqlText);
 
                 foreach (var result in results)
                 {
-                    Results.Add(result);   
+                    Results.Add(result);
                 }
 
-                UpdateColumns();
+                // Persist edited SQL back to model
+                Report.SQLQuery = SqlText;
 
-                // Persist edited SQL back to model (optional but usually handy)
-                Report.SQLQuery = sqlText;
+                ResultsMessage = $"{Results.Count} rows returned.";
+
+                // 🔹 Tell the view that the results are ready
+                ResultsUpdated?.Invoke();
             }
             catch (Exception ex)
             {
-                resultsMessage = $"ERROR: {ex.Message}";
+                ResultsMessage = $"ERROR: {ex.Message}";
             }
             finally
             {
-                isBusy = false;
+                IsBusy = false;
             }
-        }
-
-        public ColumnDefinitionCollection ColumnDefinitions { get; private set; }
-
-        private void UpdateColumns()
-        {
-            if (Results.Count == 0)
-                return;
-
-            var columnCount = Results[0].Split('|').Length;
-
-            ColumnDefinitions = new ColumnDefinitionCollection();
-            for (int i = 0; i < columnCount; i++)
-                ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-
-            OnPropertyChanged(nameof(ColumnDefinitions));
         }
     }
 }

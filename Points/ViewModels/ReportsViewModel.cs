@@ -21,13 +21,8 @@ namespace Points.ViewModels
             {
                 new ReportModel
                 {
-                    Title = "Dockets - Last 50",
-                    SQLQuery = "SELECT * FROM tf_Docket ORDER BY CreatedDate DESC LIMIT 50;"
-                },
-                new ReportModel
-                {
-                    Title = "Customers - Search",
-                    SQLQuery = "SELECT * FROM mf_Customer WHERE Name LIKE '%hanlon%';"
+                    Title = "Activity",
+                    SQLQuery = "SELECT * FROM Activity;"
                 }
             };
 
@@ -41,10 +36,7 @@ namespace Points.ViewModels
 
             // Simple navigation approach: push a page and hand it the model.
             // (No Shell routes required.)
-            var page = new Points.Views.Details.ReportDetailsPage
-            {
-                BindingContext = new ReportDetailsViewModel(report, _db)
-            };
+            var page = new Points.Views.Details.ReportDetailsPage(new ReportDetailsViewModel(report, _db));
 
             await Application.Current!.MainPage!.Navigation.PushAsync(page);
         }

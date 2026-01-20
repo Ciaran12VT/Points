@@ -89,6 +89,56 @@ namespace Points.Models
             set => SetProperty(ref _completedDate, value);
         }
 
+        // NEW: EventDate
+        private DateTime? _eventDate;
+        public DateTime? EventDate
+        {
+            get => _eventDate;
+            set
+            {
+                if (SetProperty(ref _eventDate, value))
+                {
+                    RaisePropertyChanged(nameof(HasEventDate));
+                    RaisePropertyChanged(nameof(EventDateTimeText));
+                }
+            }
+        }
+
+        public bool HasEventDate => EventDate.HasValue;
+
+        public string EventDateTimeText =>
+            EventDate.HasValue
+                ? GetEventDateText(EventDate.Value)  // tweak format if you prefer
+                : string.Empty;
+
+        private string GetEventDateText(DateTime value)
+        {
+            string retVal = value.ToString("yyyy-mm-dd HH:mm");
+
+            if (value < DateTime.Now && value >= DateTime.Today)
+            {
+                retVal = $"OVERDUE: Today @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
+            }
+            else if (value < DateTime.Now)
+            {
+                retVal = $"Event Time: Today @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
+            }
+            else if (value < DateTime.Now.AddDays(1))
+            {
+                retVal = $"Event Time: Tomorrow @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
+            }
+            else if (value < DateTime.Now.AddDays(7))
+            {
+                retVal = $"Event Time: {value.DayOfWeek} @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
+            }
+            else
+            {
+                retVal = $"Event Time: {value.ToString("MMM-dd")} @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
+            }
+
+            return retVal;
+        }
+
         private TimeSpan? _estCompletionTime;
         public TimeSpan? EstCompletionTime
         {

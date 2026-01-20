@@ -91,6 +91,8 @@ namespace Points.Services
 
         Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(string sql, bool includeHeaderRow = true, params object?[] args);
 
+        Task<int> CloseAnyOpenActivitiesAsync();
+
     }
 
     public sealed class HomeSeedData

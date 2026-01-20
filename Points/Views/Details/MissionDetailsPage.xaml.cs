@@ -181,6 +181,57 @@ public partial class MissionDetailsPage : ContentPage
         }
     }
 
+    private async void OnAddPhotoClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is not MissionDetailsViewModel vm) return;
+
+        try
+        {
+            var results = await FilePicker.Default.PickMultipleAsync(new PickOptions
+            {
+                PickerTitle = "Pick photos",
+                FileTypes = FilePickerFileType.Images
+            });
+
+            foreach (var r in results ?? Enumerable.Empty<FileResult>())
+            {
+                //vm.Model.Photos.Add(r.FileName);
+            }
+
+
+        }
+        catch (TaskCanceledException)
+        {
+            // user cancelled
+        }
+    }
+
+    private async void OnAddFileClicked(object sender, EventArgs e)
+    {
+        if (BindingContext is not MissionDetailsViewModel vm) return;
+
+        try
+        {
+
+            var results = await FilePicker.Default.PickMultipleAsync(new PickOptions
+            {
+                PickerTitle = "Pick files"
+                // no FileTypes => any
+            });
+
+            foreach (var r in results ?? Enumerable.Empty<FileResult>())
+            {
+                //vm.Model.Files.Add(r.FileName);
+            }
+
+
+        }
+        catch (TaskCanceledException)
+        {
+            // user cancelled
+        }
+    }
+
     protected override void OnDisappearing()
     {
         base.OnDisappearing();

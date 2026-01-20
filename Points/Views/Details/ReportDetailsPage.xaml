@@ -43,40 +43,18 @@
                CornerRadius="8"
                BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
 
-            <!--<CollectionView ItemsSource="{Binding Results}">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Label Text="{Binding .}"
-                               FontFamily="Courier New"
-                               FontSize="12"
-                               LineBreakMode="WordWrap" />
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>-->
-
-            <CollectionView
-                ItemsSource="{Binding Results}"
-                Margin="12"
-                SelectionMode="None">
-
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Grid
-                            ColumnDefinitions="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ColumnDefinitions}"
-                            Padding="6"
-                            ColumnSpacing="8">
-
-                            <Grid.Behaviors>
-                                <behaviors:SplitRowToGridBehavior Separator="|" />
-                            </Grid.Behaviors>
-
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
+            <!-- Both-direction scroll so big result sets are viewable -->
+            <ScrollView Orientation="Both">
+                <Grid x:Name="ResultsGrid"
+              Padding="6"
+              ColumnSpacing="8"
+              RowSpacing="4" />
+            </ScrollView>
 
         </Frame>
+
+
+
 
         <!-- Results message -->
         <Editor Grid.Row="4"

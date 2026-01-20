@@ -13,6 +13,8 @@ namespace Points.Services.Sqlite
             return @"
                 PRAGMA foreign_keys = ON;
 
+                ALTER TABLE MissionCard ADD COLUMN EventDate TEXT NULL;
+
                 -- =========================
                 -- Core / base entity
                 -- =========================
@@ -88,6 +90,7 @@ namespace Points.Services.Sqlite
                     AvailableFromDate      TEXT    NOT NULL, -- ISO-8601 datetime
                     DueDate                TEXT    NOT NULL, -- ISO-8601 datetime
                     CompletedDate          TEXT    NULL,     -- ISO-8601 datetime
+                    EventDate              TEXT    NULL,     -- ISO-8601 datetime 
 
                     EstCompletionTimeText  TEXT    NOT NULL DEFAULT '',
 
