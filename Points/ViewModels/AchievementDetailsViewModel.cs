@@ -15,14 +15,20 @@ namespace Points.ViewModels
         public AchievementCardModel Model => _model;
 
         private readonly Action<AchievementCardModel> _onSaved;
+        private readonly Action<AchievementCardModel> _onDelete;
 
         private readonly IDispatcherTimer _timer;
         public void StopTimer() => _timer?.Stop();
 
-        public AchievementDetailsViewModel(AchievementCardModel model, Action<AchievementCardModel> onSaved)
+        public Command CancelCommand { get; }
+
+        public AchievementDetailsViewModel(AchievementCardModel model, Action<AchievementCardModel> onSaved, Action<AchievementCardModel> onDelete)
         {
             _model = model;
             _onSaved = onSaved;
+            _onDelete = onDelete;
+
+            CancelCommand = new Command(async () => await OnCancelAsync());
 
             // Tick every second
             _timer = Application.Current!.Dispatcher.CreateTimer();
@@ -201,6 +207,21 @@ namespace Points.ViewModels
         //    }
         //}
 
+        private async Task OnCancelAsync()
+        {
+            var choice = await Shell.Current.DisplayActionSheet(
+                _model.Title,
+                "Cancel",
+                null,
+                "Delete"
+            );
+
+            if (choice == "Delete")
+            {
+                _onDelete?.Invoke(_model);
+                await Shell.Current.Navigation.PopAsync();
+            }
+        }
 
         public Command SaveCommand { get; }
 

@@ -62,6 +62,7 @@ namespace Points.ViewModels
             Description = _model.Description;
             ValuePerMinuteText = Math.Abs(_model.ValuePerMinute).ToString("0.##", CultureInfo.InvariantCulture);
             _isNegative = _model.ValuePerMinute < 0;
+            TargetActiveTime = _model.TargetActiveTime;
 
             // Copy steps into a local collection (edit freely, commit on save)
             foreach (var r in _model.ValueRates)
@@ -171,6 +172,7 @@ namespace Points.ViewModels
             _model.Tags = Tags;
             _model.Description = Description;
             _model.ValuePerMinute = vpm;
+            _model.TargetActiveTime = TargetActiveTime;
 
             // Commit steps back to model
             _model.ValueRates.Clear();

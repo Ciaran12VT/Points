@@ -11,6 +11,7 @@ using Points.Services;
 using System.Diagnostics;
 using Points.Views.Details;
 using System.Windows.Input;
+using System.Text.Json;
 
 namespace Points.ViewModels
 {
@@ -18,6 +19,7 @@ namespace Points.ViewModels
     {
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        private readonly IActiveCardNotificationService _activeCardNotificationService;
         private IDbService _db;
 
         #region Commands
@@ -238,8 +240,9 @@ namespace Points.ViewModels
 
         #endregion
 
-        public HomeViewModel(IDbService db)
+        public HomeViewModel(IDbService db, IActiveCardNotificationService activeCardNotificationService)
         {
+            _activeCardNotificationService = activeCardNotificationService;
             _db = db;
 
             // Commands
@@ -338,7 +341,7 @@ namespace Points.ViewModels
                 foreach (var c in seed.BudgetCards)
                     CommitCardToPage(budgets, c, true);
 
-                foreach (var c in seed.Achievements)
+                foreach (var c in seed.Achievements.Cast<AchievementCardModel>().Where(x => x.IsPinned))
                     CommitCardToPage(achievements, c, true);
 
                 foreach (var c in seed.ValueTrackers)
@@ -701,6 +704,10 @@ namespace Points.ViewModels
                 card.StopActivity();
                 await _db.EndActivity(card, DateTime.Now);
                 _activeCard = null;
+
+                // 🔔 Stop the foreground notification – no active card now
+                _activeCardNotificationService.UpdateActiveCardNotification(null);
+
                 OnPropertyChanged(nameof(HasActiveCard));
                 OnPropertyChanged(nameof(ActivePhaseName));
                 OnPropertyChanged(nameof(ActivePhaseColor));
@@ -739,6 +746,9 @@ namespace Points.ViewModels
             _activeCard = card;
 
             await _db.AddActivity(_activeCard, DateTime.Now);
+
+            // 🔔 Start/update the foreground notification with the new active card title
+            _activeCardNotificationService.UpdateActiveCardNotification(_activeCard);
 
             OnPropertyChanged(nameof(HasActiveCard));
             OnPropertyChanged(nameof(ActivePhaseName));
@@ -1067,6 +1077,11 @@ namespace Points.ViewModels
         public async Task SaveBudget(BudgetCardModel b)
         {
             await _db.SaveCardModelAsync(b);
+        }
+
+        internal void DebugBeep()
+        {
+            _activeCardNotificationService.DebugBeep();
         }
     }
 

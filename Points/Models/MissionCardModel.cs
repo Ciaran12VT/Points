@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Points.Evaluators;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -18,6 +19,8 @@ namespace Points.Models
             get => _title;
             set => SetProperty(ref _title, value);
         }
+
+        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
 
         private string _status = "In-Progress";
         public string Status

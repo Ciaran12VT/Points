@@ -18,8 +18,20 @@
                         Grid.Column="1"
                         Spacing="6"
                         VerticalOptions="Center">
+
+                        <Button 
+                            Text="✕" 
+                            WidthRequest="36" 
+                            HeightRequest="36" 
+                            CornerRadius="18" 
+                            Padding="0" 
+                            Margin="0" 
+                            TextColor="White" 
+                            BackgroundColor="DarkRed" 
+                            Command="{Binding CancelCommand}"
+                            VerticalOptions="Center"/>
                         
-                      <CheckBox IsChecked="{Binding IsPinned}" />
+                        <CheckBox IsChecked="{Binding IsPinned}" />
                       <Label Text="Pinned" VerticalOptions="Center" FontSize="12"/>
                     </HorizontalStackLayout>
                 </Grid>

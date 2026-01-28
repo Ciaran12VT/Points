@@ -6,6 +6,8 @@ public partial class DurationPickerPage : ContentPage
 {
     private readonly TaskCompletionSource<TimeSpan?> _tcs = new();
 
+    public bool WasCancelled { get; private set; }
+
     public DurationPickerPage(TimeSpan? initial = null)
 	{
 		InitializeComponent();
@@ -27,6 +29,15 @@ public partial class DurationPickerPage : ContentPage
 
     private async void OnCancelClicked(object sender, EventArgs e)
     {
+        WasCancelled = true;
+        _tcs.TrySetResult(null);
+        await Shell.Current.Navigation.PopModalAsync();
+    }
+
+    private async void OnResetClicked(object sender, EventArgs e)
+    {
+        // Reset means: not cancelled, but "no duration"
+        WasCancelled = false;
         _tcs.TrySetResult(null);
         await Shell.Current.Navigation.PopModalAsync();
     }

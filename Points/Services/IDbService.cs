@@ -37,6 +37,7 @@ namespace Points.Services
         // Achievement
         //Task<AchievementCardModel> GetAchievementCardModelDataAsync(int id);
         //Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null);
+        Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null);
 
         // Budget
         Task<BudgetCardModel> GetBudgetCardModelDataAsync(int id);
@@ -75,6 +76,9 @@ namespace Points.Services
 
         Task SaveCardModelAsync(ICardModel model);
         Task SaveCardModelsAsync(List<ICardModel> models);
+
+        Task SaveAchievementCardModelDataAsync(AchievementCardModel acm, long cardId);
+        Task DeleteAchievementCardModelAsync(AchievementCardModel model);
 
         // Adds a new entity to ScCardStepRep for the step
         Task AddRepForStep(int scCardStepID, DateTime repTime, double stepValue);

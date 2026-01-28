@@ -45,7 +45,15 @@ public partial class AchievementCardView : ContentView
                 allTags,
                 stepNames,
                 achievementTitles,
-                _ => { } // no-op save callback for now
+                _ => { }, // no-op save callback for now
+                deleted =>
+                {
+                    var achievementsPage = vm.Pages.First(p => p.Name == "Achievements");
+                    var metaAchievementsPage = vm.Pages.First(p => p.Name == "Meta-Achievements");
+                    var page = deleted.GoalType == AchievementGoalType.Achievements ? metaAchievementsPage : achievementsPage;
+                    vm.RemoveCardFromPage(page, deleted);
+                    vm.DeleteCardFromDb(deleted);
+                }
             )
         );
     }

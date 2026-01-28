@@ -1,4 +1,5 @@
 ﻿using Points.Models;
+using Points.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -29,6 +30,7 @@ namespace Points.ViewModels
         }
 
         public List<string> AvailableTagsList;
+        private IDbService _db;
 
         public Command AddAchievementCommand { get; }
         public Command OpenTrophyRoomCommand { get; }
@@ -70,8 +72,18 @@ namespace Points.ViewModels
                     achievementTitles,
                     saved =>
                     {
-                        // Add to whichever carousel page the user is currently on
-                        page.Cards.Add(saved);
+                        var achievementsPage = Pages.First(p => p.Name == "Achievements");
+                        var metaAchievementsPage = Pages.First(p => p.Name == "Meta-Achievements");
+                        var page = saved.GoalType == AchievementGoalType.Achievements ? metaAchievementsPage : achievementsPage;
+                        CommitCardToPage(page, saved, false);
+                    },
+                    deleted =>
+                    {
+                        var achievementsPage = Pages.First(p => p.Name == "Achievements");
+                        var metaAchievementsPage = Pages.First(p => p.Name == "Meta-Achievements");
+                        var page = deleted.GoalType == AchievementGoalType.Achievements ? metaAchievementsPage : achievementsPage;
+                        RemoveCardFromPage(page, deleted);
+                        DeleteCardFromDb(deleted);
                     }
                 )
             );
@@ -92,16 +104,74 @@ namespace Points.ViewModels
                 .OrderBy(x => x);
         }
 
+        public Task? Initialization { get; private set; }
 
-        public AchievementsViewModel(List<string> availableTagsList)
+        public AchievementsViewModel(List<string> availableTagsList, Services.IDbService db)
         {
+            _db = db;
+
             Pages.Add(CreateAchievementsPage());
             Pages.Add(CreateMetaAchievementsPage());
 
             AvailableTagsList = availableTagsList;
 
+            Initialization = LoadAsync();
+
             AddAchievementCommand = new Command(async () => await AddAchievementAsync());
             OpenTrophyRoomCommand = new Command(async () => await OpenTrophyRoomAsync());
+        }
+
+        private async Task LoadAsync()
+        {
+            var achievements = await _db.GetAchievementCardModelsDataAsync();
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                var regularAchievements = achievements.Where(x => x.GoalType != AchievementGoalType.Achievements).ToList();
+                var metaAchievements = achievements.Where(x => x.GoalType == AchievementGoalType.Achievements).ToList();
+
+                var achievementsPage = Pages.First(p => p.Name == "Achievements");
+                var metaAchievementsPage = Pages.First(p => p.Name == "Meta-Achievements");
+
+                foreach (var c in regularAchievements) CommitCardToPage(achievementsPage, c, true);
+
+                foreach (var c in metaAchievements) CommitCardToPage(metaAchievementsPage, c, true);
+
+            });
+        }
+
+        /// <summary>
+        /// The ONE AND ONLY way a card gets added to a page.
+        /// All callers (mock seeding + UI save callbacks) must use this.
+        /// </summary>
+        private void CommitCardToPage(AchievementsPageModel page, AchievementCardModel card, bool noDb = false)
+        {
+            if (page == null || card == null) return;
+
+            // If card already exists (editing existing), don't duplicate
+            // (Reference equality is the safest default here.)
+            if (!page.Cards.Contains(card))
+            {
+                page.AddCard(card);
+            }
+
+            if (!noDb) CommitCardToDb(card);
+        }
+
+        private void CommitCardToDb(ICardModel card)
+        {
+            _db.SaveCardModelAsync(card);
+        }
+
+        public void DeleteCardFromDb(AchievementCardModel deleted)
+        {
+            _db.DeleteAchievementCardModelAsync(deleted);
+        }
+
+        public void RemoveCardFromPage(AchievementsPageModel page, AchievementCardModel card)
+        {
+            if (page == null || card == null) return;
+            page.RemoveCard(card);
         }
 
         private AchievementsPageModel CreateAchievementsPage()
@@ -110,30 +180,30 @@ namespace Points.ViewModels
                 "Achievements",
                 new ObservableCollection<AchievementCardModel>
                 {
-                    new AchievementCardModel
-                    {
-                        Title = "Super Nerd",
-                        Status = "In-Progress",
-                        Tags = "#Study, #Consistency",
-                        GoalType = AchievementGoalType.ActiveTime,
-                        Target = 600, // minutes
-                        CurrentValue = 245
-                    },
-                    new AchievementCardModel
-                    {
-                        Title = "Gym Rat",
-                        Status = "Completed",
-                        Tags = "#Fitness",
-                        GoalType = AchievementGoalType.Value,
-                        Target = 1000,
-                        CurrentValue = 1000,
-                        CompletedAt = DateTime.Now.AddDays(-2),
-                        CompletionType = AchievementCompletionType.Range,
-                        RangeAmount = 6,
-                        RangeUnit  = AchievementRangeUnit.Months,
-                        LastEarnedAt = DateTime.Now.AddDays(-2),
-                        ActiveTimeTargetText = "200:00:00"
-                    }
+                    //new AchievementCardModel
+                    //{
+                    //    Title = "Super Nerd",
+                    //    Status = "In-Progress",
+                    //    Tags = "#Study, #Consistency",
+                    //    GoalType = AchievementGoalType.ActiveTime,
+                    //    Target = 600, // minutes
+                    //    CurrentValue = 245
+                    //},
+                    //new AchievementCardModel
+                    //{
+                    //    Title = "Gym Rat",
+                    //    Status = "Completed",
+                    //    Tags = "#Fitness",
+                    //    GoalType = AchievementGoalType.Value,
+                    //    Target = 1000,
+                    //    CurrentValue = 1000,
+                    //    CompletedAt = DateTime.Now.AddDays(-2),
+                    //    CompletionType = AchievementCompletionType.Range,
+                    //    RangeAmount = 6,
+                    //    RangeUnit  = AchievementRangeUnit.Months,
+                    //    LastEarnedAt = DateTime.Now.AddDays(-2),
+                    //    ActiveTimeTargetText = "200:00:00"
+                    //}
                 });
         }
 
@@ -143,15 +213,15 @@ namespace Points.ViewModels
                 "Meta-Achievements",
                 new ObservableCollection<AchievementCardModel>
                 {
-                    new AchievementCardModel
-                    {
-                        Title = "Achievement Hunter",
-                        Status = "In-Progress",
-                        Tags = "#Meta",
-                        GoalType = AchievementGoalType.Steps,
-                        Target = 10,
-                        CurrentValue = 3
-                    }
+                    //new AchievementCardModel
+                    //{
+                    //    Title = "Achievement Hunter",
+                    //    Status = "In-Progress",
+                    //    Tags = "#Meta",
+                    //    GoalType = AchievementGoalType.Steps,
+                    //    Target = 10,
+                    //    CurrentValue = 3
+                    //}
                 });
         }
 
@@ -175,6 +245,15 @@ namespace Points.ViewModels
         {
             Name = name;
             Cards = cards;
+        }
+        public void AddCard(AchievementCardModel card)
+        {
+            Cards.Add(card);
+        }
+
+        public void RemoveCard(AchievementCardModel card)
+        {
+            Cards.Remove(card);
         }
     }
 }

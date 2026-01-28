@@ -121,7 +121,7 @@ namespace Points.Models
             }
         }
 
-        private DateTime GetRangeWindowStart(DateTime now)
+        public DateTime GetRangeWindowStart(DateTime now)
         {
             // RangeAmount is int, RangeUnit is enum (you already have these).
             var amt = RangeAmount;
@@ -385,6 +385,33 @@ namespace Points.Models
             RaisePropertyChanged(nameof(TargetText));
             RaisePropertyChanged(nameof(CompletionTimeText));
             RaisePropertyChanged(nameof(Progress));
+        }
+
+        public double GetTargeSecondsSpent()
+        {
+             double retval = 0;
+
+            if(!string.IsNullOrEmpty(_activeTimeTargetText))
+            {
+                string hrsString = _activeTimeTargetText.Split(':')[0];
+                string minsString = _activeTimeTargetText.Split(':')[1];
+                string secsString = _activeTimeTargetText.Split(':')[2];
+
+                if (!int.TryParse(hrsString, out int hrs)) throw new Exception("Hours could not be parsed!");
+
+                if (!int.TryParse(minsString, out int mins)) throw new Exception("Mins could not be parsed!");
+
+                if (!int.TryParse(secsString, out int secs)) throw new Exception("Secs could not be parsed!");
+
+                retval += hrs * 3600;
+
+                retval += mins * 60;
+
+                retval += secs;
+
+            }
+
+            return retval;
         }
     }
 }

@@ -45,6 +45,12 @@ namespace Points.ViewModels
         public string RateName => _rateName;
         public double ValuePerMinute => _valuePerMinute;
 
+        // NEW: duration in hours
+        public double Hours => (End - Start).TotalHours;
+
+        // Optional: nice formatted text for binding
+        public string HoursText => $"{Hours:F2} h";
+
         public EditActiveTimeRow(DateTime start, DateTime end, string rateName, double valuePerMinute)
         {
             _start = start;

@@ -28,8 +28,10 @@ namespace Points
 
 #if ANDROID
             builder.Services.AddSingleton<IAudioFeedback, AndroidAudioFeedback>();
+            builder.Services.AddSingleton<IActiveCardNotificationService, Points.Platforms.Android.ActiveCardNotificationService>();
 #else
             builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
+            builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
 #endif
 
             builder.Services.AddTransient<HomePage>();      // <-- add this

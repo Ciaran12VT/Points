@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui.Core.Extensions;
+using Points.Evaluators;
 using Points.Global;
 using Points.Models;
 using SQLite;
@@ -251,215 +252,200 @@ namespace Points.Services.Sqlite
 
         #region Read
 
-        //Achievement
-        //public async Task<AchievementCardModel> GetAchievementCardModelDataAsync(int id)
-        //{
-        //    const string sql = @"
-        //            SELECT
-        //                a.AchievementCardID  AS AchievementCardID,
-        //                a.CardID             AS CardID,
+        public async Task<AchievementCardModel> GetAchievementCardModelDataAsync(int id)
+        {
+            await InitializeAsync();
 
-        //                c.Title              AS Title,
-        //                c.Tags               AS Tags,
+            const string sql = @"
+                SELECT
+                    a.AchievementCardID       AS AchievementCardID,
+                    a.CardID                  AS CardID,
 
-        //                a.Status             AS Status,
-        //                a.Description        AS Description,
+                    c.Title                   AS Title,
+                    c.Tags                    AS Tags,
 
-        //                a.SubType            AS SubType,
-        //                a.ProgressType       AS ProgressType,
-        //                a.RangeAmount        AS RangeAmount,
+                    a.Status                  AS Status,
+                    a.Description             AS Description,
+                    a.GoalType                AS GoalType,
+                    a.DifficultyLevel         AS DifficultyLevel,
 
-        //                a.CreatedDate        AS CreatedDate,
-        //                a.AvailableFromDate  AS AvailableFromDate,
-        //                a.DueDate            AS DueDate,
+                    a.CreatedDate             AS CreatedDate,
+                    a.LastEarnedAt            AS LastEarnedAt,
 
-        //                a.CompletedDate      AS CompletedDate,
-        //                a.LastEarnedAt       AS LastEarnedAt,
-        //                a.Deadline           AS Deadline,
+                    a.TargetActiveTimeInSeconds AS TargetActiveTimeInSeconds,
+                    a.TargetValue             AS TargetValue,
+                    a.ScCardStepID            AS ScCardStepID,
 
-        //                a.TrophyURLs         AS TrophyURLs
-        //            FROM AchievementCard a
-        //            JOIN Card c ON c.CardID = a.CardID
-        //            WHERE a.AchievementCardID = ?
-        //            LIMIT 1;
-        //        ";
+                    a.CompletionType          AS CompletionType,
+                    a.RangeUnit               AS RangeUnit,
+                    a.RangeAmount             AS RangeAmount,
+                    a.Deadline                AS Deadline,
 
-        //    var row = (await Db.QueryAsync<AchievementCardJoinedRow>(sql, id)).FirstOrDefault();
-        //    if (row == null) throw new KeyNotFoundException($"AchievementCard not found. AchievementCardID={id}");
+                    a.TrophyURLs              AS TrophyURLs,
+                    a.IsPinned                AS IsPinned
+                FROM AchievementCard a
+                JOIN Card c ON c.CardID = a.CardID
+                WHERE a.AchievementCardID = ?
+                LIMIT 1;";
 
-        //    Enum.TryParse(row.SubType, out AchievementDifficultyLevels difficulty);
-        //    Enum.TryParse(row.ProgressType, out AchievementGoalType goalType);
+            var row = (await Db.QueryAsync<AchievementCardJoinedRow>(sql, id)).FirstOrDefault();
+            if (row == null)
+                throw new KeyNotFoundException($"AchievementCard not found. AchievementCardID={id}");
 
-        //    var model = new AchievementCardModel
-        //    {
-        //        Id = row.AchievementCardID,
+            return MapAchievementRowToModel(row);
+        }
 
-        //        Title = row.Title ?? "",
-        //        Tags = row.Tags ?? "",
+        public async Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null)
+        {
+            await InitializeAsync();
 
-        //        Status = row.Status ?? "",
-        //        Description = row.Description ?? "",
+            var sql = @"
+                    SELECT
+                        a.AchievementCardID       AS AchievementCardID,
+                        a.CardID                  AS CardID,
 
-        //        Difficulty = difficulty,
-        //        GoalType = goalType,
+                        c.Title                   AS Title,
+                        c.Tags                    AS Tags,
 
-        //        RangeAmount = row.RangeAmount ?? 0,
+                        a.Status                  AS Status,
+                        a.Description             AS Description,
+                        a.GoalType                AS GoalType,
+                        a.DifficultyLevel         AS DifficultyLevel,
 
-        //        CreatedDate = ParseIsoDateTime(row.CreatedDate),
-        //        AvailableFromDate = ParseIsoDateTime(row.AvailableFromDate),
-        //        DueDate = ParseIsoDateTime(row.DueDate),
+                        a.CreatedDate             AS CreatedDate,
+                        a.LastEarnedAt            AS LastEarnedAt,
 
-        //        Deadline = string.IsNullOrWhiteSpace(row.Deadline)
-        //            ? null
-        //            : ParseIsoDateTime(row.Deadline),
+                        a.TargetActiveTimeInSeconds AS TargetActiveTimeInSeconds,
+                        a.TargetValue             AS TargetValue,
+                        a.ScCardStepID            AS ScCardStepID,
 
-        //        LastEarnedAt = string.IsNullOrWhiteSpace(row.LastEarnedAt)
-        //            ? null
-        //            : ParseIsoDateTime(row.LastEarnedAt),
+                        a.CompletionType          AS CompletionType,
+                        a.RangeUnit               AS RangeUnit,
+                        a.RangeAmount             AS RangeAmount,
+                        a.Deadline                AS Deadline,
 
-        //        Trophies = new ObservableCollection<string>()
-        //    };
+                        a.TrophyURLs              AS TrophyURLs,
+                        a.IsPinned                AS IsPinned
+                    FROM AchievementCard a
+                    JOIN Card c ON c.CardID = a.CardID
+                ";
 
-        //    if (!string.IsNullOrWhiteSpace(row.CompletedDate))
-        //        model.MarkCompleted(ParseIsoDateTime(row.CompletedDate));
+            if (!string.IsNullOrWhiteSpace(whereClause))
+            {
+                var wc = whereClause.Trim();
+                sql += wc.StartsWith("WHERE", StringComparison.OrdinalIgnoreCase)
+                    ? " " + wc
+                    : " WHERE " + wc;
+            }
 
-        //    if (!string.IsNullOrWhiteSpace(row.TrophyURLs))
-        //    {
-        //        foreach (var t in row.TrophyURLs
-        //                     .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        //        {
-        //            model.Trophies.Add(t);
-        //        }
-        //    }
+            var cols = await Db.QueryAsync<PragmaTableInfo>("PRAGMA table_info(AchievementCard);");
 
-        //    return model;
-        //}
+            var rows = await Db.QueryAsync<AchievementCardJoinedRow>(sql);
+            if (rows.Count == 0)
+                return new List<AchievementCardModel>();
 
+            return rows.Select(MapAchievementRowToModel).ToList();
+        }
 
-        //public async Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null)
-        //{
-        //    var sql = @"
-        //        SELECT
-        //            a.AchievementCardID  AS AchievementCardID,
-        //            a.CardID             AS CardID,
+        private AchievementCardModel MapAchievementRowToModel(AchievementCardJoinedRow row)
+        {
+            // Parse enums with safe fallbacks
+            var difficulty = AchievementDifficultyLevels.Easy;
+            if (!string.IsNullOrWhiteSpace(row.DifficultyLevel))
+                Enum.TryParse(row.DifficultyLevel, out difficulty);
 
-        //            c.Title              AS Title,
-        //            c.Tags               AS Tags,
+            var goalType = AchievementGoalType.ActiveTime;
+            if (!string.IsNullOrWhiteSpace(row.GoalType))
+                Enum.TryParse(row.GoalType, out goalType);
 
-        //            a.Status             AS Status,
-        //            a.Description        AS Description,
+            var completionType = AchievementCompletionType.Range;
+            if (!string.IsNullOrWhiteSpace(row.CompletionType))
+                Enum.TryParse(row.CompletionType, out completionType);
 
-        //            a.SubType            AS SubType,
-        //            a.ProgressType       AS ProgressType,
-        //            a.RangeAmount        AS RangeAmount,
+            var rangeUnit = AchievementRangeUnit.Days;
+            if (!string.IsNullOrWhiteSpace(row.RangeUnit))
+                Enum.TryParse(row.RangeUnit, out rangeUnit);
 
-        //            a.CreatedDate        AS CreatedDate,
-        //            a.AvailableFromDate  AS AvailableFromDate,
-        //            a.DueDate            AS DueDate,
+            var model = new AchievementCardModel
+            {
+                Id = row.AchievementCardID,
 
-        //            a.CompletedDate      AS CompletedDate,
-        //            a.LastEarnedAt       AS LastEarnedAt,
-        //            a.Deadline           AS Deadline,
+                Title = row.Title ?? "",
+                Tags = row.Tags ?? "",
 
-        //            a.TrophyURLs         AS TrophyURLs
-        //        FROM AchievementCard a
-        //        JOIN Card c ON c.CardID = a.CardID
-        //    ";
+                Status = row.Status ?? "",
+                Description = row.Description ?? "",
 
-        //    if (!string.IsNullOrWhiteSpace(whereClause))
-        //    {
-        //        var wc = whereClause.Trim();
-        //        sql += wc.StartsWith("WHERE", StringComparison.OrdinalIgnoreCase)
-        //            ? " " + wc
-        //            : " WHERE " + wc;
-        //    }
+                Difficulty = difficulty,
+                GoalType = goalType,
+                CompletionType = completionType,
+                RangeUnit = rangeUnit,
 
-        //    var rows = await Db.QueryAsync<AchievementCardJoinedRow>(sql);
-        //    if (rows.Count == 0)
-        //        return new List<AchievementCardModel>();
+                RangeAmount = row.RangeAmount ?? 0,
+                TargetValue = row.TargetValue ?? 0,
+            };
 
-        //    var result = new List<AchievementCardModel>(rows.Count);
+            // Active time target (seconds -> "hh:mm:ss" style string)
+            if (row.TargetActiveTimeInSeconds.HasValue && row.TargetActiveTimeInSeconds.Value > 0)
+            {
+                var ts = TimeSpan.FromSeconds(row.TargetActiveTimeInSeconds.Value);
+                // Hours can exceed 24; we want total hours
+                var hours = (int)ts.TotalHours;
+                model.ActiveTimeTargetText = $"{hours}:{ts.Minutes:D2}:{ts.Seconds:D2}";
+            }
 
-        //    foreach (var row in rows)
-        //    {
-        //        Enum.TryParse(row.SubType, out AchievementDifficulty difficulty);
-        //        Enum.TryParse(row.ProgressType, out AchievementGoalType goalType);
+            // Deadline
+            if (!string.IsNullOrWhiteSpace(row.Deadline))
+                model.Deadline = ParseIsoDateTime(row.Deadline);
 
-        //        var model = new AchievementCardModel
-        //        {
-        //            Id = row.AchievementCardID,
+            // Last earned
+            if (!string.IsNullOrWhiteSpace(row.LastEarnedAt))
+                model.LastEarnedAt = ParseIsoDateTime(row.LastEarnedAt);
 
-        //            Title = row.Title ?? "",
-        //            Tags = row.Tags ?? "",
+            // Trophies from newline-separated TrophyURLs
+            if (!string.IsNullOrWhiteSpace(row.TrophyURLs))
+            {
+                foreach (var t in row.TrophyURLs
+                                     .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    model.Trophies.Add(t);
+                }
+            }
 
-        //            Status = row.Status ?? "",
-        //            Description = row.Description ?? "",
+            return model;
+        }
 
-        //            Difficulty = difficulty,
-        //            GoalType = goalType,
+        // Internal DTO for sqlite-net mapping
+        private sealed class AchievementCardJoinedRow
+        {
+            public int AchievementCardID { get; set; }
+            public long CardID { get; set; }
 
-        //            RangeAmount = row.RangeAmount ?? 0,
+            public string? Title { get; set; }
+            public string? Tags { get; set; }
 
-        //            CreatedDate = ParseIsoDateTime(row.CreatedDate),
-        //            AvailableFromDate = ParseIsoDateTime(row.AvailableFromDate),
-        //            DueDate = ParseIsoDateTime(row.DueDate),
+            public string? Status { get; set; }
+            public string? Description { get; set; }
 
-        //            Deadline = string.IsNullOrWhiteSpace(row.Deadline)
-        //                ? null
-        //                : ParseIsoDateTime(row.Deadline),
+            public string? GoalType { get; set; }
+            public string? DifficultyLevel { get; set; }
 
-        //            LastEarnedAt = string.IsNullOrWhiteSpace(row.LastEarnedAt)
-        //                ? null
-        //                : ParseIsoDateTime(row.LastEarnedAt),
+            public string CreatedDate { get; set; } = "";
+            public string? LastEarnedAt { get; set; }
 
-        //            Trophies = new ObservableCollection<string>()
-        //        };
+            public int? TargetActiveTimeInSeconds { get; set; }
+            public double? TargetValue { get; set; }
+            public int? ScCardStepID { get; set; }
 
-        //        if (!string.IsNullOrWhiteSpace(row.CompletedDate))
-        //            model.MarkCompleted(ParseIsoDateTime(row.CompletedDate));
+            public string? CompletionType { get; set; }
+            public string? RangeUnit { get; set; }
+            public int? RangeAmount { get; set; }
 
-        //        if (!string.IsNullOrWhiteSpace(row.TrophyURLs))
-        //        {
-        //            foreach (var t in row.TrophyURLs
-        //                         .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        //            {
-        //                model.Trophies.Add(t);
-        //            }
-        //        }
+            public string? Deadline { get; set; }
+            public string? TrophyURLs { get; set; }
+            public int IsPinned { get; set; }
 
-        //        result.Add(model);
-        //    }
-
-        //    return result;
-        //}
-
-
-        //private sealed class AchievementCardJoinedRow
-        //{
-        //    public int AchievementCardID { get; set; }
-        //    public long CardID { get; set; }
-
-        //    public string? Title { get; set; }
-        //    public string? Tags { get; set; }
-
-        //    public string? Status { get; set; }
-        //    public string? Description { get; set; }
-
-        //    public string? SubType { get; set; }
-        //    public string? ProgressType { get; set; }
-
-        //    public int? RangeAmount { get; set; }
-
-        //    public string CreatedDate { get; set; } = "";
-        //    public string AvailableFromDate { get; set; } = "";
-        //    public string DueDate { get; set; } = "";
-
-        //    public string? CompletedDate { get; set; }
-        //    public string? LastEarnedAt { get; set; }
-        //    public string? Deadline { get; set; }
-
-        //    public string? TrophyURLs { get; set; }
-        //}
+        }
 
 
         // =======================
@@ -757,7 +743,9 @@ namespace Points.Services.Sqlite
 
             var budget = await GetBudgetCardModelsDataAsync();
 
-            //var achievements = await GetAchievementCardModelsDataAsync();
+            var achievements = await GetAchievementCardModelsDataAsync();
+
+            //await PopulateAchievements(achievements, mainQuest, mission);
 
             var valueTrackers = await GetValueTrackerCardModelsDataAsync();
 
@@ -768,12 +756,64 @@ namespace Points.Services.Sqlite
                 MainQuestCards = mainQuest,
                 MissionCards = mission,
                 BudgetCards = budget,
-                Achievements = new List<ICardModel>(), //achievements
+                Achievements = achievements,
                 ValueTrackers = valueTrackers,
                 EventTrackers = eventTrackers
             };
 
             return seed;
+        }
+
+        private async Task PopulateAchievements(List<AchievementCardModel> achievements, List<IActiveCardModel> mainQuest, List<MissionCardModel> mission)
+        {
+            Dictionary<string, TimeValueAchievementEvaluator> byTag = await BuildEvaluatorsByTag(achievements);
+            foreach (var mq in mainQuest)
+            {
+                var tags = mq.Tags.Split(',').Select(x => x.Trim());
+                var evals = byTag.Where(x => tags.Contains(x.Key)).Select(y => y.Value).ToList();
+                mq.TimeValueAchievementEvaluators = evals;
+            }
+        }
+
+        private async Task<Dictionary<string, TimeValueAchievementEvaluator>> BuildEvaluatorsByTag(IEnumerable<AchievementCardModel> cards)
+        {
+            if (cards == null) throw new ArgumentNullException(nameof(cards));
+
+            var result = new Dictionary<string, TimeValueAchievementEvaluator>();
+
+            foreach (var group in cards.GroupBy(c => c.Tags ?? string.Empty))
+            {
+                var evaluationTasks = group.Select(card => CreateEvaluation(card)); // Tasks
+
+                var evaluations = await Task.WhenAll(evaluationTasks); // Await all
+
+                result[group.Key] = new TimeValueAchievementEvaluator
+                {
+                    Evaluations = evaluations.ToList()
+                };
+            }
+
+            return result;
+        }
+
+
+        private async Task<ITimeValueAchievementEvaluation> CreateEvaluation(AchievementCardModel card)
+        {
+            return card.GoalType switch
+            {
+                AchievementGoalType.ActiveTime => new TimeAchievementEvaluation
+                {
+                    AchievemenCard = card,
+                    CurrentTotalSeconds = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentTotalActiveTimeInSeconds
+                },
+                AchievementGoalType.Value => new ValueAchievementEvaluation
+                {
+                    AchievemenCard = card,
+                    CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentValue
+                },
+                _ => throw new NotSupportedException(
+                    $"Unsupported GoalType '{card.GoalType}' for AchievementCard '{card}'.")
+            };
         }
 
         //Main Quest
@@ -1421,7 +1461,8 @@ namespace Points.Services.Sqlite
 
                     t.ValuePerMinute AS ValuePerMinute,
                     t.Status         AS Status,
-                    t.Description    AS Description
+                    t.Description    AS Description,
+                    t.TargetActiveTimeSeconds AS TargetActiveTimeSeconds,
                 FROM TatCard t
                 JOIN Card c ON c.CardID = t.CardID
                 WHERE t.TatCardID = ?
@@ -1440,7 +1481,8 @@ namespace Points.Services.Sqlite
                 Status = row.Status ?? "",
                 Description = row.Description ?? "",
                 Activity = new List<ActivityModel>(),
-                ValueRates = new List<ValueRateModel>()
+                ValueRates = new List<ValueRateModel>(),
+                TargetActiveTime = row.TargetActiveTimeSeconds == null ? null : TimeSpan.FromSeconds(row.TargetActiveTimeSeconds.Value)
             };
 
             // 2) Load activity by CardID
@@ -1491,6 +1533,16 @@ namespace Points.Services.Sqlite
             return model;
         }
 
+        public sealed class PragmaTableInfo
+        {
+            public int cid { get; set; }
+            public string name { get; set; } = "";
+            public string type { get; set; } = "";
+            public int notnull { get; set; }
+            public string? dflt_value { get; set; }
+            public int pk { get; set; }
+        }
+
         public async Task<List<TatCardModel>> GetTatModelsDataAsync(DateTime rangeStart, DateTime rangeEnd)
         {
             // 1) Fetch all TatCards + base Card (optionally filtered)
@@ -1504,12 +1556,17 @@ namespace Points.Services.Sqlite
 
                     t.ValuePerMinute AS ValuePerMinute,
                     t.Status         AS Status,
-                    t.Description    AS Description
+                    t.Description    AS Description,
+                    t.TargetActiveTimeSeconds AS TargetActiveTimeSeconds
                 FROM TatCard t
                 JOIN Card c ON c.CardID = t.CardID
             ";
 
             sql += ";";
+
+
+
+            var cols = await Db.QueryAsync<PragmaTableInfo>("PRAGMA table_info(TatCard);");
 
             var rows = await Db.QueryAsync<TatCardJoinedRow>(sql);
             if (rows.Count == 0) return new List<TatCardModel>();
@@ -1605,6 +1662,7 @@ namespace Points.Services.Sqlite
                     ValuePerMinute = r.ValuePerMinute,
                     Status = r.Status ?? "",
                     Description = r.Description ?? "",
+                    TargetActiveTime = r.TargetActiveTimeSeconds == null ? null : TimeSpan.FromSeconds(r.TargetActiveTimeSeconds.Value),
                     Activity = actByCardId.TryGetValue(r.CardID, out var acts) ? acts : new List<ActivityModel>(),
                     ValueRates = vrByTatId.TryGetValue(r.TatCardID, out var vrs) ? vrs : new List<ValueRateModel>()
                 };
@@ -1627,6 +1685,8 @@ namespace Points.Services.Sqlite
             public double ValuePerMinute { get; set; }
             public string? Status { get; set; }
             public string? Description { get; set; }
+
+            public int? TargetActiveTimeSeconds { get; set; }
         }
 
         private sealed class TatValueRateRow
@@ -1996,7 +2056,7 @@ namespace Points.Services.Sqlite
 
         #region Write
 
-        //Achievement
+        ////Achievement
         //private async Task SaveAchievementCardModelDataAsync(AchievementCardModel acm, long cardId)
         //{
         //    // We have some NOT NULL columns in the current table schema that the model doesn't expose.
@@ -2103,6 +2163,143 @@ namespace Points.Services.Sqlite
         //    // ObservableCollection<string> Trophies (no title/earnedOn/imageSource), so we intentionally
         //    // persist trophies into AchievementCard.TrophyURLs until the model/table align. :contentReference[oaicite:2]{index=2} :contentReference[oaicite:3]{index=3}
         //}
+
+        public async Task SaveAchievementCardModelDataAsync(AchievementCardModel acm, long cardId)
+        {
+            await InitializeAsync();
+
+            // --- Common values ---
+            var now = DateTime.Now;
+
+            // Map enums to TEXT
+            var goalTypeText = acm.GoalType.ToString();
+            var difficultyText = acm.Difficulty.ToString();
+            var completionTypeText = acm.CompletionType.ToString();
+
+            // Target active time (only for ActiveTime goal)
+            int? targetActiveTimeSeconds = null;
+            if (acm.GoalType == AchievementGoalType.ActiveTime)
+            {
+                // Uses your helper that parses ActiveTimeTargetText "hh:mm:ss" to seconds
+                var seconds = acm.GetTargeSecondsSpent();
+                targetActiveTimeSeconds = (int)Math.Round(seconds);
+            }
+
+            // Target value (only for Value / Steps / etc); safe to store whenever
+            double? targetValue = null;
+            if (acm.GoalType == AchievementGoalType.Value ||
+                acm.GoalType == AchievementGoalType.Steps ||
+                acm.GoalType == AchievementGoalType.Achievements ||
+                acm.GoalType == AchievementGoalType.Custom)
+            {
+                targetValue = acm.TargetValue;
+            }
+
+            // Completion range fields (only meaningful in Range mode)
+            string? rangeUnitText = null;
+            int? rangeAmount = null;
+            if (acm.CompletionType == AchievementCompletionType.Range)
+            {
+                rangeUnitText = acm.RangeUnit.ToString();
+                rangeAmount = acm.RangeAmount;
+            }
+
+            // Deadline (only really meaningful in Deadline mode, but harmless to store when set)
+            var deadlineText = acm.Deadline?.ToString("o");
+
+            // LastEarnedAt (nullable)
+            var lastEarnedAtText = acm.LastEarnedAt?.ToString("o");
+
+            // For now, still persist trophies as newline-separated URLs/paths in TrophyURLs
+            var trophyUrls = acm.Trophies.Count == 0
+                ? ""
+                : string.Join("\n",
+                    acm.Trophies
+                       .Where(t => !string.IsNullOrWhiteSpace(t))
+                       .Select(t => t.Trim()));
+
+            if (acm.Id == 0)
+            {
+                // INSERT
+                await Db.ExecuteAsync(
+                    @"INSERT INTO AchievementCard
+                      (CardID,
+                       Status,
+                       Description,
+                       GoalType,
+                       DifficultyLevel,
+                       CreatedDate,
+                       LastEarnedAt,
+                       TargetActiveTimeInSeconds,
+                       TargetValue,
+                       ScCardStepID,
+                       CompletionType,
+                       RangeUnit,
+                       RangeAmount,
+                       Deadline,
+                       TrophyURLs,
+                       IsPinned)
+                      VALUES
+                      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                    cardId,
+                    acm.Status ?? "",
+                    acm.Description ?? "",
+                    goalTypeText,
+                    difficultyText,
+                    now.ToString("o"),          // CreatedDate – model doesn’t currently expose this
+                    lastEarnedAtText,
+                    targetActiveTimeSeconds,
+                    targetValue,
+                    null,                       // ScCardStepID – model doesn’t expose a step ID yet
+                    completionTypeText,
+                    rangeUnitText,
+                    rangeAmount,
+                    deadlineText,
+                    trophyUrls,
+                    acm.IsPinned ? 1 : 0
+                );
+
+                acm.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+            }
+            else
+            {
+                // UPDATE – leave CreatedDate alone
+                await Db.ExecuteAsync(
+                    @"UPDATE AchievementCard
+                      SET Status                   = ?,
+                          Description              = ?,
+                          GoalType                 = ?,
+                          DifficultyLevel          = ?,
+                          LastEarnedAt             = ?,
+                          TargetActiveTimeInSeconds= ?,
+                          TargetValue              = ?,
+                          ScCardStepID             = ?,
+                          CompletionType           = ?,
+                          RangeUnit                = ?,
+                          RangeAmount              = ?,
+                          Deadline                 = ?,
+                          TrophyURLs               = ?,
+                          IsPinned                 = ?
+                      WHERE CardID = ?;",
+                    acm.Status ?? "",
+                    acm.Description ?? "",
+                    goalTypeText,
+                    difficultyText,
+                    lastEarnedAtText,
+                    targetActiveTimeSeconds,
+                    targetValue,
+                    null,                       // ScCardStepID – still null for now
+                    completionTypeText,
+                    rangeUnitText,
+                    rangeAmount,
+                    deadlineText,
+                    trophyUrls,
+                    acm.IsPinned ? 1 : 0,
+                    cardId
+                );
+            }
+        }
+
 
         //Budget
         private async Task SaveBudgetCardModelDataAsync(BudgetCardModel model, long cardId)
@@ -2233,7 +2430,7 @@ namespace Points.Services.Sqlite
                 }
                 else if (model is AchievementCardModel acm)
                 {
-                    //await SaveAchievementCardModelDataAsync(acm, cardId.Value);
+                    await SaveAchievementCardModelDataAsync(acm, cardId.Value);
                 }
                 else if (model is ValueTrackerCardModel vtc)
                 {
@@ -2611,16 +2808,16 @@ namespace Points.Services.Sqlite
             {
                 // Insert the “typed” row (e.g. ScCard)
                 await Db.ExecuteAsync(
-                    "INSERT INTO TatCard (CardID, ValuePerMinute, Status, Description) VALUES (?, ?, ?, ?);",
-                    cardId, model.ValuePerMinute, model.Status, model.Description);
+                    "INSERT INTO TatCard (CardID, ValuePerMinute, Status, Description, TargetActiveTimeSeconds) VALUES (?, ?, ?, ?, ?);",
+                    cardId, model.ValuePerMinute, model.Status, model.Description, (model.TargetActiveTime.HasValue ? model.TargetActiveTime.Value.TotalSeconds : null));
 
                 model.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
             }
             else
             {
                 await Db.ExecuteAsync(
-                    "UPDATE TatCard SET ValuePerMinute = ?, Status = ?, Description = ? WHERE CardID = ?",
-                    model.ValuePerMinute, model.Status, model.Description, cardId);
+                    "UPDATE TatCard SET ValuePerMinute = ?, Status = ?, Description = ?, TargetActiveTimeSeconds = ? WHERE CardID = ?",
+                    model.ValuePerMinute, model.Status, model.Description, (model.TargetActiveTime.HasValue ? model.TargetActiveTime.Value.TotalSeconds : null), cardId);
                 foreach (var act in model.Activity)
                 {
                     if (act.Id == 0)
@@ -2939,5 +3136,135 @@ namespace Points.Services.Sqlite
 
         #endregion
 
+        #region Delete
+
+        public async Task DeleteAchievementCardModelAsync(AchievementCardModel model)
+        {
+            await InitializeAsync();
+
+            if (model == null)
+                throw new ArgumentNullException(nameof(model));
+
+            // If the model was never persisted, there's nothing to delete.
+            if (model.Id == 0)
+                return;
+
+            // Resolve the CardID from the AchievementCard row
+            var cardIds = await Db.QueryScalarsAsync<long>(
+                "SELECT CardID FROM AchievementCard WHERE AchievementCardID = ? LIMIT 1;",
+                model.Id);
+
+            var cardId = cardIds.FirstOrDefault();
+            if (cardId == 0)
+            {
+                // No matching AchievementCard found – nothing to delete.
+                return;
+            }
+
+            // Deleting the Card row will cascade to:
+            //  - AchievementCard (via FOREIGN KEY ... ON DELETE CASCADE)
+            //  - AchievementTrophy and any other Card-linked tables
+            await Db.ExecuteAsync("DELETE FROM Card WHERE CardID = ?;", cardId);
+        }
+
+
+        #endregion
+
+        #region Compute
+
+        public sealed class TagValueSummaryRow
+        {
+            public double CurrentValue { get; set; }
+            public double CurrentTotalActiveTimeInSeconds { get; set; }
+        }
+
+        public async Task<TagValueSummaryRow> GetTagValueSummaryAsync(string tagName, DateTime rangeStart, DateTime rangeEnd)
+        {
+            await InitializeAsync();
+
+            // Convert to ISO-8601 to match how you store datetimes
+            var startIso = rangeStart.ToString("o");
+            var endIso = rangeEnd.ToString("o");
+
+            const string sql = @"
+                    WITH TaggedCards AS (
+                        SELECT c.CardID
+                        FROM Card c
+                        WHERE ',' || REPLACE(c.Tags, ' ', '') || ',' 
+                              LIKE '%,' || REPLACE(?, ' ', '') || ',%'
+                    ),
+
+                    TimeValued AS (
+                        SELECT
+                            SUM(
+                                ((julianday(a.""End"") - julianday(a.Start)) * 24.0 * 60.0)
+                                * a.ValuePerMinute
+                            ) AS Value,
+                            SUM(
+                                (julianday(a.""End"") - julianday(a.Start)) * 86400.0
+                            ) AS TotalActiveSeconds
+                        FROM Activity a
+                        WHERE a.CardID IN (SELECT CardID FROM TaggedCards)
+                          AND datetime(a.Start) >= datetime(?)
+                          AND datetime(a.""End"")   <= datetime(?)
+                    ),
+
+                    StepValued AS (
+                        SELECT
+                            SUM(rep.StepValue) AS Value
+                        FROM ScCard sc
+                        JOIN TaggedCards tc     ON tc.CardID      = sc.CardID
+                        JOIN ScCardStep st      ON st.ScCardID    = sc.ScCardID
+                        JOIN ScCardStepRep rep  ON rep.ScCardStepID = st.ScCardStepID
+                        WHERE datetime(rep.TimeStamp) >= datetime(?)
+                          AND datetime(rep.TimeStamp) <= datetime(?)
+                    ),
+
+                    MissionValued AS (
+                        SELECT
+                            SUM(mc.Value) AS Value
+                        FROM MissionCard mc
+                        JOIN TaggedCards tc ON tc.CardID = mc.CardID
+                        WHERE datetime(mc.CompletedDate) >= datetime(?)
+                          AND datetime(mc.CompletedDate) <= datetime(?)
+                    )
+
+                    SELECT
+                        COALESCE(TimeValued.Value, 0)
+                      + COALESCE(StepValued.Value, 0)
+                      + COALESCE(MissionValued.Value, 0) AS CurrentValue,
+
+                        COALESCE(TimeValued.TotalActiveSeconds, 0) AS CurrentTotalActiveTimeInSeconds
+                    FROM TimeValued
+                    CROSS JOIN StepValued
+                    CROSS JOIN MissionValued;
+                ";
+
+            // Parameter order:
+            //  1: tagName
+            //  2: rangeStart (TimeValued)
+            //  3: rangeEnd   (TimeValued)
+            //  4: rangeStart (StepValued)
+            //  5: rangeEnd   (StepValued)
+            //  6: rangeStart (MissionValued)
+            //  7: rangeEnd   (MissionValued)
+            var rows = await Db.QueryAsync<TagValueSummaryRow>(
+                sql,
+                tagName,
+                startIso, endIso,
+                startIso, endIso,
+                startIso, endIso
+            );
+
+            var row = rows.FirstOrDefault() ?? new TagValueSummaryRow();
+
+            // Named tuple elements so the caller can use:
+            // result.CurrentValue and result.CurrentTotalActiveTimeInSeconds
+            return row;
+        }
+
+
+
+        #endregion
     }
 }

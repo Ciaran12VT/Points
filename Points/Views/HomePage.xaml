@@ -166,6 +166,19 @@
                            Spacing="8"
                            VerticalOptions="Center">
 
+                <!-- DEBUG NOTIFICATION BUTTON -->
+                <!--<Button Text="🔔"
+                    Clicked="OnDebugNotificationClicked"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    HorizontalOptions="End"
+                    VerticalOptions="Center"/>-->
+
                 <Button Text="*"
                 Command="{Binding ClearFiltersCommand}"
                 WidthRequest="36"

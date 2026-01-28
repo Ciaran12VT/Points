@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Points.Evaluators;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -23,5 +24,7 @@ namespace Points.Models
         TimeSpan GetActiveTime(DateTime start, DateTime end);
 
         DateTime GetLastActiveTime();
+
+        List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
     }
 }

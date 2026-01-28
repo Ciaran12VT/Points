@@ -12,7 +12,7 @@ public partial class AchievementDetailsPage : ContentPage
    private readonly List<string> _reportNames;
    private readonly List<string> _achievementTitles;
 
-   public AchievementDetailsPage(AchievementCardModel model, IEnumerable<string> allTags, IEnumerable<string> stepNames, IEnumerable<string> achievementTitles, Action<AchievementCardModel> onSaved)
+   public AchievementDetailsPage(AchievementCardModel model, IEnumerable<string> allTags, IEnumerable<string> stepNames, IEnumerable<string> achievementTitles, Action<AchievementCardModel> onSaved, Action<AchievementCardModel> onDelete)
    {
        InitializeComponent();
 
@@ -32,7 +32,7 @@ public partial class AchievementDetailsPage : ContentPage
        _achievementTitles = achievementTitles?.Distinct().OrderBy(x => x).ToList() ?? new List<string>();
        
 
-       BindingContext = new AchievementDetailsViewModel(model, onSaved);
+       BindingContext = new AchievementDetailsViewModel(model, onSaved, onDelete);
 
        // Populate pickers
        goalTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementGoalType)).Cast<AchievementGoalType>().ToList();
@@ -228,7 +228,6 @@ public partial class AchievementDetailsPage : ContentPage
         if (BindingContext is AchievementDetailsViewModel vm)
             vm.Model.Trophies.Clear();
     }
-
 
    private async Task PickTagsAsync()
    {

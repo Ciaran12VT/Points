@@ -8,6 +8,6 @@ public partial class AchievementsPage : ContentPage
 	{
 		InitializeComponent();
 
-        BindingContext = new AchievementsViewModel(availableTagsList);
+        BindingContext = new AchievementsViewModel(availableTagsList, _db);
     }
 }

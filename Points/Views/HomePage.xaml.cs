@@ -114,6 +114,7 @@ public partial class HomePage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+
         StartTicker();
     }
 
@@ -122,7 +123,6 @@ public partial class HomePage : ContentPage
         StopTicker();
         base.OnDisappearing();
     }
-
 
     private void StartTicker()
     {
@@ -153,5 +153,13 @@ public partial class HomePage : ContentPage
 
         _timer?.Dispose();
         _timer = null;
+    }
+
+    private void OnDebugNotificationClicked(object sender, EventArgs e)
+    {
+        if(BindingContext is HomeViewModel vm)
+        {
+            vm.DebugBeep();
+        }
     }
 }

@@ -15,7 +15,7 @@
 
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Padding="0,6">
+                    <Grid ColumnDefinitions="*,*,50" ColumnSpacing="10" Padding="0,6">
 
                         <!-- Start cell -->
                         <Frame
@@ -54,6 +54,8 @@
                                 VerticalOptions="Center"
                                 HorizontalOptions="Center" />
                         </Frame>
+
+                        <Label Text="{Binding HoursText}" Grid.Column="2" HorizontalTextAlignment="End" Margin="0,12,0,0" />
 
                     </Grid>
                 </DataTemplate>

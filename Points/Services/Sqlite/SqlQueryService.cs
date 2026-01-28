@@ -13,8 +13,6 @@ namespace Points.Services.Sqlite
             return @"
                 PRAGMA foreign_keys = ON;
 
-                ALTER TABLE MissionCard ADD COLUMN EventDate TEXT NULL;
-
                 -- =========================
                 -- Core / base entity
                 -- =========================
@@ -28,11 +26,12 @@ namespace Points.Services.Sqlite
                 -- TAT
                 -- =========================
                 CREATE TABLE IF NOT EXISTS TatCard (
-                    TatCardID        INTEGER PRIMARY KEY,
-                    CardID           INTEGER NOT NULL,
-                    ValuePerMinute   REAL    NOT NULL,
-                    Status           TEXT    NOT NULL DEFAULT '',
-                    Description      TEXT    NOT NULL DEFAULT '',
+                    TatCardID               INTEGER PRIMARY KEY,
+                    CardID                  INTEGER NOT NULL,
+                    ValuePerMinute          REAL    NOT NULL,
+                    Status                  TEXT    NOT NULL DEFAULT '',
+                    Description             TEXT    NOT NULL DEFAULT '',
+                    TargetActiveTimeSeconds INTEGER NULL,
                     FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE
                 );
 
@@ -145,22 +144,32 @@ namespace Points.Services.Sqlite
 
                     Status             TEXT    NOT NULL DEFAULT '',
                     Description        TEXT    NOT NULL DEFAULT '',
-                    SubType            TEXT    NOT NULL DEFAULT '',
+                    GoalType           TEXT    NOT NULL DEFAULT '',
+                    DifficultyLevel    TEXT    NOT NULL DEFAULT 'Easy', 
 
                     CreatedDate        TEXT    NOT NULL, -- ISO-8601 datetime
-                    AvailableFromDate  TEXT    NOT NULL, -- ISO-8601 datetime
-                    DueDate            TEXT    NOT NULL, -- ISO-8601 datetime
-
-                    CompletedDate      TEXT    NULL,     -- ISO-8601 datetime
                     LastEarnedAt       TEXT    NULL,     -- ISO-8601 datetime
 
-                    ScCardStepID       INTEGER NULL,
+                    -- Only For GoalType = ActiveTime
+                    TargetActiveTimeInSeconds  INTEGER NULL, 
 
-                    ProgressType       TEXT    NOT NULL DEFAULT '',
+                    -- Only for GoalType = Value
+                    TargetValue        INTEGER NULL, 
+
+                    -- Only for GoalType = Step
+                    ScCardStepID       INTEGER NULL,    
+
+                    CompletionType     TEXT    NOT NULL DEFAULT 'Range',
+
+                    --Only for CompletionType = Range
+                    RangeUnit          TEXT NULL,
                     RangeAmount        INTEGER NULL,
+
+                    --Only for CompletionType = Deadline
                     Deadline           TEXT    NULL,     -- ISO-8601 datetime
 
                     TrophyURLs         TEXT    NOT NULL DEFAULT '',
+                    IsPinned           INTEGER     NOT NULL DEFAULT 0,
 
                     FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE,
                     FOREIGN KEY (ScCardStepID) REFERENCES ScCardStep(ScCardStepID) ON DELETE SET NULL

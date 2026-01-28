@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Points.Evaluators;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,6 +18,8 @@ namespace Points.Models
             get => _title;
             set => SetProperty(ref _title, value);
         }
+
+        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
 
         // Requested shape
         public List<ActivityModel> Activity { get; set; } = new();
@@ -74,6 +77,7 @@ namespace Points.Models
         public bool ShowRateNameOnCard => HasMultipleValueRates && IsActive;
 
         public ICommand ToggleActivityCommand { get; }
+        public TimeSpan? TargetActiveTime { get; set; }
 
         public TatCardModel()
         {
