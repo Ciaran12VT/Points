@@ -4,11 +4,14 @@ using System.Windows.Input;
 
 namespace Points.Models;
 
-public partial class ValueTrackerCardModel : TrackerCardModel
+public partial class ValueTrackerCardModel : TrackerCardModel, IScheduleable
 {
-    // Schedule recording (not executed yet)
+    // Legacy schedule recording (to be removed once CardSchedule persistence is active)
     public int ScheduleEvery { get; set; } = 1;
     public string ScheduleUnit { get; set; } = "Week";
+
+    public ObservableCollection<CardSchedule> Schedules { get; set; } = new();
+
 
     public void AddValue(double value)
     {
@@ -23,4 +26,12 @@ public partial class ValueTrackerCardModel : TrackerCardModel
             AddValue(value);
         }
     }
+
+    public void SetSchedules(List<CardSchedule> schedules)
+    {
+        Schedules.Clear();
+        foreach (var s in schedules)
+            Schedules.Add(s);
+    }
+
 }

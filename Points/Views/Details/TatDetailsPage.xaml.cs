@@ -1,6 +1,7 @@
 ﻿using Points.Models;
 using Points.Services;
 using Points.ViewModels;
+using Points.Views.Schedules;
 using System.Diagnostics;
 
 namespace Points.Views.Details;
@@ -19,6 +20,11 @@ public partial class TatDetailsPage : ContentPage
         _db = db;
         _allTags = availableTagsList;
         Loaded += OnPageLoaded;
+
+        ScheduleSummaryLabel.Text =
+            _model.Schedules.Count == 0 ? "None" :
+            _model.Schedules.Count == 1 ? "1 schedule" :
+            $"{_model.Schedules.Count} schedules";
     }
 
     private async void OnPageLoaded(object? sender, EventArgs e)
@@ -105,6 +111,37 @@ public partial class TatDetailsPage : ContentPage
         {
             // user backed out, ignore
         }
+    }
+
+    private async void OnEditSchedulesClicked(object sender, EventArgs e)
+    {
+        // Require a persisted card so schedules can be keyed by CardId
+        if (_model.Id <= 0)
+        {
+            ShowError("Please tap OK to save the tracker first, then add schedules.");
+            return;
+        }
+
+        // For now, delegates are null (in-memory-only UI).
+        // We'll wire these to DB repository methods next.
+        await Shell.Current.Navigation.PushAsync(
+            new CardSchedulesPage(
+                cardId: _model.Id,
+                schedules: _model.Schedules,
+                onChanged: () =>
+                {
+                    // simplest summary update (you can improve formatting later)
+                    ScheduleSummaryLabel.Text = _model.Schedules.Count == 0 ? "None"
+                        : _model.Schedules.Count == 1 ? "1 schedule"
+                        : $"{_model.Schedules.Count} schedules";
+                }));
+
+    }
+
+    private void ShowError(string msg)
+    {
+        ErrorLabel.Text = msg;
+        ErrorLabel.IsVisible = true;
     }
 
     private async void OnSetActiveTimeTargetClicked(object sender, EventArgs e)

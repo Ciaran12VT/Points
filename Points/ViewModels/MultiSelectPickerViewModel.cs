@@ -13,6 +13,8 @@ namespace Points.ViewModels
 
         public bool IsReadOnly { get; }
 
+        public bool IsSingleTag { get; }
+
         public ObservableCollection<string> FilteredItems { get; } = new();
 
         private string _searchText = "";
@@ -43,12 +45,14 @@ namespace Points.ViewModels
             IEnumerable<string> items,
             IEnumerable<string>? initial,
             TaskCompletionSource<IReadOnlyList<string>?> tcs,
-            bool isReadOnly)
+            bool isReadOnly,
+            bool isSingleTag)
         {
             TitleText = title;
             _allItems = items.OrderBy(x => x).ToList();
             _tcs = tcs;
             IsReadOnly = isReadOnly;
+            IsSingleTag = isSingleTag;
 
             if (initial != null)
                 foreach (var i in initial) _selected.Add(i);
@@ -82,7 +86,7 @@ namespace Points.ViewModels
             RefreshText();
         }
 
-        private void Clear()
+        public void Clear()
         {
             _selected.Clear();
             RefreshText();

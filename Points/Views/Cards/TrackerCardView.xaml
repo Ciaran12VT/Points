@@ -86,5 +86,10 @@
             </Grid>
 
         </Grid>
+
+        <Frame.GestureRecognizers>
+            <TapGestureRecognizer Tapped="OnCardTapped" />
+        </Frame.GestureRecognizers>
+
     </Frame>
 </ContentView>

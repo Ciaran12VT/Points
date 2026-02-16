@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -61,7 +63,7 @@ namespace Points.Services.Sqlite
             return await Db.ExecuteAsync(
                 @"UPDATE Activity
                   SET ""End"" = ""Start""
-                  WHERE ""End"" = ?;",
+                  WHERE datetime(""End"") = datetime(?) OR datetime(""End"") < datetime(""Start"")",
                 minIso);
         }
 
@@ -383,6 +385,8 @@ namespace Points.Services.Sqlite
 
                 RangeAmount = row.RangeAmount ?? 0,
                 TargetValue = row.TargetValue ?? 0,
+
+                IsPinned = row.IsPinned == 1
             };
 
             // Active time target (seconds -> "hh:mm:ss" style string)
@@ -445,6 +449,102 @@ namespace Points.Services.Sqlite
             public string? TrophyURLs { get; set; }
             public int IsPinned { get; set; }
 
+        }
+
+        public async Task<List<TimeValueAchievementEvaluator>> RefreshEvaluatorsAsync(List<TimeValueAchievementEvaluator> evaluators)
+        {
+            await InitializeAsync();
+
+            if (evaluators == null)
+                return new List<TimeValueAchievementEvaluator>();
+
+            var input = evaluators.ToList();
+            if (input.Count == 0)
+                return new List<TimeValueAchievementEvaluator>();
+
+            var refreshed = new List<TimeValueAchievementEvaluator>(input.Count);
+
+            foreach (var evaluator in input)
+            {
+                // Preserve tag grouping
+                var newEvaluator = new TimeValueAchievementEvaluator
+                {
+                    Evaluations = new List<TimeValueAchievementEvaluation>()
+                };
+
+                // If nothing to refresh, keep empty
+                if (evaluator.Evaluations == null || evaluator.Evaluations.Count == 0)
+                {
+                    refreshed.Add(newEvaluator);
+                    continue;
+                }
+
+                // Achievements we need to recompute (distinct by Id to be safe)
+                var achievementIds = evaluator.Evaluations
+                    .Where(e => e?.AchievemenCard != null)
+                    .Select(e => e!.AchievemenCard.Id)
+                    .Distinct()
+                    .ToList();
+
+                // Re-pull the latest AchievementCardModels from DB (critical for LastEarnedAt / cooldown correctness)
+                // Simple approach: fetch one-by-one (small set; cold-start only).
+                // If you later want, you can batch this with a WHERE IN query.
+                var tasks = achievementIds.Select(async id =>
+                {
+                    var ach = await GetAchievementCardModelDataAsync(id);
+                    return await CreateEvaluation(ach);
+                });
+
+                var evaluations = await Task.WhenAll(tasks);
+
+                newEvaluator.Evaluations = evaluations.ToList();
+                refreshed.Add(newEvaluator);
+            }
+
+            return refreshed;
+        }
+
+
+        public async Task<List<TrophyModel>> GetTrophyModelsDataAsync()
+        {
+            await InitializeAsync();
+
+            const string sql = @"
+                SELECT
+                    TrophyID      AS Id,
+                    AchievementCardID As AchievementId,
+                    Title,
+                    EarnedOn,
+                    ImageSource
+                FROM AchievementTrophy
+                ORDER BY datetime(EarnedOn) DESC;
+            ";
+
+            var rows = await Db.QueryAsync<TrophyRow>(sql);
+
+            return rows.Select(r => new TrophyModel
+            {
+                Id = r.Id,
+                AchievementId = r.AchievementId,
+                Title = r.Title ?? string.Empty,
+                EarnedOn = DateTime.Parse(
+                    r.EarnedOn,
+                    null,
+                    System.Globalization.DateTimeStyles.RoundtripKind
+                ),
+                ImageSource = string.IsNullOrWhiteSpace(r.ImageSource)
+                    ? "trophy.png"
+                    : r.ImageSource
+            }).ToList();
+        }
+
+        private sealed class TrophyRow
+        {
+            public int Id { get; set; }
+            public int AchievementId { get; set; }
+            public string Title { get; set; } = "";
+            public string EarnedOn { get; set; } = "";
+            public string ImageSource { get; set; } = "";
         }
 
 
@@ -745,7 +845,7 @@ namespace Points.Services.Sqlite
 
             var achievements = await GetAchievementCardModelsDataAsync();
 
-            //await PopulateAchievements(achievements, mainQuest, mission);
+            await PopulateAchievements(achievements, mainQuest, mission);
 
             var valueTrackers = await GetValueTrackerCardModelsDataAsync();
 
@@ -773,6 +873,21 @@ namespace Points.Services.Sqlite
                 var evals = byTag.Where(x => tags.Contains(x.Key)).Select(y => y.Value).ToList();
                 mq.TimeValueAchievementEvaluators = evals;
             }
+
+            foreach (var ach in achievements)
+            {
+                if (byTag.TryGetValue(ach.Tags, out TimeValueAchievementEvaluator evaltr))
+                {
+                    if (ach.GoalType == AchievementGoalType.Value)
+                    {
+                        ach.CurrentValue = evaltr.Evaluations.Sum(x => x.CurrentValue);
+                    }
+                    else if(ach.GoalType == AchievementGoalType.ActiveTime)
+                    {
+                        //TODO: Work out how to populate this if the achievement is ActiveTime-based
+                    }
+                }
+            }
         }
 
         private async Task<Dictionary<string, TimeValueAchievementEvaluator>> BuildEvaluatorsByTag(IEnumerable<AchievementCardModel> cards)
@@ -797,16 +912,16 @@ namespace Points.Services.Sqlite
         }
 
 
-        private async Task<ITimeValueAchievementEvaluation> CreateEvaluation(AchievementCardModel card)
+        private async Task<TimeValueAchievementEvaluation> CreateEvaluation(AchievementCardModel card)
         {
             return card.GoalType switch
             {
-                AchievementGoalType.ActiveTime => new TimeAchievementEvaluation
+                AchievementGoalType.ActiveTime => new TimeValueAchievementEvaluation
                 {
                     AchievemenCard = card,
-                    CurrentTotalSeconds = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentTotalActiveTimeInSeconds
+                    CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentTotalActiveTimeInSeconds
                 },
-                AchievementGoalType.Value => new ValueAchievementEvaluation
+                AchievementGoalType.Value => new TimeValueAchievementEvaluation
                 {
                     AchievemenCard = card,
                     CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentValue
@@ -817,7 +932,6 @@ namespace Points.Services.Sqlite
         }
 
         //Main Quest
-
         public async Task<List<IActiveCardModel>> GetMainQuestModelsDataAsync(DateTime rangeStart, DateTime rangeEnd)
         {
             var tats = await GetTatModelsDataAsync(rangeStart, rangeEnd);
@@ -1530,6 +1644,10 @@ namespace Points.Services.Sqlite
                 ValuePerMinute = v.ValuePerMinute
             }).ToList();
 
+            var scheduleModels = await GetCardSchedulesData(row.CardID);
+
+            model.SetSchedules(scheduleModels);
+
             return model;
         }
 
@@ -1574,7 +1692,6 @@ namespace Points.Services.Sqlite
             // 2) Bulk-load Activity for all CardIDs
             var cardIds = rows.Select(r => r.CardID).Distinct().ToList();
             var actByCardId = new Dictionary<long, List<ActivityModel>>();
-
             {
                 var placeholders = string.Join(",", cardIds.Select(_ => "?"));
                 var actSql = $@"
@@ -1620,7 +1737,6 @@ namespace Points.Services.Sqlite
             // 3) Bulk-load ValueRates for all TatCardIDs
             var tatIds = rows.Select(r => r.TatCardID).Distinct().ToList();
             var vrByTatId = new Dictionary<int, List<ValueRateModel>>();
-
             {
                 var placeholders = string.Join(",", tatIds.Select(_ => "?"));
                 var vrSql = $@"
@@ -1666,6 +1782,10 @@ namespace Points.Services.Sqlite
                     Activity = actByCardId.TryGetValue(r.CardID, out var acts) ? acts : new List<ActivityModel>(),
                     ValueRates = vrByTatId.TryGetValue(r.TatCardID, out var vrs) ? vrs : new List<ValueRateModel>()
                 };
+
+                var scheduleModels = await GetCardSchedulesData(r.CardID);
+
+                model.SetSchedules(scheduleModels);
 
                 result.Add(model);
             }
@@ -1807,8 +1927,82 @@ namespace Points.Services.Sqlite
                 Value = v.Value
             }).ToList());
 
+            // Load schedules
+            var scheduleModels = await GetCardSchedulesData(row.CardID);
+
+            model.SetSchedules(scheduleModels);
+
             return model;
         }
+
+        private async Task<List<CardSchedule>> GetCardSchedulesData(long cardID)
+        {
+            // Load schedules
+            var scheduleRows = await Db.QueryAsync<CardScheduleRow>(
+                @"SELECT
+                      ScheduleID   AS ScheduleID,
+                      CardID       AS CardID,
+                      FrequencyType AS FrequencyType,
+                      FrequencyValue AS FrequencyValue,
+                      FromDateTime AS FromDateTime,
+                      ToDateTime   AS ToDateTime,
+                      IsEnabled    AS IsEnabled,
+                      Note         AS Note
+                  FROM CardSchedule
+                  WHERE CardID = ?
+                  ORDER BY datetime(FromDateTime);",
+                            cardID);
+
+            var scheduleModels = scheduleRows.Select(r =>
+            {
+                Enum.TryParse<FrequencyType>(r.FrequencyType ?? "", out var ft);
+
+                return new CardSchedule
+                {
+                    ScheduleId = r.ScheduleID,
+                    CardId = r.CardID,
+                    FrequencyType = ft,
+                    FrequencyValue = r.FrequencyValue,
+                    FromDateTime = ParseIso(r.FromDateTime),
+                    ToDateTime = string.IsNullOrWhiteSpace(r.ToDateTime) ? null : ParseIso(r.ToDateTime),
+                    IsEnabled = r.IsEnabled != 0,
+                    Note = r.Note ?? ""
+                };
+            }).ToList();
+
+            return scheduleModels;
+        }
+
+        public async Task<CardSchedule?> GetCardScheduleByIdAsync(long scheduleId)
+        {
+            await InitializeAsync();
+
+            var rows = await Db.QueryAsync<CardScheduleRow>(
+                @"SELECT ScheduleId, CardId, IsEnabled, Note, FrequencyType, FrequencyValue, FromDateTime, ToDateTime
+                  FROM CardSchedule
+                  WHERE ScheduleId = ?",
+                scheduleId);
+
+            var row = rows.FirstOrDefault();
+            return row == null ? null : CardScheduleMapper.ToDomain(row);
+        }
+
+
+        public async Task<string?> GetCardTitleByIdAsync(long cardId)
+        {
+            await InitializeAsync();
+
+            var rows = await Db.QueryAsync<CardTitle>(
+                @"SELECT  Title
+                  FROM Card
+                  WHERE CardId = ?",
+                cardId);
+
+            var row = rows.FirstOrDefault();
+            return row?.Title ?? "";
+        }
+
+        public class CardTitle { public string Title { get; set; } };
 
         public async Task<List<ValueTrackerCardModel>> GetValueTrackerCardModelsDataAsync(string whereClause = null)
         {
@@ -1837,17 +2031,27 @@ namespace Points.Services.Sqlite
             if (rows.Count == 0) return new List<ValueTrackerCardModel>();
 
             // Materialize models (without values yet)
-            var models = rows.Select(r => new ValueTrackerCardModel
+            var models = new List<ValueTrackerCardModel>();
+            foreach (var r in rows)
             {
-                Id = r.ValueTrackerCardID,
-                Title = r.Title ?? "",
-                Tags = r.Tags ?? "",
-                Unit = r.Unit ?? "",
-                CreatedDate = ParseIsoDateTime(r.CreatedDate),
-                RangeStart = ParseIsoDateTime(r.RangeStart),
-                ScheduleEvery = r.ScheduleEvery,
-                ScheduleUnit = r.ScheduleUnit ?? "Week"
-            }).ToList();
+                var vt = new ValueTrackerCardModel
+                {
+                    Id = r.ValueTrackerCardID,
+                    Title = r.Title ?? "",
+                    Tags = r.Tags ?? "",
+                    Unit = r.Unit ?? "",
+                    CreatedDate = ParseIsoDateTime(r.CreatedDate),
+                    RangeStart = ParseIsoDateTime(r.RangeStart),
+                    ScheduleEvery = r.ScheduleEvery,
+                    ScheduleUnit = r.ScheduleUnit ?? "Week"
+                };
+
+                var scheduleModels = await GetCardSchedulesData(r.CardID);
+
+                vt.SetSchedules(scheduleModels);
+
+                models.Add(vt);
+            }
 
             // Bulk-load values for all trackers
             var cardIds = rows.Select(r => r.CardID).Distinct().ToList();
@@ -2055,115 +2259,6 @@ namespace Points.Services.Sqlite
         #endregion
 
         #region Write
-
-        ////Achievement
-        //private async Task SaveAchievementCardModelDataAsync(AchievementCardModel acm, long cardId)
-        //{
-        //    // We have some NOT NULL columns in the current table schema that the model doesn't expose.
-        //    // Pick stable defaults.
-        //    var now = DateTime.Now;
-        //    var createdDate = now;
-        //    var availableFromDate = now;
-
-        //    // "DueDate" exists in the table but the model has only "Deadline".
-        //    // We'll treat Deadline as the due date when present.
-        //    var dueDate = acm.Deadline ?? now;
-
-        //    // CompletedDate doesn't exist on the model in a reliable way (CompletedAt is internal set and
-        //    // may be default(DateTime)). We'll write it only if it looks meaningful.
-        //    string? completedDateText = null;
-        //    if (acm.CompletedAt != default)
-        //        completedDateText = acm.CompletedAt.ToString("o");
-
-        //    // Last earned is nullable and does exist on the model.
-        //    var lastEarnedAtText = acm.LastEarnedAt?.ToString("o");
-
-        //    // Table wants TEXT fields that we can reasonably map:
-        //    var subTypeText = acm.Difficulty.ToString();
-        //    var progressTypeText = acm.GoalType.ToString();
-
-        //    // Table has RangeAmount (nullable int). Model has RangeAmount always int.
-        //    // Only meaningful when CompletionType == Range, but storing it always is harmless.
-        //    int? rangeAmount = acm.CompletionType == AchievementCompletionType.Range ? acm.RangeAmount : null;
-
-        //    // Deadline text
-        //    var deadlineText = acm.Deadline?.ToString("o");
-
-        //    // Store trophies as newline-separated TEXT in TrophyURLs for now
-        //    // (since the model's Trophies is just strings and doesn't match AchievementTrophy table columns).
-        //    var trophyUrls = acm.Trophies.Count == 0
-        //        ? ""
-        //        : string.Join("\n", acm.Trophies.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()));
-
-        //    if (acm.Id == 0)
-        //    {
-        //        await Db.ExecuteAsync(
-        //            @"INSERT INTO AchievementCard
-        //              (CardID, Status, Description, SubType, CreatedDate, AvailableFromDate, DueDate,
-        //               CompletedDate, LastEarnedAt, ScCardStepID, ProgressType, RangeAmount, Deadline, TrophyURLs)
-        //              VALUES
-        //              (?,     ?,      ?,           ?,       ?,          ?,                ?,
-        //               ?,            ?,           ?,          ?,            ?,          ?,        ?);",
-        //            cardId,
-        //            acm.Status ?? "",
-        //            acm.Description ?? "",
-        //            subTypeText,
-
-        //            createdDate.ToString("o"),
-        //            availableFromDate.ToString("o"),
-        //            dueDate.ToString("o"),
-
-        //            completedDateText,
-        //            lastEarnedAtText,
-
-        //            null, // ScCardStepID - model doesn't currently expose a step ID
-        //            progressTypeText,
-        //            rangeAmount,
-        //            deadlineText,
-        //            trophyUrls
-        //        );
-
-        //        acm.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
-        //    }
-        //    else
-        //    {
-        //        await Db.ExecuteAsync(
-        //            @"UPDATE AchievementCard
-        //              SET Status = ?,
-        //                  Description = ?,
-        //                  SubType = ?,
-        //                  DueDate = ?,
-        //                  CompletedDate = ?,
-        //                  LastEarnedAt = ?,
-        //                  ProgressType = ?,
-        //                  RangeAmount = ?,
-        //                  Deadline = ?,
-        //                  TrophyURLs = ?
-        //              WHERE CardID = ?;",
-
-        //            acm.Status ?? "",
-        //            acm.Description ?? "",
-        //            subTypeText,
-
-        //            dueDate.ToString("o"),
-        //            completedDateText,
-        //            lastEarnedAtText,
-
-        //            progressTypeText,
-        //            rangeAmount,
-        //            deadlineText,
-        //            trophyUrls,
-
-        //            cardId
-        //        );
-        //    }
-
-        //    // Note:
-        //    // You *also* have an AchievementTrophy table in the schema, but the current model exposes only
-        //    // ObservableCollection<string> Trophies (no title/earnedOn/imageSource), so we intentionally
-        //    // persist trophies into AchievementCard.TrophyURLs until the model/table align. :contentReference[oaicite:2]{index=2} :contentReference[oaicite:3]{index=3}
-        //}
-
         public async Task SaveAchievementCardModelDataAsync(AchievementCardModel acm, long cardId)
         {
             await InitializeAsync();
@@ -2181,7 +2276,7 @@ namespace Points.Services.Sqlite
             if (acm.GoalType == AchievementGoalType.ActiveTime)
             {
                 // Uses your helper that parses ActiveTimeTargetText "hh:mm:ss" to seconds
-                var seconds = acm.GetTargeSecondsSpent();
+                var seconds = acm.GetTargetSecondsSpent();
                 targetActiveTimeSeconds = (int)Math.Round(seconds);
             }
 
@@ -2300,6 +2395,135 @@ namespace Points.Services.Sqlite
             }
         }
 
+        public async Task MarkAchievementEarnedAsync(long achievementId, DateTime earnedAtUtc)
+        {
+            await InitializeAsync();
+
+            var earnedIso = earnedAtUtc.Kind == DateTimeKind.Utc
+                ? earnedAtUtc.ToString("o", CultureInfo.InvariantCulture)
+                : earnedAtUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
+
+            await Db.RunInTransactionAsync(tran =>
+            {
+                tran.Execute(
+                    @"UPDATE AchievementCard
+                      SET LastEarnedAt = ?
+                      WHERE AchievementCardID = ?;",
+                    earnedIso,
+                    achievementId
+                );
+
+                // Try to award ONE trophy. If none eligible, do nothing.
+                TryAwardRandomTrophyInTransaction(tran, achievementId, earnedIso);
+            });
+        }
+
+        [Table("AchievementTrophy")]
+        public sealed class AchievementTrophyRow
+        {
+            [PrimaryKey, AutoIncrement]
+            public long TrophyID { get; set; }
+
+            [Indexed]
+            public long AchievementCardID { get; set; }
+
+            public string Title { get; set; } = "";
+
+            // stored as ISO-8601 text
+            public string EarnedOn { get; set; } = "";
+
+            // I recommend storing just the file name (e.g. "Bulbasaur.png")
+            // and combining with AppPaths.GetAchievementTrophiesPath(id) at render time.
+            public string ImageSource { get; set; } = "";
+        }
+
+        private void TryAwardRandomTrophyInTransaction(SQLiteConnection tran, long achievementId, string earnedIso)
+        {
+            // 1) Get earnable files on disk
+            var folder = Points.Global.AppPaths.GetAchievementTrophiesPath((int)achievementId);
+            if (!Directory.Exists(folder)) return;
+
+            var earnableFileNames = Directory.EnumerateFiles(folder)
+                .Select(Path.GetFileName)
+                .Where(f => !string.IsNullOrWhiteSpace(f))
+                .ToList();
+
+            if (earnableFileNames.Count == 0) return;
+
+            // 2) Get already-earned files from DB
+            var earned = tran.Query<AchievementTrophyRow>(
+                    @"SELECT TrophyID, AchievementCardID, Title, EarnedOn, ImageSource
+                      FROM AchievementTrophy
+                      WHERE AchievementCardID = ?;",
+                    achievementId)
+                .Select(x => x.ImageSource)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // 3) Build eligible candidates:
+            //    - not already earned
+            //    - prerequisite rule satisfied
+            var earnableSet = earnableFileNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var candidates = earnableFileNames
+                .Where(f => !earned.Contains(f))
+                .Where(f => PrerequisiteSatisfied(f, earnableSet, earned))
+                .ToList();
+
+            if (candidates.Count == 0) return;
+
+            // 4) Pick randomly
+            var idx = RandomNumberGenerator.GetInt32(candidates.Count);
+            var chosen = candidates[idx];
+
+            // 5) Insert row
+            var title = Path.GetFileNameWithoutExtension(chosen) ?? "";
+
+            tran.Execute(
+                @"INSERT INTO AchievementTrophy (AchievementCardID, Title, EarnedOn, ImageSource)
+                  VALUES (?, ?, ?, ?);",
+                achievementId,
+                title,
+                earnedIso,
+                chosen
+            );
+        }
+
+        private static bool PrerequisiteSatisfied(
+            string fileName,
+            HashSet<string> earnableFiles,
+            HashSet<string> earnedFiles)
+        {
+            // Find the *longest* suffix that:
+            //  - starts immediately after an underscore
+            //  - is itself an earnable file name
+            //
+            // If found, that suffix must already be earned.
+            // If none found, no prerequisite.
+
+            string? prerequisite = null;
+
+            for (int i = 0; i < fileName.Length; i++)
+            {
+                if (fileName[i] != '_') continue;
+
+                var suffix = fileName.Substring(i + 1); // everything after this underscore
+                if (string.IsNullOrWhiteSpace(suffix)) continue;
+
+                if (!earnableFiles.Contains(suffix)) continue;
+
+                // prefer the longest (most specific) prerequisite
+                if (prerequisite == null || suffix.Length > prerequisite.Length)
+                    prerequisite = suffix;
+            }
+
+            if (prerequisite == null)
+                return true; // no prereq pattern found
+
+            return earnedFiles.Contains(prerequisite);
+        }
+
+
 
         //Budget
         private async Task SaveBudgetCardModelDataAsync(BudgetCardModel model, long cardId)
@@ -2381,19 +2605,16 @@ namespace Points.Services.Sqlite
         //Card
         public async Task SaveCardModelAsync(ICardModel model)
         {
-            if(model is IActiveCardModel acm)
-            {
-                if(acm.IsActive)
-                {
-                    await CloseAnyOpenActivitiesAsync();
-                }
-            }
-
             await SaveCardModelsAsync(new List<ICardModel>() { model });
         }
 
         public async Task SaveCardModelsAsync(List<ICardModel> models)
         {
+            if (models.OfType<IActiveCardModel>().Count() > 0 && models.Cast<IActiveCardModel>().Where(x => x.IsActive).Count() > 0)
+            {
+                await CloseAnyOpenActivitiesAsync();
+            }
+
             foreach (var model in models)
             {
                 //Check if model has CardID and that CardID exists in the DB already
@@ -2608,6 +2829,8 @@ namespace Points.Services.Sqlite
                   WHERE ActivityID = ?;",
                 endTime.ToString("o"),
                 activityId.Value);
+
+            await CloseAnyOpenActivitiesAsync();
         }
 
         // -------------------------
@@ -2799,6 +3022,8 @@ namespace Points.Services.Sqlite
                 }
 
             }
+
+            await SaveCardSchedules(cardId, model.Schedules);
         }
 
         //TAT
@@ -2862,6 +3087,8 @@ namespace Points.Services.Sqlite
             {
                 await Db.ExecuteAsync("DELETE FROM TatCardValueRate WHERE TatCardValueRateID = ?", vrToDelete.TatCardValueRateID);
             }
+
+            await SaveCardSchedules(cardId, model.Schedules);
         }
 
         private async Task SaveValueTrackerCardModelDataAsync(ValueTrackerCardModel model, long cardId)
@@ -2897,8 +3124,11 @@ namespace Points.Services.Sqlite
                 );
             }
 
+            await SaveCardSchedules(cardId, model.Schedules);
+
             await SaveTrackerValuesAsync(cardId, model.Values);
         }
+
 
         private async Task SaveEventTrackerCardModelDataAsync(EventTrackerCardModel model, long cardId)
         {
@@ -3134,6 +3364,125 @@ namespace Points.Services.Sqlite
         }
 
 
+        //Card Schedules
+        private async Task SaveCardSchedules(long cardId, ObservableCollection<CardSchedule> schedules)
+        {
+            await InitializeAsync();
+
+            // Existing rows in DB for this card
+            var existing = await Db.QueryAsync<CardScheduleRow>(
+                @"SELECT
+                      ScheduleID   AS ScheduleID,
+                      CardID       AS CardID,
+                      FrequencyType AS FrequencyType,
+                      FrequencyValue AS FrequencyValue,
+                      FromDateTime AS FromDateTime,
+                      ToDateTime   AS ToDateTime,
+                      IsEnabled    AS IsEnabled,
+                      Note         AS Note
+                  FROM CardSchedule
+                  WHERE CardID = ?;",
+                cardId);
+
+            var remaining = existing.ToList();
+
+            foreach (var s in schedules)
+            {
+                // Ensure FK is correct
+                s.CardId = cardId;
+
+                var ftText = s.FrequencyType.ToString();
+                var toIso = s.ToDateTime.HasValue ? ToIso(s.ToDateTime.Value) : null;
+
+                if (s.ScheduleId == 0)
+                {
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO CardSchedule
+                          (CardID, FrequencyType, FrequencyValue, FromDateTime, ToDateTime, IsEnabled, Note)
+                          VALUES (?, ?, ?, ?, ?, ?, ?);",
+                        cardId,
+                        ftText,
+                        s.FrequencyValue,
+                        ToIso(s.FromDateTime),
+                        toIso,
+                        s.IsEnabled ? 1 : 0,
+                        s.Note ?? ""
+                    );
+
+                    s.ScheduleId = await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                }
+                else
+                {
+                    await Db.ExecuteAsync(
+                        @"UPDATE CardSchedule
+                          SET FrequencyType = ?,
+                              FrequencyValue = ?,
+                              FromDateTime = ?,
+                              ToDateTime = ?,
+                              IsEnabled = ?,
+                              Note = ?
+                          WHERE ScheduleID = ? AND CardID = ?;",
+                        ftText,
+                        s.FrequencyValue,
+                        ToIso(s.FromDateTime),
+                        toIso,
+                        s.IsEnabled ? 1 : 0,
+                        s.Note ?? "",
+                        s.ScheduleId,
+                        cardId
+                    );
+
+                    var keep = remaining.FirstOrDefault(x => x.ScheduleID == s.ScheduleId);
+                    if (keep != null) remaining.Remove(keep);
+                }
+            }
+
+            // Delete any schedules removed in-memory
+            foreach (var del in remaining)
+            {
+                await Db.ExecuteAsync(
+                    @"DELETE FROM CardSchedule WHERE ScheduleID = ? AND CardID = ?;",
+                    del.ScheduleID,
+                    cardId);
+            }
+        }
+
+
+        public sealed class CardScheduleRow
+        {
+            public long ScheduleID { get; set; }
+            public long CardID { get; set; }
+            public string FrequencyType { get; set; } = "";
+            public int FrequencyValue { get; set; }
+            public string FromDateTime { get; set; } = "";
+            public string? ToDateTime { get; set; }
+            public int IsEnabled { get; set; }
+            public string Note { get; set; } = "";
+        }
+
+        private static string ToIso(DateTime dt) => dt.ToString("o");
+        private static DateTime ParseIso(string s) => DateTime.Parse(s, null, DateTimeStyles.RoundtripKind);
+
+        public static class CardScheduleMapper
+        {
+            public static CardSchedule ToDomain(CardScheduleRow row)
+            {
+                return new CardSchedule
+                {
+                    ScheduleId = row.ScheduleID,
+                    CardId = row.CardID,
+                    IsEnabled = row.IsEnabled != 0,
+                    Note = row.Note ?? "",
+                    FrequencyType = (FrequencyType)Enum.Parse(typeof(FrequencyType), row.FrequencyType),
+                    FrequencyValue = row.FrequencyValue,
+                    FromDateTime = DateTime.Parse(row.FromDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind),
+                    ToDateTime = string.IsNullOrWhiteSpace(row.ToDateTime)
+                        ? null
+                        : DateTime.Parse(row.ToDateTime!, null, System.Globalization.DateTimeStyles.RoundtripKind),
+                };
+            }
+        }
+
         #endregion
 
         #region Delete
@@ -3167,6 +3516,17 @@ namespace Points.Services.Sqlite
             await Db.ExecuteAsync("DELETE FROM Card WHERE CardID = ?;", cardId);
         }
 
+        public async Task DeleteAchievementTrophyAsync(int trophyId)
+        {
+            await InitializeAsync();
+
+            await Db.ExecuteAsync(
+                @"DELETE FROM AchievementTrophy
+                  WHERE TrophyID = ?;",
+                trophyId
+            );
+        }
+
 
         #endregion
 
@@ -3178,6 +3538,18 @@ namespace Points.Services.Sqlite
             public double CurrentTotalActiveTimeInSeconds { get; set; }
         }
 
+        public sealed class DebugActivityRow
+        {
+            public long ActivityID { get; set; }     // or int, depending on your schema
+            public long CardID { get; set; }         // or int
+
+            public string Start { get; set; }        // stored as TEXT ISO-8601
+            public string End { get; set; }          // stored as TEXT ISO-8601
+
+            public double SecondsDiff { get; set; }
+        }
+
+
         public async Task<TagValueSummaryRow> GetTagValueSummaryAsync(string tagName, DateTime rangeStart, DateTime rangeEnd)
         {
             await InitializeAsync();
@@ -3185,6 +3557,25 @@ namespace Points.Services.Sqlite
             // Convert to ISO-8601 to match how you store datetimes
             var startIso = rangeStart.ToString("o");
             var endIso = rangeEnd.ToString("o");
+
+            //const string debugSql = @"
+            //            SELECT 
+            //                a.ActivityID,
+            //                a.CardID,
+            //                a.Start,
+            //                a.""End"",
+            //                (julianday(a.""End"") - julianday(a.Start)) * 86400.0 AS SecondsDiff
+            //            FROM Activity a
+            //            JOIN Card c ON c.CardID = a.CardID
+            //            WHERE ',' || REPLACE(c.Tags, ' ', '') || ',' LIKE '%,' || REPLACE(?, ' ', '') || ',%'
+            //              AND datetime(a.Start) >= datetime(?)
+            //              AND datetime(a.""End"")   <= datetime(?)
+            //            ORDER BY SecondsDiff;
+            //            ";
+
+            //var debugRows = await Db.QueryAsync<DebugActivityRow>(
+            //    debugSql, tagName, startIso, endIso);
+
 
             const string sql = @"
                     WITH TaggedCards AS (
@@ -3206,7 +3597,8 @@ namespace Points.Services.Sqlite
                         FROM Activity a
                         WHERE a.CardID IN (SELECT CardID FROM TaggedCards)
                           AND datetime(a.Start) >= datetime(?)
-                          AND datetime(a.""End"")   <= datetime(?)
+                          AND datetime(a.""End"")   <= datetime(?)  
+                          AND a.""End"" >= a.Start
                     ),
 
                     StepValued AS (
@@ -3262,8 +3654,6 @@ namespace Points.Services.Sqlite
             // result.CurrentValue and result.CurrentTotalActiveTimeInSeconds
             return row;
         }
-
-
 
         #endregion
     }

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Points.Views.Schedules.ScheduleEditPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Edit Schedule">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <!-- Frequency -->
+            <Label Text="Frequency" FontAttributes="Bold" FontSize="14" />
+            <Picker x:Name="FrequencyTypePicker" />
+
+            <!-- Frequency Value (conditional) -->
+            <Grid x:Name="FrequencyValueRow"
+                  ColumnDefinitions="Auto,*"
+                  ColumnSpacing="12"
+                  IsVisible="False">
+                <Label Grid.Column="0" Text="Every" VerticalTextAlignment="Center" />
+                <Entry Grid.Column="1" x:Name="FrequencyValueEntry"
+                       Keyboard="Numeric"
+                       Placeholder="e.g. 3"
+                       HorizontalTextAlignment="Center" />
+            </Grid>
+
+            <!-- Start -->
+            <Label Text="Start" FontAttributes="Bold" FontSize="14" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <DatePicker x:Name="FromDatePicker" />
+                <TimePicker x:Name="FromTimePicker" Grid.Column="1" />
+            </Grid>
+
+            <!-- End -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                <Label Text="Has end date" VerticalTextAlignment="Center" />
+                <Switch x:Name="HasEndSwitch" Grid.Column="1" />
+            </Grid>
+
+            <Grid x:Name="ToRow"
+                  ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12"
+                  IsVisible="False">
+                <DatePicker x:Name="ToDatePicker" />
+                <TimePicker x:Name="ToTimePicker" Grid.Column="1" />
+            </Grid>
+
+            <!-- Enabled -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Label Text="Enabled" VerticalTextAlignment="Center" />
+                <Switch x:Name="EnabledSwitch" />
+            </Grid>
+
+            <!-- Note -->
+            <Label Text="Note (optional)" FontAttributes="Bold" FontSize="14" />
+            <Editor x:Name="NoteEditor"
+                    AutoSize="TextChanges"
+                    HeightRequest="90"
+                    Placeholder="Any extra details..." />
+
+            <!-- Preview -->
+            <Frame Padding="12"
+                   CornerRadius="12"
+                   HasShadow="False"
+                   BorderColor="#DDDDDD">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Preview" FontAttributes="Bold" />
+                    <Label x:Name="PreviewLabel"
+                           Text=""
+                           FontSize="12"
+                           Opacity="0.8" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Error -->
+            <Label x:Name="ErrorLabel"
+                   Text=""
+                   TextColor="OrangeRed"
+                   IsVisible="False" />
+
+            <!-- Buttons -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,10,0,0">
+                <Button Grid.Column="0"
+                        Text="Cancel"
+                        BackgroundColor="Gray"
+                        TextColor="White"
+                        FontAttributes="Bold"
+                        FontSize="18"
+                        HeightRequest="48"
+                        CornerRadius="12"
+                        Clicked="OnCancelClicked" />
+
+                <Button Grid.Column="1"
+                        Text="Save"
+                        BackgroundColor="Green"
+                        TextColor="White"
+                        FontAttributes="Bold"
+                        FontSize="18"
+                        HeightRequest="48"
+                        CornerRadius="12"
+                        Clicked="OnSaveClicked" />
+            </Grid>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

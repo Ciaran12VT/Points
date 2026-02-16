@@ -27,15 +27,15 @@ namespace Points.Evaluators
                     });
         }
 
-        private static ITimeValueAchievementEvaluation CreateEvaluation(AchievementCardModel card)
+        private static TimeValueAchievementEvaluation CreateEvaluation(AchievementCardModel card)
         {
             return card.GoalType switch
             {
-                AchievementGoalType.ActiveTime => new TimeAchievementEvaluation
+                AchievementGoalType.ActiveTime => new TimeValueAchievementEvaluation
                 {
                     AchievemenCard = card,
                 },
-                AchievementGoalType.Value => new ValueAchievementEvaluation
+                AchievementGoalType.Value => new TimeValueAchievementEvaluation
                 {
                     AchievemenCard = card
                 },

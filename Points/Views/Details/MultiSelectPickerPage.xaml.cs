@@ -10,10 +10,11 @@ public partial class MultiSelectPickerPage : ContentPage
         string title,
         IEnumerable<string> items,
         IEnumerable<string>? initial,
-        bool isReadOnly = true)
+        bool isReadOnly = true,
+        bool isSingleTag = false)
     {
         InitializeComponent();
-        BindingContext = new MultiSelectPickerViewModel(title, items, initial, _tcs, isReadOnly);
+        BindingContext = new MultiSelectPickerViewModel(title, items, initial, _tcs, isReadOnly, isSingleTag);
     }
 
     public Task<IReadOnlyList<string>?> Result => _tcs.Task;
@@ -39,6 +40,11 @@ public partial class MultiSelectPickerPage : ContentPage
 
         if (vm.IsReadOnly)
             return;
+
+        if(vm.IsSingleTag)
+        {
+            vm.Clear();
+        }
 
         vm.SetSelectedFromText(e.NewTextValue);
     }

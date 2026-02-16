@@ -45,7 +45,7 @@ namespace Points.Models
             // Balance = initial + all scheduled top-ups up to now - spends/cash-ins up to now
             var totalTopUps = GetTotalTopUpsApplied(now);
             var spent = Transactions
-                .Where(t => t.Timestamp <= now)
+                .Where(t => t.Timestamp <= now && t.Timestamp >= StartDate)
                 .Sum(t => t.CurrencyAmount); // both Spend and CashIn subtract from balance
 
             return InitialBalance + totalTopUps - spent;

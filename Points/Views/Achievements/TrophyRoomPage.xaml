@@ -5,9 +5,9 @@
              x:Class="Points.Views.Achievements.TrophyRoomPage"
              Title="Trophy Room">
 
-    <ContentPage.BindingContext>
+    <!--<ContentPage.BindingContext>
         <vm:TrophyRoomViewModel />
-    </ContentPage.BindingContext>
+    </ContentPage.BindingContext>-->
 
     <Grid Padding="12">
         <CollectionView ItemsSource="{Binding Trophies}"
@@ -36,15 +36,31 @@
                                    Aspect="AspectFit" />
 
                             <Label Grid.Row="1"
+                                   VerticalOptions="Center"
                                    Text="{Binding Title}"
                                    FontAttributes="Bold"
                                    FontSize="14"
                                    LineBreakMode="TailTruncation" />
 
                             <Label Grid.Row="2"
+                                   VerticalOptions="Center"
                                    Text="{Binding EarnedOnText}"
                                    FontSize="12"
                                    TextColor="Gray" />
+
+                            <Button 
+                                Grid.Row="2"
+                                HorizontalOptions="End"
+                                VerticalOptions="Start"
+                                BackgroundColor="Black"
+                                Margin="0"
+                                HeightRequest="40"
+                                Text="⧉"
+                                FontSize="12"
+                                TextColor="Gray"
+                                Clicked="OnViewTrophyClicked"
+                                CommandParameter="{Binding .}" />
+
                         </Grid>
                     </Frame>
                 </DataTemplate>

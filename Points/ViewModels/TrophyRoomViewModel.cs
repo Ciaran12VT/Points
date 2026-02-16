@@ -1,4 +1,6 @@
-﻿using Points.Models;
+﻿using Points.Global;
+using Points.Models;
+using Points.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -7,44 +9,42 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace Points.ViewModels
 {
     public class TrophyRoomViewModel : INotifyPropertyChanged
     {
+        private IDbService _db;
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public ObservableCollection<TrophyModel> Trophies { get; } = new();
 
-        public TrophyRoomViewModel()
+        public Task? Initialization { get; private set; }
+
+        public Command OpenTrophyCommand { get; }
+
+        public TrophyRoomViewModel(Services.IDbService db)
         {
-            // Dummy data
-            Trophies.Add(new TrophyModel
-            {
-                Title = "Super Nerd Trophy",
-                EarnedOn = DateTime.Today.AddDays(-2),
-                ImageSource = "trophy.png"
-            });
+            _db = db;
 
-            Trophies.Add(new TrophyModel
-            {
-                Title = "Gym Rat Trophy",
-                EarnedOn = DateTime.Today.AddDays(-7),
-                ImageSource = "trophy.png"
-            });
+            Initialization = LoadAsync();
 
-            Trophies.Add(new TrophyModel
-            {
-                Title = "Consistency Trophy",
-                EarnedOn = DateTime.Today.AddDays(-14),
-                ImageSource = "trophy.png"
-            });
+        }
 
-            Trophies.Add(new TrophyModel
+        private async Task LoadAsync()
+        {
+            var trophies = await _db.GetTrophyModelsDataAsync();
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                Title = "Early Bird Trophy",
-                EarnedOn = DateTime.Today.AddDays(-30),
-                ImageSource = "trophy.png"
+                foreach (var t in trophies)
+                {
+                    t.ImageSource = Path.Combine(AppPaths.GetAchievementTrophiesPath(t.AchievementId), t.ImageSource);
+                    Trophies.Add(t);
+                }
+                    
             });
         }
 

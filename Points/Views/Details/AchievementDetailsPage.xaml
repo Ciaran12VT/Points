@@ -233,44 +233,60 @@
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
                     <!-- Add Photo -->
                     <Button Text="🖼"
-                    WidthRequest="36"
-                    HeightRequest="36"
-                    CornerRadius="18"
-                    Padding="0"
-                    Margin="0"
-                    TextColor="White"
-                    BackgroundColor="Black"
-                    Clicked="OnAddTrophyPhotoClicked"/>
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Clicked="OnAddTrophyPhotoClicked"/>
 
                     <!-- Add File -->
                     <Button Grid.Column="1"
-                    Text="📎"
-                    WidthRequest="36"
-                    HeightRequest="36"
-                    CornerRadius="18"
-                    Padding="0"
-                    Margin="0"
-                    TextColor="White"
-                    BackgroundColor="Black"
-                    Clicked="OnAddTrophyFileClicked"/>
+                        Text="📎"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Clicked="OnAddTrophyFileClicked"/>
 
                     <!-- Count -->
-                    <Label Grid.Column="2"
-                   Text="{Binding Model.TrophyCount, StringFormat='Available: {0}'}"
-                   VerticalTextAlignment="Center"
-                   TextColor="Gray"/>
+                    <Label 
+                       Grid.Column="2"
+                       Text="{Binding Model.TrophyCount, 
+                       StringFormat='Available: {0}'}"
+                       VerticalTextAlignment="Center"
+                       TextColor="Gray"/>
+
+                    <Button 
+                        Grid.Column="2" 
+                        HorizontalOptions="End"
+                        Text="👁" 
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        BackgroundColor="Black"
+                        Command="{Binding ViewTrophiesCommand}" />
 
                     <!-- Clear -->
-                    <Button Grid.Column="3"
-                    Text="✕"
-                    WidthRequest="36"
-                    HeightRequest="36"
-                    CornerRadius="18"
-                    Padding="0"
-                    Margin="0"
-                    TextColor="White"
-                    BackgroundColor="DarkRed"
-                    Clicked="OnClearTrophiesClicked"/>
+                    <Button 
+                        Grid.Column="4"
+                        Text="✕"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="DarkRed"
+                        Clicked="OnClearTrophiesClicked"/>
+                    
                 </Grid>
 
 

@@ -28,7 +28,25 @@ namespace Points.Platforms.Android
             {
                 // Start/update the foreground service with the new title
                 var intent = new Intent(context, typeof(ActiveCardForegroundService));
-                intent.PutExtra(ActiveCardForegroundService.ExtraCardJson, JsonSerializer.Serialize(new ActiveCardModelWrapper() { Type = cardModel.GetType().AssemblyQualifiedName, Data = JsonSerializer.SerializeToElement(cardModel, cardModel.GetType()) }));
+                JsonElement cardJson = JsonSerializer.SerializeToElement(cardModel, cardModel.GetType());
+                intent.PutExtra(
+                    ActiveCardForegroundService.ExtraCardJson, 
+                    JsonSerializer.Serialize(
+                        new ActiveCardModelWrapper() 
+                        { 
+                            Type = cardModel.GetType().AssemblyQualifiedName, 
+                            Data = cardJson
+                        }
+                     )
+                );
+
+                var prefs = aa.Application.Context.GetSharedPreferences("points_service_prefs", FileCreationMode.Private);
+                var sessionId = prefs.GetString("active_card_service_session_id", null);
+
+                // include it (null is fine on first ever run; service will treat as mismatch and seed)
+                intent.PutExtra("EXTRA_SERVICE_SESSION_ID", sessionId);
+
+
                 context.StartForegroundService(intent);
             }
         }

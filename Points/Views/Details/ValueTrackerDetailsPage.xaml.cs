@@ -1,5 +1,6 @@
 using System.Globalization;
 using Points.Models;
+using Points.Views.Schedules;
 
 namespace Points.Views.Details;
 
@@ -27,10 +28,17 @@ public partial class ValueTrackerDetailsPage : ContentPage
             _model.CreatedDate = DateTime.Today;
 
         // Schedule picker options
-        UnitPicker.ItemsSource = new List<string> { "Minute", "Hour", "Day", "Week", "Month", "Year" };
-        UnitPicker.SelectedItem = string.IsNullOrWhiteSpace(_model.ScheduleUnit) ? "Week" : _model.ScheduleUnit;
+        //UnitPicker.ItemsSource = new List<string> { "Minute", "Hour", "Day", "Week", "Month", "Year" };
+        //UnitPicker.SelectedItem = string.IsNullOrWhiteSpace(_model.ScheduleUnit) ? "Week" : _model.ScheduleUnit;
 
-        EveryEntry.Text = (_model.ScheduleEvery <= 0 ? 1 : _model.ScheduleEvery).ToString(CultureInfo.InvariantCulture);
+        //EveryEntry.Text = (_model.ScheduleEvery <= 0 ? 1 : _model.ScheduleEvery).ToString(CultureInfo.InvariantCulture);
+
+        // For now: schedule summary placeholder (until schedules are implemented)
+        ScheduleSummaryLabel.Text =
+            _model.Schedules.Count == 0 ? "None" :
+            _model.Schedules.Count == 1 ? "1 schedule" :
+            $"{_model.Schedules.Count} schedules";
+
     }
 
     private async void OnCancelClicked(object sender, EventArgs e)
@@ -56,18 +64,18 @@ public partial class ValueTrackerDetailsPage : ContentPage
         var unit = (UnitEntry.Text ?? "").Trim();
 
         // Schedule every
-        if (!int.TryParse((EveryEntry.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var every) || every <= 0)
-        {
-            ShowError("Schedule frequency must be a positive whole number.");
-            return;
-        }
+        //if (!int.TryParse((EveryEntry.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var every) || every <= 0)
+        //{
+        //    ShowError("Schedule frequency must be a positive whole number.");
+        //    return;
+        //}
 
-        var scheduleUnit = UnitPicker.SelectedItem as string;
-        if (string.IsNullOrWhiteSpace(scheduleUnit))
-        {
-            ShowError("Please choose a schedule unit.");
-            return;
-        }
+        //var scheduleUnit = UnitPicker.SelectedItem as string;
+        //if (string.IsNullOrWhiteSpace(scheduleUnit))
+        //{
+        //    ShowError("Please choose a schedule unit.");
+        //    return;
+        //}
 
         // Parse initial values
         var parsedValues = ParseValues(ValuesEditor.Text);
@@ -76,10 +84,10 @@ public partial class ValueTrackerDetailsPage : ContentPage
         _model.Title = title;
         _model.Unit = unit;
 
-        _model.RangeStart = StartDatePicker.Date;
+        //_model.RangeStart = StartDatePicker.Date;
 
-        _model.ScheduleEvery = every;
-        _model.ScheduleUnit = scheduleUnit;
+        //_model.ScheduleEvery = every;
+        //_model.ScheduleUnit = scheduleUnit;
 
         if (parsedValues.Count > 0)
             _model.SetValues(parsedValues);
@@ -88,6 +96,32 @@ public partial class ValueTrackerDetailsPage : ContentPage
         _onSaved?.Invoke(_model);
         await Shell.Current.Navigation.PopAsync();
     }
+
+    private async void OnEditSchedulesClicked(object sender, EventArgs e)
+    {
+        // Require a persisted card so schedules can be keyed by CardId
+        if (_model.Id <= 0)
+        {
+            ShowError("Please tap OK to save the tracker first, then add schedules.");
+            return;
+        }
+
+        // For now, delegates are null (in-memory-only UI).
+        // We'll wire these to DB repository methods next.
+        await Shell.Current.Navigation.PushAsync(
+            new CardSchedulesPage(
+                cardId: _model.Id,
+                schedules: _model.Schedules,
+                onChanged: () =>
+                {
+                    // simplest summary update (you can improve formatting later)
+                    ScheduleSummaryLabel.Text = _model.Schedules.Count == 0 ? "None"
+                        : _model.Schedules.Count == 1 ? "1 schedule"
+                        : $"{_model.Schedules.Count} schedules";
+                }));
+
+    }
+
 
     private void ShowError(string msg)
     {

@@ -147,9 +147,12 @@ namespace Points.Models
             }
         }
 
-        public Color CardBackgroundColor => IsLockedThisRange ? Color.FromArgb("#2A2A2A") : GetBackColorBasedOnDifficulty();
+        public Color CardBackgroundColor => IsLockedThisRange ? Color.FromArgb("#2A2A2A") : Colors.Black;
 
-        public Color CardForeColor => IsLockedThisRange ? Colors.White : GetForeColorBasedOnDifficulty();
+        public Color CardBadgeBackColor => IsLockedThisRange ? Color.FromArgb("#2A2A2A") : GetBackColorBasedOnDifficulty();
+        public Color CardBadgeForeColor => IsLockedThisRange ? Colors.Gray : GetForeColorBasedOnDifficulty();
+
+        public Color CardForeColor => IsLockedThisRange ? Colors.Gray : Colors.White;
 
         private Color GetBackColorBasedOnDifficulty()
         {
@@ -358,14 +361,14 @@ namespace Points.Models
                 }
 
                 // Range mode placeholder until you add real “minutes/hours/days/weeks/months” fields
-                return "Completion: Range";
+                return $"Completion: Over the last {RangeAmount} {RangeUnit.ToString()} [{GetRangeWindowStart(DateTime.Now).ToString("MMM-dd")}]";
             }
         }
 
         public int Target { get; internal set; }
         public DateTime CompletedAt { get; internal set; }
 
-        public ObservableCollection<string> Trophies { get; } = new();
+        public ObservableCollection<string> Trophies { get; set; } = new();
 
         public int TrophyCount => Trophies.Count;
 
@@ -387,7 +390,7 @@ namespace Points.Models
             RaisePropertyChanged(nameof(Progress));
         }
 
-        public double GetTargeSecondsSpent()
+        public double GetTargetSecondsSpent()
         {
              double retval = 0;
 
@@ -412,6 +415,29 @@ namespace Points.Models
             }
 
             return retval;
+        }
+
+        public void UpdatePerTick(IEnumerable<Evaluators.TimeValueAchievementEvaluation> evaluations)
+        {
+            switch (GoalType)
+            {
+                case AchievementGoalType.ActiveTime:
+                    break;
+                case AchievementGoalType.Value:
+                    CurrentValue = evaluations.Sum(x => x.CurrentValue);
+                    break;
+                case AchievementGoalType.Steps:
+                    break;
+                case AchievementGoalType.Achievements:
+                    break;
+                case AchievementGoalType.Custom:
+                    break;
+                default:
+                    break;
+            }
+
+            RaisePropertyChanged(nameof(CurrentValueText));
+            RaisePropertyChanged(nameof(CompletionTimeText));
         }
     }
 }

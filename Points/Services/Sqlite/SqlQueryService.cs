@@ -340,6 +340,16 @@ namespace Points.Services.Sqlite
                     FOREIGN KEY (SelectedThemeID) REFERENCES Theme(ThemeID) ON DELETE SET NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS CardSchedule (
+                    ScheduleId     INTEGER PRIMARY KEY,
+                    CardId         INTEGER NOT NULL,
+                    IsEnabled      INTEGER NOT NULL DEFAULT 1,
+                    Note          TEXT    NOT NULL DEFAULT '',
+                    FrequencyType  INTEGER NOT NULL,
+                    FrequencyValue INTEGER NOT NULL DEFAULT 0,
+                    FromDateTime   TEXT    NOT NULL, -- ISO-8601
+                    ToDateTime     TEXT    NULL      -- ISO-8601 or NULL
+                );
 
                 -- =========================
                 -- Helpful indexes
@@ -376,6 +386,7 @@ namespace Points.Services.Sqlite
                 CREATE INDEX IF NOT EXISTS IX_AppSettings_SelectedThemeID ON AppSettings(SelectedThemeID);
                 CREATE INDEX IF NOT EXISTS IX_AppSettings_StatusConditionID ON AppSettings(CurrentlyAppliedStatusConditionID);
 
+                CREATE INDEX IF NOT EXISTS IX_CardSchedule_CardId ON CardSchedule(CardId);
                 ";
         }
 

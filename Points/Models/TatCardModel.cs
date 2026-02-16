@@ -1,6 +1,7 @@
 ﻿using Points.Evaluators;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,7 +9,7 @@ using System.Windows.Input;
 
 namespace Points.Models
 {
-    public class TatCardModel : ObservableObject, IActiveCardModel
+    public class TatCardModel : ObservableObject, IActiveCardModel, IScheduleable
     {
         public int Id { get; set; }
 
@@ -20,6 +21,15 @@ namespace Points.Models
         }
 
         public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
+
+        public ObservableCollection<CardSchedule> Schedules { get; set; } = new();
+
+        public void SetSchedules(List<CardSchedule> schedules)
+        {
+            Schedules.Clear();
+            foreach (var s in schedules)
+                Schedules.Add(s);
+        }
 
         // Requested shape
         public List<ActivityModel> Activity { get; set; } = new();

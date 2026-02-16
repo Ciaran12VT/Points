@@ -15,8 +15,13 @@ namespace Points.Global
         public static string LogsFolder => Ensure("logs");
         public static string CacheFolder => Ensure("cache");
 
-        public static string DatabasePath =>
-            Path.Combine(DbFolder, "points.db3");
+        public static string DatabasePath => Path.Combine(DbFolder, "points.db3");
+
+        public static string GetAchievementTrophiesPath(int achievementID)
+        {
+            string folderName = $"trophies/AchievementID_{achievementID}";
+            return Ensure(folderName);
+        }
 
         private static string Ensure(string folder)
         {

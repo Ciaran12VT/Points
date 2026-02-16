@@ -37,7 +37,7 @@
                     Placeholder="72.4, 72.1, 71.9" />
 
             <!-- Schedule -->
-            <Label Text="Schedule (record only for now)" FontAttributes="Bold" FontSize="14" />
+            <!--<Label Text="Schedule (record only for now)" FontAttributes="Bold" FontSize="14" />
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10" VerticalOptions="Center">
                 <Label Text="Every" VerticalTextAlignment="Center" />
 
@@ -55,7 +55,30 @@
                        Text="from start date"
                        VerticalTextAlignment="Center"
                        Opacity="0.7" />
+            </Grid>-->
+            <Label Text="Schedule" FontAttributes="Bold" FontSize="14" />
+
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12"
+                  VerticalOptions="Center">
+
+                <Label x:Name="ScheduleSummaryLabel"
+                       Text="None"
+                       Opacity="0.75"
+                       VerticalTextAlignment="Center" />
+
+                <Button Grid.Column="1"
+                        Text="📅"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"
+                        BackgroundColor="Green"
+                        Clicked="OnEditSchedulesClicked" />
             </Grid>
+
 
             <!-- Error -->
             <Label x:Name="ErrorLabel"

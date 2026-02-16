@@ -1,4 +1,5 @@
-﻿using Points.Models;
+﻿using Points.Global;
+using Points.Models;
 using Points.Services;
 using System;
 using System.Collections.Generic;
@@ -39,7 +40,7 @@ namespace Points.ViewModels
 
         private async Task OpenTrophyRoomAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.TrophyRoomPage());
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.TrophyRoomPage(_db));
         }
 
         private async Task AddAchievementAsync()
@@ -144,7 +145,7 @@ namespace Points.ViewModels
         /// The ONE AND ONLY way a card gets added to a page.
         /// All callers (mock seeding + UI save callbacks) must use this.
         /// </summary>
-        private void CommitCardToPage(AchievementsPageModel page, AchievementCardModel card, bool noDb = false)
+        public void CommitCardToPage(AchievementsPageModel page, AchievementCardModel card, bool noDb = false)
         {
             if (page == null || card == null) return;
 
@@ -165,6 +166,14 @@ namespace Points.ViewModels
 
         public void DeleteCardFromDb(AchievementCardModel deleted)
         {
+            var files = Directory.GetFiles(AppPaths.GetAchievementTrophiesPath(deleted.Id));
+            foreach (var file in files)
+            {
+                File.Delete(file);
+            }
+
+            Directory.Delete(AppPaths.GetAchievementTrophiesPath(deleted.Id));
+
             _db.DeleteAchievementCardModelAsync(deleted);
         }
 

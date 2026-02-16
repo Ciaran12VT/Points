@@ -1,11 +1,14 @@
-﻿using Points.Models;
+﻿using Points.Global;
+using Points.Models;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace Points.ViewModels
 {
@@ -22,13 +25,20 @@ namespace Points.ViewModels
 
         public Command CancelCommand { get; }
 
+        public Command ViewTrophiesCommand { get; }
+
+        public List<string> TrophiesToAdd { get; set; } = new List<string>();
+
         public AchievementDetailsViewModel(AchievementCardModel model, Action<AchievementCardModel> onSaved, Action<AchievementCardModel> onDelete)
         {
             _model = model;
             _onSaved = onSaved;
             _onDelete = onDelete;
 
+            _model.Trophies = GetAchievementTrophies();
+
             CancelCommand = new Command(async () => await OnCancelAsync());
+            ViewTrophiesCommand = new Command(async () => await OnViewTrophiesAsync());
 
             // Tick every second
             _timer = Application.Current!.Dispatcher.CreateTimer();
@@ -50,6 +60,8 @@ namespace Points.ViewModels
             DifficultyLevel = _model.Difficulty;
 
             TargetValueText = _model.TargetValue.ToString("0.##", CultureInfo.InvariantCulture);
+            ActiveTimeTargetText = _model.ActiveTimeTargetText;
+
             StepName = _model.StepName;
             AchievementTitle = _model.AchievementTitle;
 
@@ -191,22 +203,6 @@ namespace Points.ViewModels
                   .Cast<AchievementGoalType>()
                   .ToList();
 
-
-        //private TimeSpan _activeTimeTarget = TimeSpan.Zero;
-
-        //public string ActiveTimeText
-        //{
-        //    get => $"{(int)_activeTimeTarget.TotalHours:00}:{_activeTimeTarget.Minutes:00}:{_activeTimeTarget.Seconds:00}";
-        //    set
-        //    {
-        //        if (TimeSpan.TryParse(value, out var ts))
-        //        {
-        //            _activeTimeTarget = ts;
-        //            RaisePropertyChanged();
-        //        }
-        //    }
-        //}
-
         private async Task OnCancelAsync()
         {
             var choice = await Shell.Current.DisplayActionSheet(
@@ -255,9 +251,74 @@ namespace Points.ViewModels
             _model.RangeAmount = rangeAmt;
             _model.Deadline = deadline;
 
+            SaveTrophiesToDisk();
+
             _onSaved(_model);
 
             await Shell.Current.Navigation.PopAsync();
+        }
+
+        private void SaveTrophiesToDisk()
+        {
+            string targetTrophyFolderPath = AppPaths.GetAchievementTrophiesPath(_model.Id);
+
+            foreach (var trophyToAdd in TrophiesToAdd.Where(x => !string.IsNullOrEmpty(x)))
+            {
+                var fileContent = File.ReadAllBytes(trophyToAdd);
+
+                if(fileContent != null)
+                {
+                    var trohpyFileName = Path.GetFileName(trophyToAdd);
+
+                    var trophyFullTargetPath = Path.Combine(targetTrophyFolderPath, trohpyFileName);
+
+                    // Overwrite if it already exists
+                    File.WriteAllBytes(trophyFullTargetPath, fileContent);
+                }
+            }
+        }
+
+        private ObservableCollection<string> GetAchievementTrophies()
+        {
+            string targetTrophyFolderPath = AppPaths.GetAchievementTrophiesPath(_model.Id);
+
+            if (!Directory.Exists(targetTrophyFolderPath)) return new ObservableCollection<string>();
+
+            var trophies = Directory
+                            .EnumerateFiles(targetTrophyFolderPath)
+                            .Select(Path.GetFileName)
+                            .Where(x => !string.IsNullOrWhiteSpace(x))
+                            .ToList();
+
+            return new ObservableCollection<string>(trophies);
+        }
+
+        private async Task OnViewTrophiesAsync()
+        {
+            var trophies = _model.Trophies?
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList() ?? new List<string>();
+
+            if (trophies.Count == 0)
+            {
+                await Application.Current.MainPage.DisplayAlert("Trophies", "No trophies saved.", "OK");
+                return;
+            }
+
+            // ActionSheet supports a cancel + optional destruction button, and a list of options.
+            // Note: ActionSheet is best for up to ~10-15 items; beyond that, use a modal page.
+            var selected = await Application.Current.MainPage.DisplayActionSheet(
+                "Trophies",
+                "Close",
+                null,
+                trophies.ToArray());
+
+            // Optional: If you want to do something when one is picked (copy/open/etc)
+            // if (!string.IsNullOrWhiteSpace(selected) && selected != "Close")
+            // {
+            //     await Application.Current.MainPage.DisplayAlert("Selected trophy", selected, "OK");
+            // }
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Points.Models;
+﻿using Points.Evaluators;
+using Points.Models;
 using Points.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -39,6 +40,9 @@ namespace Points.Services
         //Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null);
         Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null);
 
+        Task<List<TrophyModel>> GetTrophyModelsDataAsync();
+
+
         // Budget
         Task<BudgetCardModel> GetBudgetCardModelDataAsync(int id);
         Task<List<BudgetCardModel>> GetBudgetCardModelsDataAsync(string whereClause = null);
@@ -69,6 +73,10 @@ namespace Points.Services
         Task<EventTrackerCardModel> GetEventTrackerCardModelDataAsync(int id);
         Task<List<EventTrackerCardModel>> GetEventTrackerCardModelsDataAsync(string whereClause = null);
 
+        //Schedules
+        Task<CardSchedule?> GetCardScheduleByIdAsync(long scheduleId);
+        Task<string?> GetCardTitleByIdAsync(long cardId);
+
 
         // -----------------------
         // Writes
@@ -95,8 +103,11 @@ namespace Points.Services
 
         Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(string sql, bool includeHeaderRow = true, params object?[] args);
 
-        Task<int> CloseAnyOpenActivitiesAsync();
+        Task MarkAchievementEarnedAsync(long achievementId, DateTime earnedAt);
+        Task DeleteAchievementTrophyAsync(int trophyId);
 
+        Task<int> CloseAnyOpenActivitiesAsync();
+        Task<List<TimeValueAchievementEvaluator>> RefreshEvaluatorsAsync(List<TimeValueAchievementEvaluator> timeValueAchievementEvaluators);
     }
 
     public sealed class HomeSeedData

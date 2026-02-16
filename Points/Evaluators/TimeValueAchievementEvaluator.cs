@@ -9,7 +9,7 @@ namespace Points.Evaluators
 {
     public class TimeValueAchievementEvaluator
     {
-        public List<ITimeValueAchievementEvaluation> Evaluations;
+        public List<TimeValueAchievementEvaluation> Evaluations { get; set; }
 
         public List<AchievementCardModel> CheckForEarnedAchievements(double additionalTime, double additionalValue)
         {
@@ -21,18 +21,28 @@ namespace Points.Evaluators
             {
                 double prog = 0;
 
-                if(eval is ValueAchievementEvaluation veval)
-                {
-                    prog = veval.IncrementAndGetValue(additionalValue);
-                }
-                else if(eval is TimeAchievementEvaluation teval)
-                {
-                    prog = teval.IncrementAndGetValue(additionalTime);
-                }
+                double valueToIncrement = 0;
+                if (eval.AchievemenCard.GoalType == AchievementGoalType.ActiveTime) valueToIncrement = additionalTime;
+                else if(eval.AchievemenCard.GoalType == AchievementGoalType.Value) valueToIncrement = additionalValue;
 
-                if(prog >= 1)
+                prog = eval.IncrementAndGetValue(valueToIncrement);
+
+                if(prog > 0)
                 {
-                    earnedAchievements.Add(eval.AchievemenCard);
+                    if (eval.AchievemenCard.GoalType == AchievementGoalType.ActiveTime)
+                    {
+                        prog = prog / eval.AchievemenCard.GetTargetSecondsSpent();
+                    }
+                    else if (eval.AchievemenCard.GoalType == AchievementGoalType.Value)
+                    {
+                        prog = prog / eval.AchievemenCard.TargetValue;
+                    }
+
+                    if (prog >= 1 && !eval.AchievemenCard.IsLockedThisRange)
+                    {
+                        earnedAchievements.Add(eval.AchievemenCard);
+                        eval.CurrentValue = 0;
+                    }
                 }
             }
 
@@ -40,13 +50,7 @@ namespace Points.Evaluators
         }
     }
 
-    public interface ITimeValueAchievementEvaluation
-    {
-        public AchievementCardModel AchievemenCard { get; set; }
-        public double IncrementAndGetValue(double incrementBy);
-    }
-
-    public class ValueAchievementEvaluation : ITimeValueAchievementEvaluation
+    public class TimeValueAchievementEvaluation
     {
         public AchievementCardModel AchievemenCard {  get; set; } 
 
@@ -57,20 +61,6 @@ namespace Points.Evaluators
             CurrentValue += incrementBy;
 
             return CurrentValue;
-        }
-    }
-
-    public class TimeAchievementEvaluation : ITimeValueAchievementEvaluation
-    {
-        public AchievementCardModel AchievemenCard { get; set; }
-
-        public double CurrentTotalSeconds { get; set; }
-
-        public double IncrementAndGetValue(double incrementBy)
-        {
-            CurrentTotalSeconds += incrementBy;
-
-            return CurrentTotalSeconds;
         }
     }
 }

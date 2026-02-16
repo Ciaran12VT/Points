@@ -1,6 +1,7 @@
 using Points.Models;
 using Points.Services;
 using Points.ViewModels;
+using Points.Views.Schedules;
 using System.Collections.Specialized;
 
 namespace Points.Views.Details;
@@ -15,7 +16,7 @@ public partial class ScDetailsPage : ContentPage
     public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, Services.IDbService db)
     {
         InitializeComponent();
-        BindingContext = new ScDetailsViewModel(model, onSaved, onDelete, availableTagsList);
+        BindingContext = new ScDetailsViewModel(model, onSaved, onDelete, availableTagsList, db);
         _allTags = availableTagsList;
         _model = model;
         _db = db;
@@ -27,6 +28,11 @@ public partial class ScDetailsPage : ContentPage
 
             await ScrollToBottomAsync(animated: false);
         };
+
+        ScheduleSummaryLabel.Text =
+            _model.Schedules.Count == 0 ? "None" :
+            _model.Schedules.Count == 1 ? "1 schedule" :
+            $"{_model.Schedules.Count} schedules";
     }
     protected override void OnBindingContextChanged()
     {
@@ -113,6 +119,36 @@ public partial class ScDetailsPage : ContentPage
         }
     }
 
+    private async void OnEditSchedulesClicked(object sender, EventArgs e)
+    {
+        // Require a persisted card so schedules can be keyed by CardId
+        if (_model.Id <= 0)
+        {
+            ShowError("Please tap OK to save the tracker first, then add schedules.");
+            return;
+        }
+
+        // For now, delegates are null (in-memory-only UI).
+        // We'll wire these to DB repository methods next.
+        await Shell.Current.Navigation.PushAsync(
+            new CardSchedulesPage(
+                cardId: _model.Id,
+                schedules: _model.Schedules,
+                onChanged: () =>
+                {
+                    // simplest summary update (you can improve formatting later)
+                    ScheduleSummaryLabel.Text = _model.Schedules.Count == 0 ? "None"
+                        : _model.Schedules.Count == 1 ? "1 schedule"
+                        : $"{_model.Schedules.Count} schedules";
+                }));
+
+    }
+
+    private void ShowError(string msg)
+    {
+        ErrorLabel.Text = msg;
+        ErrorLabel.IsVisible = true;
+    }
     protected override void OnDisappearing()
     {
         base.OnDisappearing();

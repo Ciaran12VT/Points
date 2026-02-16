@@ -32,7 +32,7 @@ namespace Points.Services
                             totalSecondsSpent += card.GetActiveTime(startOfRange, DateTime.Now).TotalSeconds;
                         }
 
-                        double secs = achievementCardModel.GetTargeSecondsSpent();
+                        double secs = achievementCardModel.GetTargetSecondsSpent();
 
                         retval = (totalSecondsSpent / secs) >= 1 ? 1 : (totalSecondsSpent / secs);
                     }

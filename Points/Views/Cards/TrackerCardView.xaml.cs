@@ -3,7 +3,9 @@ using System.Collections.Specialized;
 using System.Globalization;
 using System.Windows.Input;
 using Microsoft.Maui.Controls;
+using Points.Helpers;
 using Points.Models;
+using Points.ViewModels;
 
 namespace Points.Views.Cards;
 
@@ -491,5 +493,22 @@ public partial class TrackerCardView : ContentView
 
         return filled;
     }
+
+    private async void OnCardTapped(object sender, TappedEventArgs e)
+    {
+        if (BindingContext is not TrackerCardModel model)
+            return;
+
+        var page = this.FindParentOfType<ContentPage>();
+        if (page?.BindingContext is HomeViewModel vm)
+        {
+            // Option A (recommended): add a tracker-specific method on the VM
+            await vm.OpenExistingCardAsync(model);
+
+            // Option B (if you already have a generic method):
+            // await vm.OpenCardDetailsAsync(model);
+        }
+    }
+
 
 }

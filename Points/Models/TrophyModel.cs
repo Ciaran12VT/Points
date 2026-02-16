@@ -10,6 +10,8 @@ namespace Points.Models
     {
         public int Id { get; set; }
 
+        public int AchievementId { get; set; }
+
         public string Title { get; set; } = "";
         public DateTime EarnedOn { get; set; }
 

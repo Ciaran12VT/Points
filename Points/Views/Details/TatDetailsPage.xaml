@@ -233,6 +233,36 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
+                <!-- Schedule -->
+                <Label Text="Schedule" FontAttributes="Bold" FontSize="14" />
+
+                <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12"
+                  VerticalOptions="Center">
+
+                    <Label x:Name="ScheduleSummaryLabel"
+                       Text="None"
+                       Opacity="0.75"
+                       VerticalTextAlignment="Center" />
+
+                    <Button Grid.Column="1"
+                        Text="📅"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"
+                        BackgroundColor="Green"
+                        Clicked="OnEditSchedulesClicked" />
+                </Grid>
+
+                <!-- Error -->
+                <Label x:Name="ErrorLabel"
+                   Text=""
+                   TextColor="OrangeRed"
+                   IsVisible="False" />
+
                 <!-- Description (EXCEPTION: label + editor remain stacked) -->
                 <Label Text="Description" FontAttributes="Bold"/>
                 <Editor AutoSize="TextChanges"

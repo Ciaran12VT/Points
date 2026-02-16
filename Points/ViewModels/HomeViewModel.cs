@@ -21,6 +21,7 @@ namespace Points.ViewModels
 
         private readonly IActiveCardNotificationService _activeCardNotificationService;
         private IDbService _db;
+        private IAlarmScheduler _alarmScheduler;
 
         #region Commands
         public Command<IActiveCardModel> ActivateCardCommand { get; }
@@ -240,10 +241,11 @@ namespace Points.ViewModels
 
         #endregion
 
-        public HomeViewModel(IDbService db, IActiveCardNotificationService activeCardNotificationService)
+        public HomeViewModel(IDbService db, IActiveCardNotificationService activeCardNotificationService, IAlarmScheduler alarmScheduler)
         {
             _activeCardNotificationService = activeCardNotificationService;
             _db = db;
+            _alarmScheduler = alarmScheduler;
 
             // Commands
             ActivateCardCommand = new Command<IActiveCardModel>(RequestActivate);
@@ -305,10 +307,6 @@ namespace Points.ViewModels
 
         private async Task LoadAsync()
         {
-            //await _db.CloseAnyOpenActivitiesAsync();
-
-            //await _db.BackupAsync();
-
             // Get seed data (mock now, sqlite later)
             var seed = await _db.GetHomeSeedDataAsync(GlobalVariables.RangeStart, GlobalVariables.RangeEnd);
 
@@ -328,6 +326,10 @@ namespace Points.ViewModels
                     {
                         item.Activitate();
                         _activeCard = item;
+
+                        // 🔔 Start/update the foreground notification with the new active card title
+                        _activeCardNotificationService.UpdateActiveCardNotification(_activeCard);
+
                         break;
                     }
                 }
@@ -356,6 +358,20 @@ namespace Points.ViewModels
                 OnPropertyChanged(nameof(ActivePhaseName));
                 OnPropertyChanged(nameof(ActivePhaseColor));
             });
+
+            var scheduleables =
+                seed.MainQuestCards
+                    .OfType<IScheduleable>()
+                    .Concat(seed.ValueTrackers.OfType<IScheduleable>())
+                    .Concat(seed.MissionCards.OfType<IScheduleable>()) // if applicable
+                    .ToList();
+
+            var schedules = scheduleables
+                .SelectMany(x => x.Schedules)
+                .Where(s => s.IsEnabled)
+                .ToList();
+
+            await _alarmScheduler.ScheduleAllAsync(schedules);
         }
 
 
@@ -1050,6 +1066,7 @@ namespace Points.ViewModels
                     card.NotifyTimeChanged();
 
             SortMissionCards();
+            UpdateAchievementsPerTick();
 
             double total = 0;
             foreach (var page in Pages)
@@ -1059,6 +1076,30 @@ namespace Points.ViewModels
             TopRightValue = total;
 
             OnPropertyChanged(nameof(RangeEnd));
+        }
+
+        private void UpdateAchievementsPerTick()
+        {
+            var achievementsPage = Pages[Position];
+            if (achievementsPage == null) return;
+
+            if (achievementsPage.Name != "Challenges & Pinned Achievements") return;
+
+            var achievementCards = achievementsPage.AllCards.OfType<AchievementCardModel>().ToList();
+            if (achievementCards.Count == 0) return;
+
+            var activeCards = Pages.SelectMany(x => x.AllCards.Where(y => y is IActiveCardModel)).Cast<IActiveCardModel>();
+
+            foreach (var card in achievementCards)
+            {
+                var cardsForThisAchievement = activeCards.Where(x => x.Tags.Split(',').Select(x => x.Trim()).Contains(card.Tags.Trim()));
+
+                var evaluators = cardsForThisAchievement.SelectMany(x => x.TimeValueAchievementEvaluators);
+
+                var evaluations = evaluators.SelectMany(x => x.Evaluations);
+
+                card.UpdatePerTick(evaluations);
+            }
         }
 
         private void OnPropertyChanged([CallerMemberName] string? name = null)

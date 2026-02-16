@@ -31,9 +31,6 @@ public partial class AchievementDetailsPage : ContentPage
        _reportNames = new List<string>() { "Report 1", "Report 2" };
        _achievementTitles = achievementTitles?.Distinct().OrderBy(x => x).ToList() ?? new List<string>();
        
-
-       BindingContext = new AchievementDetailsViewModel(model, onSaved, onDelete);
-
        // Populate pickers
        goalTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementGoalType)).Cast<AchievementGoalType>().ToList();
        completionTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementCompletionType)).Cast<AchievementCompletionType>().ToList();
@@ -51,32 +48,30 @@ public partial class AchievementDetailsPage : ContentPage
            await PickTagsAsync();
        };
 
+        BindingContext = new AchievementDetailsViewModel(model, onSaved, onDelete);
     }
 
     private async void OnEditActiveTimeTargetClicked(object sender, EventArgs e)
     {
-        // 1) Start values (parse from the current display if you want)
-        // If you already store a TimeSpan on the VM, use that instead.
-        var vm = BindingContext; // cast to your AchievementDetailsViewModel if you want
-
-        // 2) Push your picker page
-        // This assumes your DurationPickerPage returns a TimeSpan (or null if cancelled).
-        var page = new DurationPickerPage(
-        /* pass current duration here if your ctor needs it */
-        );
-
-        // OPTION A: if DurationPickerPage exposes a TaskCompletionSource result
-        await Shell.Current.Navigation.PushAsync(page);
-
-        var result = await page.Result; // e.g. Task<TimeSpan?>
-        if (result is null) return;
-
         // 3) Write back to VM
         // Replace with your real VM property
         if (BindingContext is AchievementDetailsViewModel typedVm)
         {
+            // 2) Push your picker page
+            // This assumes your DurationPickerPage returns a TimeSpan (or null if cancelled).
+            var page = new DurationPickerPage(
+                typedVm.ActiveTimeTarget
+            );
+
+            // OPTION A: if DurationPickerPage exposes a TaskCompletionSource result
+            await Shell.Current.Navigation.PushAsync(page);
+
+            var result = await page.Result; // e.g. Task<TimeSpan?>
+            if (result is null) return;
+
+
             var totalHours = (int)result.Value.TotalHours;
-            var formatted = $"{totalHours}:{result.Value.Minutes:D2}:{result.Value.Seconds:D2}";
+            var formatted = $"{(totalHours < 10 ? "0" : "")}{totalHours}:{result.Value.Minutes:D2}:{result.Value.Seconds:D2}";
 
             typedVm.ActiveTimeTarget = result.Value;          // if you store TimeSpan
             typedVm.ActiveTimeTargetText = formatted; // if you store string
@@ -162,7 +157,10 @@ public partial class AchievementDetailsPage : ContentPage
                 });
 
                 foreach (var r in results ?? Enumerable.Empty<FileResult>())
-                    vm.Model.Trophies.Add(r.FileName);
+                {
+                    vm.TrophiesToAdd.Add(r.FullPath);
+                }
+                    
             }
             else
             {
@@ -174,8 +172,8 @@ public partial class AchievementDetailsPage : ContentPage
 
                 if (r == null) return;
 
-                vm.Model.Trophies.Clear(); // deadline => single trophy
-                vm.Model.Trophies.Add(r.FileName);
+                vm.TrophiesToAdd.Clear(); // deadline => single trophy
+                vm.TrophiesToAdd.Add(r.FullPath);
             }
         }
         catch (TaskCanceledException)
@@ -202,7 +200,7 @@ public partial class AchievementDetailsPage : ContentPage
                 });
 
                 foreach (var r in results ?? Enumerable.Empty<FileResult>())
-                    vm.Model.Trophies.Add(r.FileName);
+                    vm.TrophiesToAdd.Add(r.FullPath);
             }
             else
             {
@@ -213,8 +211,8 @@ public partial class AchievementDetailsPage : ContentPage
 
                 if (r == null) return;
 
-                vm.Model.Trophies.Clear(); // deadline => single trophy
-                vm.Model.Trophies.Add(r.FileName);
+                vm.TrophiesToAdd.Clear(); // deadline => single trophy
+                vm.TrophiesToAdd.Add(r.FullPath);
             }
         }
         catch (TaskCanceledException)
@@ -226,7 +224,10 @@ public partial class AchievementDetailsPage : ContentPage
     private void OnClearTrophiesClicked(object sender, EventArgs e)
     {
         if (BindingContext is AchievementDetailsViewModel vm)
+        {
+            vm.TrophiesToAdd.Clear();
             vm.Model.Trophies.Clear();
+        }
     }
 
    private async Task PickTagsAsync()

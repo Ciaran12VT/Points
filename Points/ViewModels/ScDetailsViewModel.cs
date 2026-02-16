@@ -1,5 +1,7 @@
-﻿using Points.Global;
+﻿
+using Points.Global;
 using Points.Models;
+using Points.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -7,6 +9,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
 
 namespace Points.ViewModels
 {
@@ -23,8 +26,11 @@ namespace Points.ViewModels
         private readonly IDispatcherTimer _timer;
         public void StopTimer() => _timer?.Stop();
 
-        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList)
+        private double initalTotalValue = 0;
+
+        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, IDbService db)
         {
+            _db = db;
             ToggleSignCommand = new Command(ToggleSign);
             AddStepCommand = new Command(AddStep);
             SaveCommand = new Command(async () => await SaveAsync());
@@ -69,6 +75,10 @@ namespace Points.ViewModels
                 AddStep();
 
             RaiseComputed();
+
+            var sum = Steps.Sum(s => s.StepValue * s.Count(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
+            var signed = (_isNegative ? -1 : 1) * sum;
+            initalTotalValue = signed;
         }
 
         private DateTime _rangeStart = GlobalVariables.RangeStart;
@@ -136,6 +146,8 @@ namespace Points.ViewModels
         public string SignToggleText => _isNegative ? "-" : "+";
         public string SignToggleColor => _isNegative ? "Red" : "Green";
 
+        private IDbService _db;
+
         public Command ToggleSignCommand { get; }
         private void ToggleSign()
         {
@@ -182,7 +194,11 @@ namespace Points.ViewModels
                 });
             }
 
-            if(_onSaved != null) _onSaved(_model);
+            _model.TimeValueAchievementEvaluators = await _db.RefreshEvaluatorsAsync(_model.TimeValueAchievementEvaluators);
+
+            await EvaluateAchievements(_model);
+
+            if (_onSaved != null) _onSaved(_model);
 
             await Shell.Current.Navigation.PopAsync();
         }
@@ -213,6 +229,52 @@ namespace Points.ViewModels
         private void HookStep(ScStepModel step)
         {
             step.PropertyChanged += (_, __) => RaiseComputed();
+        }
+
+        private async Task EvaluateAchievements(ScCardModel model)
+        {
+            // Compute the delta since the page was opened
+            var sum = Steps.Sum(s => s.StepValue * s.Count(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
+            var signed = (_isNegative ? -1 : 1) * sum;
+            var amountToAdd = signed - initalTotalValue;
+
+            // If user reduced value or made no change, don't evaluate earns.
+            if (amountToAdd <= 0)
+                return;
+
+            if (model.TimeValueAchievementEvaluators is null || model.TimeValueAchievementEvaluators.Count == 0)
+                return;
+
+            // Gather earned achievements, safely handling null returns, and dedupe by Id
+            var earned = model.TimeValueAchievementEvaluators
+                .SelectMany(e => e.CheckForEarnedAchievements(0, amountToAdd) ?? Enumerable.Empty<AchievementCardModel>())
+                .GroupBy(a => a.Id)
+                .Select(g => g.First())
+                .ToList();
+
+            if (earned.Count == 0)
+                return;
+
+            // 1) Persist (DB)
+            var now = DateTime.Now;
+            foreach (var ach in earned)
+            {
+                await _db.MarkAchievementEarnedAsync(ach.Id, now);
+
+                // If you keep this field in-memory, update it as well
+                ach.LastEarnedAt = now;
+            }
+
+            // 2) Notify user (UI)
+            // Prefer one dialog rather than N dialogs
+            var msg = earned.Count == 1
+                ? $"You earned: {earned[0].Title}"
+                : "You earned:\n• " + string.Join("\n• ", earned.Select(a => a.Title));
+
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                await Shell.Current.DisplayAlert("Achievement unlocked", msg, "Nice");
+            });
         }
 
     }

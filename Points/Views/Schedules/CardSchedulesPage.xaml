@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Points.Views.Schedules.CardSchedulesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Schedules">
+
+    <Grid RowDefinitions="Auto,* ,Auto" Padding="16">
+
+        <!-- Hint -->
+        <VerticalStackLayout Grid.Row="0" Spacing="6">
+            <Label Text="Add one or more schedules. Each schedule defines when this card should prompt you."
+                   FontSize="12"
+                   Opacity="0.75" />
+        </VerticalStackLayout>
+
+        <!-- List -->
+        <CollectionView x:Name="SchedulesView"
+                        Grid.Row="1"
+                        Margin="0,10,0,10"
+                        SelectionMode="None">
+
+            <CollectionView.EmptyView>
+                <VerticalStackLayout Padding="8" Spacing="6">
+                    <Label Text="No schedules yet." FontAttributes="Bold" />
+                    <Label Text="Tap 'Add schedule' to create one."
+                           FontSize="12"
+                           Opacity="0.7" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <SwipeView>
+
+                        <!-- Swipe actions (nice on mobile) -->
+                        <SwipeView.RightItems>
+                            <SwipeItems Mode="Reveal">
+                                <SwipeItem Text="Edit"
+                                           BackgroundColor="#2D7DFF"
+                                           Invoked="OnEditInvoked"
+                                           CommandParameter="{Binding}" />
+                                <SwipeItem Text="Delete"
+                                           BackgroundColor="#E53935"
+                                           Invoked="OnDeleteInvoked"
+                                           CommandParameter="{Binding}" />
+                            </SwipeItems>
+                        </SwipeView.RightItems>
+
+                        <Frame Padding="12"
+                               Margin="0,0,0,10"
+                               CornerRadius="12"
+                               HasShadow="False"
+                               BorderColor="#DDDDDD">
+
+                            <Grid RowDefinitions="Auto,Auto"
+                                  ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="10">
+
+                                <Label Grid.Row="0"
+                                       Grid.Column="0"
+                                       Text="{Binding Summary}"
+                                       FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation" />
+
+                                <Label Grid.Row="1"
+                                       Grid.Column="0"
+                                       Text="{Binding RangeText}"
+                                       FontSize="12"
+                                       Opacity="0.7"
+                                       LineBreakMode="TailTruncation" />
+
+                                <!-- explicit buttons (in addition to swipe) -->
+                                <HorizontalStackLayout Grid.Row="0"
+                                                       Grid.RowSpan="2"
+                                                       Grid.Column="1"
+                                                       Spacing="8"
+                                                       VerticalOptions="Center">
+                                    <Button Text="Edit"
+                                            HeightRequest="36"
+                                            Padding="12,0"
+                                            CornerRadius="10"
+                                            Clicked="OnEditClicked"
+                                            CommandParameter="{Binding}" />
+                                    <Button Text="Delete"
+                                            HeightRequest="36"
+                                            Padding="12,0"
+                                            CornerRadius="10"
+                                            BackgroundColor="#E53935"
+                                            TextColor="White"
+                                            Clicked="OnDeleteClicked"
+                                            CommandParameter="{Binding}" />
+                                </HorizontalStackLayout>
+
+                            </Grid>
+                        </Frame>
+
+                    </SwipeView>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+        </CollectionView>
+
+        <!-- Bottom actions -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12">
+            <Button Grid.Column="0"
+                    Text="Add schedule"
+                    HeightRequest="48"
+                    CornerRadius="12"
+                    Clicked="OnAddClicked" />
+
+            <Button Grid.Column="1"
+                    Text="Done"
+                    HeightRequest="48"
+                    CornerRadius="12"
+                    BackgroundColor="Gray"
+                    TextColor="White"
+                    Clicked="OnDoneClicked" />
+        </Grid>
+
+    </Grid>
+</ContentPage>
