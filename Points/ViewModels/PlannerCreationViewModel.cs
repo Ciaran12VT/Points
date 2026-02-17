@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -32,6 +33,7 @@ namespace Points.ViewModels
             }
         }
 
+        public Command SaveCommand { get; }
 
         public ObservableCollection<PlannerProgressRowVm> Rows { get; } = new();
 
@@ -40,6 +42,8 @@ namespace Points.ViewModels
         public PlannerCreationViewModel(IDbService db)
         {
             _db = db;
+
+            SaveCommand = new Command(async () => await SaveAsync());
 
             Initialization = ReloadAsync();
         }
@@ -50,22 +54,25 @@ namespace Points.ViewModels
             await LoadAsync();
         }
 
+        private List<IActiveCardModel>? _cards { get; set; }
+        private List<PlannerGoalDetailsModel>? _plannerModels { get; set; }
+
         private async Task LoadAsync()
         {
             if(Enum.TryParse(typeof(TimeScope), _selectedPeriod, true, out object tscope))
             {
                 var range = new TimeScopeRange((TimeScope)tscope, DateTime.Now);
 
-                var cards = await _db.GetMainQuestModelsDataAsync(range.Start, range.End);
+                if(_cards == null) _cards = await _db.GetMainQuestModelsDataAsync(range.Start, range.End);
 
-                var plannerModels = await _db.GetPlannerModelsDataAsync();
+                if (_plannerModels == null) _plannerModels = await _db.GetPlannerModelsDataAsync();
 
-                plannerModels = plannerModels.Where(x => x.TimeScope == (TimeScope)tscope).ToList();
+                var plannerModels = _plannerModels.Where(x => x.TimeScope == (TimeScope)tscope).ToList();
 
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     List<PlannerProgressRowVm> pprvms = new List<PlannerProgressRowVm>();
-                    foreach (var card in cards)
+                    foreach (var card in _cards)
                     {
                         if (card is ScCardModel) continue;
 
@@ -87,6 +94,33 @@ namespace Points.ViewModels
                 });
             }
         }
+
+        private async Task SaveAsync()
+        {
+            List<PlannerGoalDetailsModel> plannerModelsToSave = new List<PlannerGoalDetailsModel>();
+            foreach (var row in Rows)
+            {
+                if(row.TotalValue > 0)
+                {
+                    if(Enum.TryParse(typeof(TimeScope), _selectedPeriod, true, out object tscope))
+                    {
+                        row.PlannerGoalDetailsModel.TimeScope = (TimeScope)tscope;
+                    }
+                    row.PlannerGoalDetailsModel.DeFactoStart = row.UseDeFactoTimes ? row.DeFactoStartTime : null;
+                    row.PlannerGoalDetailsModel.DeFactoEnd = row.UseDeFactoTimes ? row.DeFactoEndTime : null;
+                    row.PlannerGoalDetailsModel.GoalHrs = row.TotalValue;
+
+                    if((row.UseDeFactoTimes && row.DeFactoStartTime < row.DeFactoEndTime) || !row.UseDeFactoTimes)
+                    {
+                        plannerModelsToSave.Add(row.PlannerGoalDetailsModel);
+                    }             
+                }
+            }
+
+            //TODO: Save to DB
+
+            await Shell.Current.Navigation.PopAsync();
+        }
     }
 
 
@@ -104,7 +138,9 @@ namespace Points.ViewModels
         private double _totalValue;
         public double TotalValue { get => _totalValue; set { _totalValue = value; RaisePropertyChanged(nameof(TotalValue)); } }
         public double? CurrentValue { get; init; }
-        public double? ExpectedValue { get; init; }
+
+        private double? _expectedValue;
+        public double? ExpectedValue { get => _expectedValue; set { _expectedValue = value; RaisePropertyChanged(nameof(ExpectedValue)); } }
 
         // Optional features
         public bool ShowCurrentOverlay { get; init; } = true;
@@ -132,13 +168,42 @@ namespace Points.ViewModels
 
 
         private TimeOnly _deFactoStartTime = new(9, 0);
-        public TimeOnly DeFactoStartTime { get => _deFactoStartTime; set { _deFactoStartTime = value; RaisePropertyChanged(nameof(DeFactoStartTimeSpan)); } }
+        public TimeOnly DeFactoStartTime 
+        {
+            get => _deFactoStartTime; 
+            set 
+            { 
+                _deFactoStartTime = value;
+                ExpectedValue = GetTotalExpectedByNowHoursSpent(PlannerGoalDetailsModel.GoalHrs, PlannerGoalDetailsModel.TimeScope, DateTime.Now);
+                RaisePropertyChanged(nameof(DeFactoStartTime));
+                RaisePropertyChanged(nameof(DeFactoStartTimeSpan)); 
+            } 
+        }
 
         private TimeOnly _deFactoEndTime = new(17, 0);
-        public TimeOnly DeFactoEndTime { get => _deFactoEndTime; set { _deFactoEndTime = value; RaisePropertyChanged(nameof(DeFactoEndTimeSpan)); } }
+        public TimeOnly DeFactoEndTime 
+        { 
+            get => _deFactoEndTime; 
+            set 
+            { 
+                _deFactoEndTime = value;
+                ExpectedValue = GetTotalExpectedByNowHoursSpent(PlannerGoalDetailsModel.GoalHrs, PlannerGoalDetailsModel.TimeScope, DateTime.Now);
+                RaisePropertyChanged(nameof(DeFactoEndTime));
+                RaisePropertyChanged(nameof(DeFactoEndTimeSpan)); 
+            } 
+        }
 
         private bool _useDeFactoTimes;
-        public bool UseDeFactoTimes { get => _useDeFactoTimes; set { _useDeFactoTimes = value; RaisePropertyChanged(nameof(UseDeFactoTimes)); } }
+        public bool UseDeFactoTimes 
+        { 
+            get => _useDeFactoTimes; 
+            set 
+            { 
+                _useDeFactoTimes = value;
+                ExpectedValue = GetTotalExpectedByNowHoursSpent(PlannerGoalDetailsModel.GoalHrs, PlannerGoalDetailsModel.TimeScope, DateTime.Now);
+                RaisePropertyChanged(nameof(UseDeFactoTimes));            
+            } 
+        }
 
 
         // --- Bridge properties for TimePicker (bind these) ---
@@ -154,19 +219,23 @@ namespace Points.ViewModels
             set => DeFactoEndTime = TimeOnly.FromTimeSpan(value);
         }
 
+        public PlannerGoalDetailsModel PlannerGoalDetailsModel { get; set; }
+
         public PlannerProgressRowVm(IActiveCardModel card, PlannerGoalDetailsModel plannerGoalDetailsModel)
         {
 
-            var pts = GetTotalGoalPoints(card, plannerGoalDetailsModel.GoalHrs);
-            var pcTotalTime = GetPercentOfTotalTime(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel, DateTime.Now);
-            var maxHrs = GetMaxHours(plannerGoalDetailsModel, DateTime.Now);
-            var currentHrs = GetTotalCurrentHoursSpent(card, plannerGoalDetailsModel, DateTime.Now);
-            var expectedByNowHrs = GetTotalExpectedByNowHoursSpent(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel, DateTime.Now);
+            PlannerGoalDetailsModel = plannerGoalDetailsModel;
 
             if (plannerGoalDetailsModel.DeFactoStart.HasValue) DeFactoStartTime = plannerGoalDetailsModel.DeFactoStart.Value;
             if (plannerGoalDetailsModel.DeFactoEnd.HasValue) DeFactoEndTime = plannerGoalDetailsModel.DeFactoEnd.Value;
 
             if (plannerGoalDetailsModel.DeFactoStart.HasValue || plannerGoalDetailsModel.DeFactoEnd.HasValue) UseDeFactoTimes = true;
+
+            var pts = GetTotalGoalPoints(card, plannerGoalDetailsModel.GoalHrs);
+            var pcTotalTime = GetPercentOfTotalTime(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel, DateTime.Now);
+            var maxHrs = GetMaxHours(plannerGoalDetailsModel, DateTime.Now);
+            var currentHrs = GetTotalCurrentHoursSpent(card, plannerGoalDetailsModel, DateTime.Now);
+            var expectedByNowHrs = GetTotalExpectedByNowHoursSpent(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel.TimeScope, DateTime.Now);
 
             LeftText = card.Title;
             RightTopText = Math.Round(pts, 1) + "pts";
@@ -180,12 +249,12 @@ namespace Points.ViewModels
             ShowBarLabels = true;
         }
 
-        private double? GetTotalExpectedByNowHoursSpent(double totalGoalHrs, PlannerGoalDetailsModel plannerGoalDetailsModel, DateTime now)
+        private double? GetTotalExpectedByNowHoursSpent(double totalGoalHrs, TimeScope tscope, DateTime now)
         {
-            var range = new TimeScopeRange(plannerGoalDetailsModel.TimeScope, now);
+            var range = new TimeScopeRange(tscope, now);
 
-            if (plannerGoalDetailsModel.DeFactoStart.HasValue) range.Start = DateOnly.FromDateTime(range.Start).ToDateTime(plannerGoalDetailsModel.DeFactoStart.Value, range.Start.Kind);
-            if (plannerGoalDetailsModel.DeFactoEnd.HasValue) range.End = DateOnly.FromDateTime(range.End).ToDateTime(plannerGoalDetailsModel.DeFactoEnd.Value, range.End.Kind);
+            if (UseDeFactoTimes) range.Start = DateOnly.FromDateTime(range.Start).ToDateTime(DeFactoStartTime, range.Start.Kind);
+            if (UseDeFactoTimes) range.End = DateOnly.FromDateTime(range.End).ToDateTime(DeFactoEndTime, range.End.Kind);
 
             var pcToHaveComplete = range.GetPercentageComplete(now);
 

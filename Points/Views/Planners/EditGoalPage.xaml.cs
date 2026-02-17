@@ -8,16 +8,19 @@ public partial class EditGoalPage : ContentPage
 
     public EditGoalPage(PlannerProgressRowVm row)
 	{
-		InitializeComponent();
+        try
+        {
+            InitializeComponent();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+            MainThread.BeginInvokeOnMainThread(async () =>
+                await Application.Current!.MainPage!.DisplayAlert("XAML load failed", ex.ToString(), "OK"));
+            throw;
+        }
         _row = row;
         BindingContext = row; // edits the row directly
-    }
-
-
-    private async void Cancel_Clicked(object sender, EventArgs e)
-    {
-        // If you need true cancel-without-changes, use a cloned edit VM instead (see note below).
-        await Navigation.PopModalAsync();
     }
 
     private async void Save_Clicked(object sender, EventArgs e)

@@ -58,6 +58,8 @@ namespace Points.ViewModels
         public ICommand RestoreCommand { get; }
         public ICommand BrowseBackupsCommand { get; }
 
+        public ICommand SaveCommand { get; }
+
         public string DatabaseSectionChevron => "⌄"; // purely cosmetic
         public string MultiplierSectionChevron => "⌄";
 

@@ -19,11 +19,22 @@ public partial class PlannerCreationPage : ContentPage
         var selected = e.CurrentSelection?.FirstOrDefault() as PlannerProgressRowVm;
         if (selected is null) return;
 
-        // Reset selection immediately so the row can be tapped again.
         RowsList.SelectedItem = null;
 
-        // Open modal edit page
-        await Navigation.PushModalAsync(new NavigationPage(new EditGoalPage(selected)));
+        try
+        {
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                var page = new EditGoalPage(selected);
+                await Navigation.PushModalAsync(new NavigationPage(page));
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+            await DisplayAlert("Crash during navigation", ex.ToString(), "OK");
+        }
     }
+
 
 }

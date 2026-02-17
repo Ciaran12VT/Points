@@ -32,7 +32,8 @@
                 TextColor="White"
                 FontAttributes="Bold"
                 FontSize="21"
-                HeightRequest="48"/>
+                HeightRequest="48"
+                Command="{Binding SaveCommand}"/>
 
     </Grid>
 
