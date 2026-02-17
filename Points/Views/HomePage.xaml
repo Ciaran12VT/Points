@@ -107,6 +107,18 @@
                 BackgroundColor="Black"
                 VerticalOptions="Center"/>
 
+                <!-- Planners -->
+                <Button Text="🗎"
+                Command="{Binding OpenPlannerViewCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                VerticalOptions="Center"/>
+
             </HorizontalStackLayout>
 
             <!-- Right-hand Settings button -->

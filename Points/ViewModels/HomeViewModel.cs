@@ -36,6 +36,7 @@ namespace Points.ViewModels
         public Command OpenAchievementsCommand { get; }
 
         public Command OpenDateRangePickerViewCommand { get; }
+        public Command OpenPlannerViewCommand { get; }
         public Command OpenSettingsCommand { get; }
         public Command OpenReportsCommand { get; }
 
@@ -258,6 +259,7 @@ namespace Points.ViewModels
             FilterByTagCommand = new Command(async () => await FilterCardsByTag());
             OpenAchievementsCommand = new Command(async () => await OpenAchievementsAsync());
             OpenDateRangePickerViewCommand = new Command(async () => await OpenDateRangePickerViewAsync());
+            OpenPlannerViewCommand = new Command(async () => await OpenPlannerViewAsync());
             OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
             OpenReportsCommand = new Command(async () => await OpenReportsAsync());
 
@@ -761,7 +763,9 @@ namespace Points.ViewModels
 
             _activeCard = card;
 
-            await _db.AddActivity(_activeCard, DateTime.Now);
+            var actId = await _db.AddActivity(_activeCard, DateTime.Now);
+
+            _activeCard.Activity.First(x => x.Id == 0).Id = actId;
 
             // 🔔 Start/update the foreground notification with the new active card title
             _activeCardNotificationService.UpdateActiveCardNotification(_activeCard);
@@ -1013,6 +1017,13 @@ namespace Points.ViewModels
         private async Task OpenDateRangePickerViewAsync()
         {
             await Shell.Current.Navigation.PushAsync(new Points.Views.Shared.DateRangePickerPage(_db));
+        }
+
+        private async Task OpenPlannerViewAsync()
+        {
+            var mainQuest = Pages.First(p => p.Name == "Main Quest");
+            var cards = mainQuest.AllCards.OfType<IActiveCardModel>().ToList();
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Planners.PlannerCreationPage(cards));
         }
 
         private async Task OpenSettingsAsync()

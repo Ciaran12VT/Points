@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.CustomComponents.PlannerProgressCard"
+             xmlns:controls="clr-namespace:Points.CustomComponents">
+                
+    <Border
+            StrokeThickness="0"
+            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E1E1E}"
+            Padding="12"
+            Margin="8,6"
+            StrokeShape="RoundRectangle 14">
+
+        <Grid RowDefinitions="Auto,Auto"
+              ColumnDefinitions="*,Auto"
+              RowSpacing="6"
+              ColumnSpacing="12">
+
+            <!-- Row 1: Left label underneath the bar -->
+            <Label
+                Grid.Row="0"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Text="{Binding LeftText}"
+                FontAttributes="Bold"
+                FontSize="14"
+                Opacity="0.85"
+                LineBreakMode="TailTruncation" />
+
+            <!-- Middle: your WavyProgressBar -->
+            <controls:PlannerProgressBar
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    HorizontalOptions="Fill"
+                    VerticalOptions="Center"
+                    HeightRequest="{Binding BarTotalHeight}"
+                    Thickness="{Binding BarThickness}"
+
+                    MaxValue="{Binding MaxValue}"
+                    TotalValue="{Binding TotalValue}"
+                    CurrentValue="{Binding CurrentValue}"
+                    ExpectedValue="{Binding ExpectedValue}"
+
+                    ShowCurrentOverlay="{Binding ShowCurrentOverlay}"
+                    ShowExpectedMarker="{Binding ShowExpectedMarker}"
+                    ShowLabels="{Binding ShowBarLabels}"
+
+                    WaveWavelength="5"
+                    WaveAmplitude="10"
+                
+                    TrackColor="Black"
+                    TotalColor="Goldenrod"
+                    CurrentColor="{Binding CurrentColor}"
+                    ExpectedLineColor="Black"
+
+                    LabelFormat="{Binding BarLabelFormat}"
+                    LabelFontSize="{Binding BarLabelFontSize}"
+                    LabelOffset="{Binding BarLabelOffset}"
+                    />
+
+            <!-- Right: two labels stacked -->
+            <VerticalStackLayout
+                Grid.Row="1"
+                Grid.Column="1"
+                Spacing="2"
+                VerticalOptions="Center">
+                <Label
+                        Text="{Binding RightTopText}"
+                        HorizontalTextAlignment="End"
+                        FontAttributes="Bold" />
+                <Label
+                        Text="{Binding RightBottomText}"
+                        HorizontalTextAlignment="End"
+                        Opacity="0.75"
+                        FontSize="12" />
+            </VerticalStackLayout>
+
+        </Grid>
+    </Border>
+</ContentView>
