@@ -4,17 +4,36 @@
              x:Class="Points.Views.Planners.PlannerCreationPage"
              xmlns:controls="clr-namespace:Points.CustomComponents"
              Title="PlannerCreationPage">
-    
-    <CollectionView
-        ItemsSource="{Binding Rows}"
-        SelectionMode="None">
 
-        <CollectionView.ItemTemplate>
-            <DataTemplate>
-                <controls:PlannerProgressCard />
-            </DataTemplate>
-        </CollectionView.ItemTemplate>
+    <Grid RowDefinitions="Auto,*,Auto">
 
-    </CollectionView>
-    
+        <!-- Dropdown -->
+        <Picker Grid.Row="0"
+                Title="Select Period"
+                ItemsSource="{Binding PeriodOptions}"
+                SelectedItem="{Binding SelectedPeriod}"
+                HorizontalOptions="Fill"
+            />
+
+        <CollectionView Grid.Row="1" x:Name="RowsList" ItemsSource="{Binding Rows}" SelectionMode="Single" SelectionChanged="RowsList_SelectionChanged">
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <controls:PlannerProgressCard />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+        </CollectionView>
+
+        <!-- Save button pinned to bottom (matches TatDetailsPage style) -->
+        <Button Grid.Row="2"
+                Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
+                HeightRequest="48"/>
+
+    </Grid>
+
 </ContentPage>

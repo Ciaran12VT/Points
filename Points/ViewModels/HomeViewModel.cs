@@ -1023,7 +1023,7 @@ namespace Points.ViewModels
         {
             var mainQuest = Pages.First(p => p.Name == "Main Quest");
             var cards = mainQuest.AllCards.OfType<IActiveCardModel>().ToList();
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Planners.PlannerCreationPage(cards));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Planners.PlannerCreationPage(_db));
         }
 
         private async Task OpenSettingsAsync()

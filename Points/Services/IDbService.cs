@@ -108,6 +108,7 @@ namespace Points.Services
 
         Task<int> CloseAnyOpenActivitiesAsync();
         Task<List<TimeValueAchievementEvaluator>> RefreshEvaluatorsAsync(List<TimeValueAchievementEvaluator> timeValueAchievementEvaluators);
+        Task<List<PlannerGoalDetailsModel>> GetPlannerModelsDataAsync();
     }
 
     public sealed class HomeSeedData

@@ -2,6 +2,7 @@
 using Points.Evaluators;
 using Points.Global;
 using Points.Models;
+using Points.ViewModels;
 using SQLite;
 using SQLitePCL;
 using System;
@@ -2255,6 +2256,20 @@ namespace Points.Services.Sqlite
             return models;
         }
 
+
+        public async Task<List<PlannerGoalDetailsModel>> GetPlannerModelsDataAsync()
+        {
+            var list = new List<PlannerGoalDetailsModel>
+            {
+                new PlannerGoalDetailsModel() { CardId = 2, TimeScope = TimeScope.Daily, GoalHrs = 4, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) },
+                new PlannerGoalDetailsModel() { CardId = 3, TimeScope = TimeScope.Daily, GoalHrs = 4, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) },
+                new PlannerGoalDetailsModel() { CardId = 4, TimeScope = TimeScope.Daily, GoalHrs = 6, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) },
+                new PlannerGoalDetailsModel() { CardId = 5, TimeScope = TimeScope.Daily, GoalHrs = 3, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) },
+                new PlannerGoalDetailsModel() { CardId = 6, TimeScope = TimeScope.Daily, GoalHrs = 2, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) }
+            };
+
+            return list;
+        }
 
         #endregion
 

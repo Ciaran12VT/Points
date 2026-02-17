@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Points.Views.Planners.EditGoalPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Edit">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="Goal Value" FontAttributes="Bold" />
+            <Entry
+                Keyboard="Numeric"
+                Text="{Binding TotalValue, Mode=TwoWay}"
+                />
+
+            <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center">
+                <Label Text="Use De Facto Times" FontAttributes="Bold" />
+                <CheckBox Grid.Column="1" IsChecked="{Binding UseDeFactoTimes}" />
+            </Grid>
+
+            <VerticalStackLayout Spacing="10" Opacity="{Binding UseDeFactoTimes, Converter={StaticResource BoolToOpacityConverter}}">
+                <Label Text="De Facto Start Time" FontAttributes="Bold" />
+                <TimePicker
+                    Time="{Binding DeFactoStartTimeSpan, Mode=TwoWay}"
+                    IsEnabled="{Binding UseDeFactoTimes}"
+                    />
+
+                <Label Text="De Facto End Time" FontAttributes="Bold" />
+                <TimePicker
+                    Time="{Binding DeFactoEndTimeSpan, Mode=TwoWay}"
+                    IsEnabled="{Binding UseDeFactoTimes}"
+                    />
+            </VerticalStackLayout>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,12,0,0">
+                <Button Text="Cancel" Clicked="Cancel_Clicked" />
+                <Button Grid.Column="1" Text="Save" Clicked="Save_Clicked" />
+            </Grid>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
