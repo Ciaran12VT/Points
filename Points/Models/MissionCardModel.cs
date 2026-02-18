@@ -12,6 +12,7 @@ namespace Points.Models
     public class MissionCardModel : ObservableObject, IActiveCardModel
     {
         public int Id { get; set; }
+        public long CardID { get; set; }
 
         private string _title = "Mission";
         public string Title

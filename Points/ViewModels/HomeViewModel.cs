@@ -187,6 +187,9 @@ namespace Points.ViewModels
                 _position = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CurrentPage));
+
+                if (Pages[value].Name == "Planners")
+                    _ = ReloadPlannersAsync();
             }
         }
 
@@ -310,7 +313,9 @@ namespace Points.ViewModels
         private async Task LoadAsync()
         {
             // Get seed data (mock now, sqlite later)
-            var seed = await _db.GetHomeSeedDataAsync(GlobalVariables.RangeStart, GlobalVariables.RangeEnd);
+            var now = DateTime.Now;
+            var seed = await _db.GetHomeSeedDataAsync(new TimeScopeRange(TimeScope.Daily, now).Start, new TimeScopeRange(TimeScope.Monthly, now).End);
+            var allPlannerModels = await _db.GetPlannerModelsDataAsync();
 
             // Make sure we touch ObservableCollection on UI thread
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -320,6 +325,7 @@ namespace Points.ViewModels
                 var budgets = Pages.First(p => p.Name == "Budgets");
                 var achievements = Pages.First(p => p.Name == "Challenges & Pinned Achievements");
                 var trackers = Pages.First(p => p.Name == "Arcs");
+                var planners = Pages.First(p => p.Name == "Planners");
 
                 //Activate any card that was set to active when the app was last closed
                 foreach (var item in seed.MainQuestCards.Concat(seed.MissionCards).ToList())
@@ -359,7 +365,50 @@ namespace Points.ViewModels
                 OnPropertyChanged(nameof(GlobalValueColor));
                 OnPropertyChanged(nameof(ActivePhaseName));
                 OnPropertyChanged(nameof(ActivePhaseColor));
+
+                // Load planner progress rows — separate DB calls since these
+                // are not part of the home seed data
+                var now = DateTime.Now;
+                var allCards = seed.MainQuestCards;
+                var enabledPlannerModels = allPlannerModels.Where(p => p.Enabled).ToList();
+
+                foreach (var scope in new[] { TimeScope.Daily, TimeScope.Weekly, TimeScope.Monthly })
+                {
+                    var modelsForScope = enabledPlannerModels
+                        .Where(p => p.TimeScope == scope)
+                        .ToList();
+
+                    if (modelsForScope.Count == 0) continue;
+
+                    var rowVms = new List<PlannerProgressRowVm>();
+                    foreach (var plannerModel in modelsForScope)
+                    {
+                        var card = allCards.FirstOrDefault(c => c.CardID == plannerModel.CardId);
+                        if (card is null) continue;
+
+                        var row = new PlannerProgressRowVm(card, plannerModel)
+                        {
+                            EnableCheckbox = false
+                        };
+                        rowVms.Add(row);
+                    }
+
+                    if (rowVms.Count == 0) continue;
+
+                    var maxValue = rowVms.Max(r => Math.Max(r.TotalValue, r.CurrentValue.HasValue ? r.CurrentValue.Value : 0));
+
+                    CommitCardToPage(planners, new DateHeaderCardModel { Title = scope.ToString() }, noDb: true);
+
+                    foreach (var row in rowVms)
+                    {
+                        row.MaxValue = maxValue;
+                        CommitCardToPage(planners, row, noDb: true);
+                    }
+                }
+
             });
+
+
 
             var scheduleables =
                 seed.MainQuestCards
@@ -374,6 +423,61 @@ namespace Points.ViewModels
                 .ToList();
 
             await _alarmScheduler.ScheduleAllAsync(schedules);
+        }
+
+        private async Task ReloadPlannersAsync()
+        {
+            var now = DateTime.Now;
+            var planners = Pages.First(p => p.Name == "Planners");
+
+            var allCards = await _db.GetMainQuestModelsDataAsync(
+                new TimeScopeRange(TimeScope.Daily, now).Start,
+                new TimeScopeRange(TimeScope.Monthly, now).End);
+
+            var allPlannerModels = await _db.GetPlannerModelsDataAsync();
+            var enabledPlannerModels = allPlannerModels.Where(p => p.Enabled).ToList();
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                planners.AllCards.Clear();
+
+                foreach (var scope in new[] { TimeScope.Daily, TimeScope.Weekly, TimeScope.Monthly })
+                {
+                    var modelsForScope = enabledPlannerModels
+                        .Where(p => p.TimeScope == scope)
+                        .ToList();
+
+                    if (modelsForScope.Count == 0) continue;
+
+                    var rowVms = new List<PlannerProgressRowVm>();
+                    foreach (var plannerModel in modelsForScope)
+                    {
+                        var card = allCards.FirstOrDefault(c => c.CardID == plannerModel.CardId);
+                        if (card is null) continue;
+
+                        var row = new PlannerProgressRowVm(card, plannerModel)
+                        {
+                            EnableCheckbox = false
+                        };
+                        rowVms.Add(row);
+                    }
+
+                    if (rowVms.Count == 0) continue;
+
+                    var maxValue = rowVms.Max(r =>
+                        Math.Max(r.TotalValue, r.CurrentValue.HasValue ? r.CurrentValue.Value : 0));
+
+                    planners.AllCards.Add(new DateHeaderCardModel { Title = scope.ToString() });
+
+                    foreach (var row in rowVms)
+                    {
+                        row.MaxValue = maxValue;
+                        planners.AllCards.Add(row);
+                    }
+                }
+
+                planners.ResetVisible();
+            });
         }
 
 
@@ -706,6 +810,7 @@ namespace Points.ViewModels
             Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>()));
             Pages.Add(new HomePageModel("Challenges & Pinned Achievements", Enumerable.Empty<ICardModel>()));
             Pages.Add(new HomePageModel("Arcs", Enumerable.Empty<ICardModel>()));
+            Pages.Add(new HomePageModel("Planners", Enumerable.Empty<ICardModel>()));
         }
 
         #endregion

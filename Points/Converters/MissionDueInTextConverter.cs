@@ -45,7 +45,9 @@ namespace Points.Converters
                 }
                 else
                 {
-                    result = $"{labelText}: {totalHours}:{timeLeft.Minutes:D2}:{timeLeft.Seconds:D2}";
+                    int mins = timeLeft.Minutes < 0 ? timeLeft.Minutes * -1 : timeLeft.Minutes;
+                    int secs = timeLeft.Seconds < 0 ? timeLeft.Seconds * -1 : timeLeft.Seconds;
+                    result = $"{labelText}: {totalHours}:{mins:D2}:{secs:D2}";
                 }
             }
             else if(mission.IsComplete)
@@ -60,7 +62,9 @@ namespace Points.Converters
                 }
                 else
                 {
-                    result = $"Took: {totalHours}:{timeUsed.Minutes:D2}:{timeUsed.Seconds:D2}";
+                    int mins = timeUsed.Minutes < 0 ? timeUsed.Minutes * -1 : timeUsed.Minutes;
+                    int secs = timeUsed.Seconds < 0 ? timeUsed.Seconds * -1 : timeUsed.Seconds;
+                    result = $"Took: {totalHours}:{mins:D2}:{secs:D2}";
                 }
             }
             else
@@ -75,7 +79,9 @@ namespace Points.Converters
                 }
                 else
                 {
-                    result = $"Available For: {totalHours}:{timeToBeUsed.Minutes:D2}:{timeToBeUsed.Seconds:D2}";
+                    int mins = timeToBeUsed.Minutes < 0 ? timeToBeUsed.Minutes * -1 : timeToBeUsed.Minutes;
+                    int secs = timeToBeUsed.Seconds < 0 ? timeToBeUsed.Seconds * -1 : timeToBeUsed.Seconds;
+                    result = $"Available For: {totalHours}:{mins:D2}:{secs:D2}";
                 }
             }
 

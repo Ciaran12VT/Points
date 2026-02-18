@@ -986,6 +986,7 @@ namespace Points.Services.Sqlite
             var model = new MissionCardModel
             {
                 Id = row.MissionCardID,
+                CardID = row.CardID,
 
                 Title = row.Title ?? "",
                 Tags = row.Tags ?? "",
@@ -1162,6 +1163,7 @@ namespace Points.Services.Sqlite
                 var model = new MissionCardModel
                 {
                     Id = row.MissionCardID,
+                    CardID = row.CardID,
 
                     Title = row.Title ?? "",
                     Tags = row.Tags ?? "",
@@ -1276,6 +1278,7 @@ namespace Points.Services.Sqlite
             var model = new ScCardModel
             {
                 Id = row.ScCardID,
+                CardID = row.CardID,
 
                 Title = row.Title ?? "",
                 Tags = row.Tags ?? "",
@@ -1386,6 +1389,7 @@ namespace Points.Services.Sqlite
                 .Select(r => new ScCardModel
                 {
                     Id = r.ScCardID,
+                    CardID = r.CardID,
                     Title = r.Title ?? "",
                     Tags = r.Tags ?? "",
                     Status = r.Status ?? "",
@@ -1590,6 +1594,7 @@ namespace Points.Services.Sqlite
             var model = new TatCardModel
             {
                 Id = row.TatCardID,
+                CardID = row.CardID,
                 Title = row.Title ?? "",
                 Tags = row.Tags ?? "",
                 ValuePerMinute = row.ValuePerMinute,
@@ -1774,6 +1779,7 @@ namespace Points.Services.Sqlite
                 var model = new TatCardModel
                 {
                     Id = r.TatCardID,
+                    CardID = r.CardID,
                     Title = r.Title ?? "",
                     Tags = r.Tags ?? "",
                     ValuePerMinute = r.ValuePerMinute,
@@ -2259,17 +2265,67 @@ namespace Points.Services.Sqlite
 
         public async Task<List<PlannerGoalDetailsModel>> GetPlannerModelsDataAsync()
         {
-            var list = new List<PlannerGoalDetailsModel>
-            {
-                new PlannerGoalDetailsModel() { CardId = 2, TimeScope = TimeScope.Daily, GoalHrs = 4, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) },
-                new PlannerGoalDetailsModel() { CardId = 3, TimeScope = TimeScope.Daily, GoalHrs = 4, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) },
-                new PlannerGoalDetailsModel() { CardId = 4, TimeScope = TimeScope.Daily, GoalHrs = 6, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) },
-                new PlannerGoalDetailsModel() { CardId = 5, TimeScope = TimeScope.Daily, GoalHrs = 3, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) },
-                new PlannerGoalDetailsModel() { CardId = 6, TimeScope = TimeScope.Daily, GoalHrs = 2, DeFactoStart = new TimeOnly(0, 0), DeFactoEnd = new TimeOnly(6, 0) }
-            };
+            await InitializeAsync();
 
-            return list;
+            const string sql = @"
+                SELECT
+                    CardID       AS CardID,
+                    TimeScope    AS TimeScope,
+                    GoalHrs      AS GoalHrs,
+                    Enabled      AS Enabled,
+                    DeFactoStart AS DeFactoStart,
+                    DeFactoEnd   AS DeFactoEnd
+                FROM PlannerGoal
+                ORDER BY CardID, TimeScope;
+            ";
+
+
+            var rows = await Db.QueryAsync<PlannerGoalRow>(sql);
+            if (rows.Count == 0)
+                return new List<PlannerGoalDetailsModel>();
+
+            return rows.Select(r => new PlannerGoalDetailsModel
+            {
+                CardId = r.CardID,
+                TimeScope = Enum.TryParse<TimeScope>(r.TimeScope, out var ts) ? ts : TimeScope.Daily,
+                GoalHrs = r.GoalHrs,
+                Enabled = r.Enabled != 0,
+                DeFactoStart = ParseNullableTimeOnly(r.DeFactoStart),
+                DeFactoEnd = ParseNullableTimeOnly(r.DeFactoEnd)
+            }).ToList();
         }
+
+
+        private sealed class PlannerGoalRow
+        {
+            public long CardID { get; set; }
+            public string TimeScope { get; set; } = "";
+            public double GoalHrs { get; set; }
+            public int Enabled { get; set; }
+            public string? DeFactoStart { get; set; }
+            public string? DeFactoEnd { get; set; }
+        }
+
+        private static string? ToDbTimeOnly(TimeOnly? t) => t?.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+
+
+        private static TimeOnly? ParseNullableTimeOnly(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s))
+                return null;
+
+            if (TimeOnly.TryParseExact(
+                    s,
+                    "HH:mm:ss",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var t))
+                return t;
+
+            return TimeOnly.Parse(s, CultureInfo.InvariantCulture);
+        }
+
+
 
         #endregion
 
@@ -3497,6 +3553,89 @@ namespace Points.Services.Sqlite
                 };
             }
         }
+
+        public async Task SavePlannerModelsDataAsync(List<PlannerGoalDetailsModel> plannerModelsToSave)
+        {
+            await InitializeAsync();
+
+            if (plannerModelsToSave == null)
+                throw new ArgumentNullException(nameof(plannerModelsToSave));
+
+            // normalize + de-dupe by (CardId, TimeScope)
+            var normalized = plannerModelsToSave
+                .Where(x => x != null)
+                .GroupBy(x => new { x.CardId, x.TimeScope })
+                .Select(g => g.First())
+                .ToList();
+
+            // If nothing passed, we can't know which scope to "mirror".
+            // If you want "clear this scope", pass the scope explicitly (see overload below).
+            if (normalized.Count == 0)
+                return;
+
+            // Expect a single TimeScope per save call (your described behavior)
+            var scope = normalized[0].TimeScope;
+            if (normalized.Any(x => x.TimeScope != scope))
+                throw new InvalidOperationException("SavePlannerModelsDataAsync expects a single TimeScope per call.");
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                // OPTIONAL: mirror semantics for THIS scope only:
+                // remove rows in DB for (TimeScope == scope) whose CardID is no longer present in the incoming set.
+                // If you do NOT want deletions at all, delete this whole block.
+                {
+                    conn.Execute("DROP TABLE IF EXISTS _PlannerGoalCardKeys;");
+                    conn.Execute(@"
+                                CREATE TEMP TABLE _PlannerGoalCardKeys
+                                (
+                                    CardID INTEGER NOT NULL PRIMARY KEY
+                                );
+                        ");
+
+                    const string insertKeySql = @"INSERT OR IGNORE INTO _PlannerGoalCardKeys (CardID) VALUES (?);";
+                    foreach (var m in normalized)
+                        conn.Execute(insertKeySql, m.CardId);
+
+                    conn.Execute(@"
+                        DELETE FROM PlannerGoal
+                        WHERE TimeScope = ?
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM _PlannerGoalCardKeys k
+                              WHERE k.CardID = PlannerGoal.CardID
+                          );
+                    ", scope.ToString());
+
+                    conn.Execute("DROP TABLE IF EXISTS _PlannerGoalCardKeys;");
+                }
+
+                // Upsert (CardID, TimeScope)
+                const string upsertSql = @"
+                    INSERT INTO PlannerGoal (CardID, TimeScope, GoalHrs, Enabled, DeFactoStart, DeFactoEnd)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(CardID, TimeScope) DO UPDATE SET
+                        GoalHrs = excluded.GoalHrs,
+                        Enabled = excluded.Enabled,
+                        DeFactoStart = excluded.DeFactoStart,
+                        DeFactoEnd = excluded.DeFactoEnd;
+                ";
+
+                foreach (var m in normalized)
+                {
+                    conn.Execute(
+                        upsertSql,
+                        m.CardId,
+                        m.TimeScope.ToString(),
+                        m.GoalHrs,
+                        m.Enabled ? 1 : 0,
+                        ToDbTimeOnly(m.DeFactoStart),
+                        ToDbTimeOnly(m.DeFactoEnd)
+                    );
+                }
+            });
+        }
+
+
 
         #endregion
 

@@ -352,6 +352,24 @@ namespace Points.Services.Sqlite
                 );
 
                 -- =========================
+                -- Planner
+                -- =========================
+                -- Stores per-card goal configuration used by the planner UI.
+                -- One row per (CardID, TimeScope).
+                CREATE TABLE IF NOT EXISTS PlannerGoal (
+                    PlannerGoalID INTEGER PRIMARY KEY,
+                    CardID        INTEGER NOT NULL,
+                    TimeScope     TEXT    NOT NULL, -- enum as string, e.g. Daily/Weekly/Monthly
+                    GoalHrs       REAL    NOT NULL,
+                    Enabled       INTEGER NOT NULL DEFAULT 0, -- bool (0/1)
+                    DeFactoStart  TEXT    NULL, -- TimeOnly as ""HH:mm:ss""
+                    DeFactoEnd    TEXT    NULL, -- TimeOnly as ""HH:mm:ss""
+                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE,
+                    UNIQUE (CardID, TimeScope)
+                );
+
+
+                -- =========================
                 -- Helpful indexes
                 -- =========================
                 CREATE INDEX IF NOT EXISTS IX_TatCard_CardID              ON TatCard(CardID);
@@ -387,6 +405,10 @@ namespace Points.Services.Sqlite
                 CREATE INDEX IF NOT EXISTS IX_AppSettings_StatusConditionID ON AppSettings(CurrentlyAppliedStatusConditionID);
 
                 CREATE INDEX IF NOT EXISTS IX_CardSchedule_CardId ON CardSchedule(CardId);
+
+                CREATE INDEX IF NOT EXISTS IX_PlannerGoal_CardID       ON PlannerGoal(CardID);
+                CREATE INDEX IF NOT EXISTS IX_PlannerGoal_Enabled ON PlannerGoal(Enabled);
+
                 ";
         }
 
@@ -394,8 +416,7 @@ namespace Points.Services.Sqlite
         {
             // Wipes data only (keeps tables + indexes). Uses FK OFF to avoid delete-order constraints.
             return @"
-                    DELETE FROM AchievementTrophy;
-                    DELETE FROM AchievementCard;
+                    DELETE FROM PlannerGoal;
                 ";
         }
 

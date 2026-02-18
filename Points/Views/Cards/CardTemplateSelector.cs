@@ -17,6 +17,7 @@ namespace Points.Views.Cards
         public DataTemplate? DateHeaderCardTemplate { get; set; }
         public DataTemplate? AchievementTemplate { get; set; }
         public DataTemplate? TrackerTemplate { get; set; }
+        public DataTemplate? PlannerTemplate { get; set; }
 
         protected override DataTemplate OnSelectTemplate(object item, BindableObject container)
         {
@@ -30,6 +31,7 @@ namespace Points.Views.Cards
                 AchievementCardModel => AchievementTemplate!,
                 ValueTrackerCardModel => TrackerTemplate!,
                 EventTrackerCardModel => TrackerTemplate!,
+                PlannerProgressRowVm => PlannerTemplate!,
                 _ => TatTemplate!
             };
         }

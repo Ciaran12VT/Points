@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Points.Views.Planners.PlannerCreationPage"
              xmlns:controls="clr-namespace:Points.CustomComponents"
-             Title="PlannerCreationPage">
+             Title="Planners">
 
     <Grid RowDefinitions="Auto,*,Auto">
 

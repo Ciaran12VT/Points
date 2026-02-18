@@ -74,12 +74,11 @@ namespace Points.ViewModels
                     List<PlannerProgressRowVm> pprvms = new List<PlannerProgressRowVm>();
                     foreach (var card in _cards)
                     {
-                        if (card is ScCardModel) continue;
-
-                        var plannerModel = plannerModels.Any(x => x.CardId == card.Id) ? plannerModels.First(x => x.CardId == card.Id) : new PlannerGoalDetailsModel();
+                        var plannerModel = plannerModels.Any(x => x.CardId == card.CardID) ? plannerModels.First(x => x.CardId == card.CardID) : new PlannerGoalDetailsModel() { CardId = card.CardID };
 
                         var row = new PlannerProgressRowVm(card, plannerModel);
                         row.EnableCheckbox = true;
+                        row.IsChecked = plannerModel.Enabled;
                         pprvms.Add(row);
                     }
 
@@ -109,8 +108,9 @@ namespace Points.ViewModels
                     row.PlannerGoalDetailsModel.DeFactoStart = row.UseDeFactoTimes ? row.DeFactoStartTime : null;
                     row.PlannerGoalDetailsModel.DeFactoEnd = row.UseDeFactoTimes ? row.DeFactoEndTime : null;
                     row.PlannerGoalDetailsModel.GoalHrs = row.TotalValue;
+                    row.PlannerGoalDetailsModel.Enabled = row.IsChecked;
 
-                    if((row.UseDeFactoTimes && row.DeFactoStartTime < row.DeFactoEndTime) || !row.UseDeFactoTimes)
+                    if ((row.UseDeFactoTimes && row.DeFactoStartTime < row.DeFactoEndTime) || !row.UseDeFactoTimes)
                     {
                         plannerModelsToSave.Add(row.PlannerGoalDetailsModel);
                     }             
@@ -118,6 +118,7 @@ namespace Points.ViewModels
             }
 
             //TODO: Save to DB
+            await _db.SavePlannerModelsDataAsync(plannerModelsToSave);
 
             await Shell.Current.Navigation.PopAsync();
         }
@@ -125,7 +126,7 @@ namespace Points.ViewModels
 
 
 
-    public sealed class PlannerProgressRowVm : ObservableObject
+    public sealed class PlannerProgressRowVm : ObservableObject, ICardModel
     {
         // Left / right labels
         public string LeftText { get; init; } = "";
@@ -164,7 +165,7 @@ namespace Points.ViewModels
         public Color CurrentColor { get; init; } = Color.FromArgb("#22C55E");
         public Color ExpectedLineColor { get; init; } = Colors.White;
 
-        public string BarLabelFormat { get; init; } = "0";
+        public string BarLabelFormat { get; init; } = "0.0";
 
 
         private TimeOnly _deFactoStartTime = new(9, 0);
@@ -220,9 +221,20 @@ namespace Points.ViewModels
         }
 
         public PlannerGoalDetailsModel PlannerGoalDetailsModel { get; set; }
+        public int Id { get; set; }
+
+        public long CardID { get; set; }
+
+        public string Title { get; set; }
+
+        public string Tags { get; set; }
 
         public PlannerProgressRowVm(IActiveCardModel card, PlannerGoalDetailsModel plannerGoalDetailsModel)
         {
+            Id = card.Id;
+            CardID = card.CardID;
+            this.Title = card.Title;
+            this.Tags = card.Tags;
 
             PlannerGoalDetailsModel = plannerGoalDetailsModel;
 
@@ -231,22 +243,41 @@ namespace Points.ViewModels
 
             if (plannerGoalDetailsModel.DeFactoStart.HasValue || plannerGoalDetailsModel.DeFactoEnd.HasValue) UseDeFactoTimes = true;
 
-            var pts = GetTotalGoalPoints(card, plannerGoalDetailsModel.GoalHrs);
-            var pcTotalTime = GetPercentOfTotalTime(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel, DateTime.Now);
-            var maxHrs = GetMaxHours(plannerGoalDetailsModel, DateTime.Now);
-            var currentHrs = GetTotalCurrentHoursSpent(card, plannerGoalDetailsModel, DateTime.Now);
-            var expectedByNowHrs = GetTotalExpectedByNowHoursSpent(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel.TimeScope, DateTime.Now);
+            if(card is ScCardModel sc)
+            {
+                var currentValue = GetTotalCurrentValueEarned(sc, plannerGoalDetailsModel, DateTime.Now);
+                var expectedByNowValue = GetTotalExpectedByNowHoursSpent(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel.TimeScope, DateTime.Now);
 
-            LeftText = card.Title;
-            RightTopText = Math.Round(pts, 1) + "pts";
-            RightBottomText = Math.Round(pcTotalTime, 1) + "%";
-            MaxValue = maxHrs;
-            TotalValue = plannerGoalDetailsModel.GoalHrs;
-            CurrentValue = currentHrs;
-            ExpectedValue = expectedByNowHrs;
-            TotalColor = Color.FromArgb("#A855F7");
-            CurrentColor = Color.FromArgb("#F59E0B");
-            ShowBarLabels = true;
+                LeftText = card.Title;
+                RightTopText = plannerGoalDetailsModel.GoalHrs + "pts";
+                RightBottomText = "";
+                MaxValue = plannerGoalDetailsModel.GoalHrs;
+                TotalValue = plannerGoalDetailsModel.GoalHrs;
+                CurrentValue = currentValue;
+                ExpectedValue = expectedByNowValue;
+                TotalColor = Color.FromArgb("#A855F7");
+                CurrentColor = Color.FromArgb("#F59E0B");
+                ShowBarLabels = true;
+            }
+            else if(card is TatCardModel tat)
+            {
+                var pts = GetTotalGoalPoints(card, plannerGoalDetailsModel.GoalHrs);
+                var pcTotalTime = GetPercentOfTotalTime(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel, DateTime.Now);
+                var maxHrs = GetMaxHours(plannerGoalDetailsModel, DateTime.Now);
+                var currentHrs = GetTotalCurrentHoursSpent(card, plannerGoalDetailsModel, DateTime.Now);
+                var expectedByNowHrs = GetTotalExpectedByNowHoursSpent(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel.TimeScope, DateTime.Now);
+
+                LeftText = card.Title;
+                RightTopText = Math.Round(pts, 1) + "pts";
+                RightBottomText = Math.Round(pcTotalTime, 1) + "%";
+                MaxValue = maxHrs;
+                TotalValue = plannerGoalDetailsModel.GoalHrs;
+                CurrentValue = currentHrs;
+                ExpectedValue = expectedByNowHrs;
+                TotalColor = Color.FromArgb("#A855F7");
+                CurrentColor = Color.FromArgb("#F59E0B");
+                ShowBarLabels = true;
+            }
         }
 
         private double? GetTotalExpectedByNowHoursSpent(double totalGoalHrs, TimeScope tscope, DateTime now)
@@ -265,7 +296,14 @@ namespace Points.ViewModels
         {
             var range = new TimeScopeRange(plannerGoalDetailsModel.TimeScope, now);
 
-            return card.GetActiveTime(range.Start, range.End).Hours;
+            return card.GetActiveTime(range.Start, range.End).TotalHours;
+        }
+
+        private double GetTotalCurrentValueEarned(ScCardModel card, PlannerGoalDetailsModel plannerGoalDetailsModel, DateTime now)
+        {
+            var range = new TimeScopeRange(plannerGoalDetailsModel.TimeScope, now);
+
+            return card.GetValue(range.Start, range.End);
         }
 
         private double GetMaxHours(PlannerGoalDetailsModel plannerGoalDetailsModel, DateTime now)
@@ -275,7 +313,7 @@ namespace Points.ViewModels
             if (plannerGoalDetailsModel.DeFactoStart.HasValue) range.Start = DateOnly.FromDateTime(range.Start).ToDateTime(plannerGoalDetailsModel.DeFactoStart.Value, range.Start.Kind);
             if (plannerGoalDetailsModel.DeFactoEnd.HasValue) range.End = DateOnly.FromDateTime(range.End).ToDateTime(plannerGoalDetailsModel.DeFactoEnd.Value, range.End.Kind);
 
-            return (range.End - range.Start).Hours;
+            return (range.End - range.Start).TotalHours;
         }
 
         private double GetPercentOfTotalTime(double totalGoalHrs, PlannerGoalDetailsModel plannerGoalDetailsModel, DateTime now)
@@ -285,7 +323,7 @@ namespace Points.ViewModels
             if (plannerGoalDetailsModel.DeFactoStart.HasValue) range.Start = DateOnly.FromDateTime(range.Start).ToDateTime(plannerGoalDetailsModel.DeFactoStart.Value, range.Start.Kind);
             if (plannerGoalDetailsModel.DeFactoEnd.HasValue) range.End = DateOnly.FromDateTime(range.End).ToDateTime(plannerGoalDetailsModel.DeFactoEnd.Value, range.End.Kind);
 
-            return totalGoalHrs / (range.End - range.Start).Hours;
+            return (totalGoalHrs / (range.End - range.Start).TotalHours) * 100;
         }
 
         private double GetTotalGoalPoints(IActiveCardModel card, double totalGoalHrs)
@@ -293,6 +331,12 @@ namespace Points.ViewModels
             return (totalGoalHrs * 60) * card.ValuePerMinute;
         }
 
+
+
+        public double GetValue(DateTime start, DateTime end)
+        {
+            return 0;
+        }
     }
 
     public enum TimeScope

@@ -77,6 +77,7 @@ namespace Points.Services
         Task<CardSchedule?> GetCardScheduleByIdAsync(long scheduleId);
         Task<string?> GetCardTitleByIdAsync(long cardId);
 
+        Task<List<PlannerGoalDetailsModel>> GetPlannerModelsDataAsync();
 
         // -----------------------
         // Writes
@@ -108,7 +109,8 @@ namespace Points.Services
 
         Task<int> CloseAnyOpenActivitiesAsync();
         Task<List<TimeValueAchievementEvaluator>> RefreshEvaluatorsAsync(List<TimeValueAchievementEvaluator> timeValueAchievementEvaluators);
-        Task<List<PlannerGoalDetailsModel>> GetPlannerModelsDataAsync();
+        
+        Task SavePlannerModelsDataAsync(List<PlannerGoalDetailsModel> plannerModelsToSave);
     }
 
     public sealed class HomeSeedData
