@@ -316,6 +316,7 @@ namespace Points.ViewModels
             var now = DateTime.Now;
             var seed = await _db.GetHomeSeedDataAsync(new TimeScopeRange(TimeScope.Daily, now).Start, new TimeScopeRange(TimeScope.Monthly, now).End);
             var allPlannerModels = await _db.GetPlannerModelsDataAsync();
+            var openActivity = await _db.GetCurrentActiveActivityAsync();
 
             // Make sure we touch ObservableCollection on UI thread
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -327,20 +328,41 @@ namespace Points.ViewModels
                 var trackers = Pages.First(p => p.Name == "Arcs");
                 var planners = Pages.First(p => p.Name == "Planners");
 
-                //Activate any card that was set to active when the app was last closed
-                foreach (var item in seed.MainQuestCards.Concat(seed.MissionCards).ToList())
+                // Activate the card that was active when the app last closed (DB-authoritative)
+                if (openActivity != null)
                 {
-                    if(item.Activity.Count > 0 && item.Activity.OrderByDescending(x => x.StartDate).ToArray()[0].EndDate == DateTime.MinValue)
+                    var activeCard = Pages
+                        .SelectMany(x => x.AllCards)
+                        .OfType<IActiveCardModel>()
+                        .FirstOrDefault(c => c.CardID == openActivity.CardID);
+
+                    if (activeCard != null)
                     {
-                        item.Activitate();
-                        _activeCard = item;
+                        // Ensure the open activity is present in the in-memory list
+                        var existing = activeCard.Activity.FirstOrDefault(a => a.Id == openActivity.Id);
+                        if (existing == null)
+                        {
+                            activeCard.Activity.Add(openActivity);
+                            (activeCard as ObservableObject)?.RaisePropertyChanged(nameof(IActiveCardModel.Activity));
+                        }
 
-                        // 🔔 Start/update the foreground notification with the new active card title
+                        activeCard.IsActive = true;
+                        _activeCard = activeCard;
+
                         _activeCardNotificationService.UpdateActiveCardNotification(_activeCard);
-
-                        break;
+                    }
+                    else
+                    {
+                        _activeCard = null;
+                        _activeCardNotificationService.UpdateActiveCardNotification(null);
                     }
                 }
+                else
+                {
+                    _activeCard = null;
+                    _activeCardNotificationService.UpdateActiveCardNotification(null);
+                }
+
 
                 foreach (var c in seed.MainQuestCards)
                     CommitCardToPage(mainQuest, c, true);
@@ -821,64 +843,134 @@ namespace Points.ViewModels
         {
             if (card == null) return;
 
-            // If tapping the same active card: allow it to toggle off
-            if (ReferenceEquals(_activeCard, card))
+            try
             {
-                card.StopActivity();
-                await _db.EndActivity(card, DateTime.Now);
-                _activeCard = null;
+                var nowUtc = DateTime.UtcNow;
 
-                // 🔔 Stop the foreground notification – no active card now
-                _activeCardNotificationService.UpdateActiveCardNotification(null);
+                // Snapshot values for the activity we might open
+                string rateName = "Base Rate";
+                double valuePerMinute = card.ValuePerMinute;
 
-                OnPropertyChanged(nameof(HasActiveCard));
-                OnPropertyChanged(nameof(ActivePhaseName));
-                OnPropertyChanged(nameof(ActivePhaseColor));
-                return;
-            }
-
-            if(card is TatCardModel tat && tat.ValueRates.Count > 0)
-            {
-                List<string> rateNames = ["Base Rate", .. tat.ValueRates.Select(x => x.RateName)];
-
-                var choice = await Shell.Current.DisplayActionSheet(
-                    "Choose Rate",
-                    "Cancel",
-                    null,
-                    rateNames.ToArray()
-                );
-
-                if (!string.IsNullOrEmpty(choice))
+                // If TAT has selectable rates, prompt user BEFORE toggling
+                if (card is TatCardModel tat && tat.ValueRates.Count > 0)
                 {
-                    tat.SelectedValueRateModel = choice == "Base Rate" ? null : tat.ValueRates.FirstOrDefault(x => x.RateName == choice);
+                    List<string> rateNames = ["Base Rate", .. tat.ValueRates.Select(x => x.RateName)];
+
+                    var choice = await Shell.Current.DisplayActionSheet(
+                        "Choose Rate",
+                        "Cancel",
+                        null,
+                        rateNames.ToArray()
+                    );
+
+                    if (string.IsNullOrWhiteSpace(choice) || choice == "Cancel")
+                        return;
+
+                    tat.SelectedValueRateModel =
+                        choice == "Base Rate"
+                            ? null
+                            : tat.ValueRates.FirstOrDefault(x => x.RateName == choice);
+
+                    rateName = tat.SelectedValueRateModel?.RateName ?? "Base Rate";
+                    valuePerMinute = tat.SelectedValueRateModel?.ValuePerMinute ?? tat.ValuePerMinute;
+                }
+                else if (card is TatCardModel tatNoRates)
+                {
+                    // Persist base rate snapshot consistently
+                    rateName = tatNoRates.SelectedValueRateModel?.RateName ?? "Base Rate";
+                    valuePerMinute = tatNoRates.SelectedValueRateModel?.ValuePerMinute ?? tatNoRates.ValuePerMinute;
+                }
+
+                // DB authoritative toggle
+                var result = await _db.ToggleActivityAsync(
+                    cardId: card.CardID,
+                    utcNow: nowUtc,
+                    valueRateName: rateName,
+                    valuePerMinute: valuePerMinute);
+
+                // Deterministic lookup across all loaded cards
+                IActiveCardModel? ResolveCard(long cardId) =>
+                    Pages.SelectMany(x => x.AllCards)
+                         .OfType<IActiveCardModel>()
+                         .FirstOrDefault(c => c.CardID == cardId);
+
+                static void UpsertActivity(IActiveCardModel target, ActivityModel activity)
+                {
+                    var existing = target.Activity.FirstOrDefault(a => a.Id == activity.Id);
+
+                    if (existing == null)
+                    {
+                        target.Activity.Add(activity);
+                    }
+                    else
+                    {
+                        existing.CardID = activity.CardID;
+                        existing.StartDate = activity.StartDate;
+                        existing.EndDate = activity.EndDate;
+                        existing.RateName = activity.RateName;
+                        existing.ValuePerMinute = activity.ValuePerMinute;
+                    }
+                }
+
+                static void RefreshTatComputedProps(IActiveCardModel model)
+                {
+                    if (model is TatCardModel tatModel)
+                    {
+                        tatModel.RaisePropertyChanged(nameof(TatCardModel.ShowRateNameOnCard));
+                        tatModel.RaisePropertyChanged(nameof(TatCardModel.SelectedRateName));
+                        tatModel.RaisePropertyChanged(nameof(TatCardModel.Activity));
+                    }
+                    else
+                    {
+                        // For MissionCardModel etc.
+                        (model as ObservableObject)?.RaisePropertyChanged(nameof(IActiveCardModel.Activity));
+                    }
+                }
+
+                // Apply closed activity (if any)
+                if (result.Closed != null)
+                {
+                    var closedCard = ResolveCard(result.Closed.CardID);
+                    if (closedCard != null)
+                    {
+                        UpsertActivity(closedCard, result.Closed);
+                        closedCard.IsActive = false;
+                        RefreshTatComputedProps(closedCard);
+                    }
+                }
+
+                // Apply opened activity (if any)
+                if (result.Opened != null)
+                {
+                    var openedCard = ResolveCard(result.Opened.CardID) ?? card;
+
+                    UpsertActivity(openedCard, result.Opened);
+                    openedCard.IsActive = true;
+                    RefreshTatComputedProps(openedCard);
+
+                    _activeCard = openedCard;
                 }
                 else
                 {
-                    return;
+                    // Nothing opened => no active card
+                    _activeCard = null;
                 }
+
+                // Notification matches DB-authoritative active card
+                _activeCardNotificationService.UpdateActiveCardNotification(_activeCard);
+
+                // Update HomeViewModel computed properties
+                OnPropertyChanged(nameof(HasActiveCard));
+                OnPropertyChanged(nameof(ActivePhaseName));
+                OnPropertyChanged(nameof(ActivePhaseColor));
             }
-
-            // Deactivate previous
-            _activeCard?.StopActivity();
-            if(_activeCard != null) await _db.EndActivity(_activeCard, DateTime.Now);
-
-            // Activate new
-            if (!card.IsActive && card.ToggleActivityCommand.CanExecute(null))
-                card.ToggleActivityCommand.Execute(null);
-
-            _activeCard = card;
-
-            var actId = await _db.AddActivity(_activeCard, DateTime.Now);
-
-            _activeCard.Activity.First(x => x.Id == 0).Id = actId;
-
-            // 🔔 Start/update the foreground notification with the new active card title
-            _activeCardNotificationService.UpdateActiveCardNotification(_activeCard);
-
-            OnPropertyChanged(nameof(HasActiveCard));
-            OnPropertyChanged(nameof(ActivePhaseName));
-            OnPropertyChanged(nameof(ActivePhaseColor));
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+                // Optional: show toast/alert
+            }
         }
+
 
         private void ApplyPositiveFilter()
         {

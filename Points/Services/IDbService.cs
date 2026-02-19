@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Points.Services.Sqlite.SqliteDbService;
 
 namespace Points.Services
 {
@@ -96,10 +97,10 @@ namespace Points.Services
         Task RemoveRepForStep(int scCardStepID, DateTime repTime);
 
         // Adds an Activity row for the card resolved via model type + model.Id
-        Task<int> AddActivity(IActiveCardModel model, DateTime startTime);
+        //Task<int> AddActivity(IActiveCardModel model, DateTime startTime);
 
         // Ends the most recent/open Activity row for the card resolved via model type + model.Id
-        Task EndActivity(IActiveCardModel model, DateTime endTime);
+        //Task EndActivity(IActiveCardModel model, DateTime endTime);
         Task<Tuple<DateTime,DateTime>> GetPreviousAndNextActivePeriodDateTimes(DateTime current);
 
         Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(string sql, bool includeHeaderRow = true, params object?[] args);
@@ -107,7 +108,16 @@ namespace Points.Services
         Task MarkAchievementEarnedAsync(long achievementId, DateTime earnedAt);
         Task DeleteAchievementTrophyAsync(int trophyId);
 
-        Task<int> CloseAnyOpenActivitiesAsync();
+        //Task<int> CloseAnyOpenActivitiesAsync();
+
+        Task<ActivityModel?> GetCurrentActiveActivityAsync();
+
+        Task<ToggleActivityModelResult> ToggleActivityAsync(
+            long cardId,
+            DateTime utcNow,
+            string valueRateName,
+            double valuePerMinute);
+
         Task<List<TimeValueAchievementEvaluator>> RefreshEvaluatorsAsync(List<TimeValueAchievementEvaluator> timeValueAchievementEvaluators);
         
         Task SavePlannerModelsDataAsync(List<PlannerGoalDetailsModel> plannerModelsToSave);

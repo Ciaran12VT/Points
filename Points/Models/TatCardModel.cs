@@ -87,84 +87,84 @@ namespace Points.Models
 
         public bool ShowRateNameOnCard => HasMultipleValueRates && IsActive;
 
-        public ICommand ToggleActivityCommand { get; }
+        //public ICommand ToggleActivityCommand { get; }
         public TimeSpan? TargetActiveTime { get; set; }
 
         public TatCardModel()
         {
-            ToggleActivityCommand = new Command(ToggleActivity);
+            //ToggleActivityCommand = new Command(ToggleActivity);
         }
 
-        public void Activitate()
-        {
-            IsActive = true;
-            RaisePropertyChanged(nameof(Activity));
-            RaisePropertyChanged(nameof(ShowRateNameOnCard));
-            RaisePropertyChanged(nameof(SelectedRateName));
-            return;
-        }
+        //public void Activitate()
+        //{
+        //    IsActive = true;
+        //    RaisePropertyChanged(nameof(Activity));
+        //    RaisePropertyChanged(nameof(ShowRateNameOnCard));
+        //    RaisePropertyChanged(nameof(SelectedRateName));
+        //    return;
+        //}
 
-        private void ToggleActivity()
-        {
-            var now = DateTime.Now;
+        //private void ToggleActivity()
+        //{
+        //    var now = DateTime.Now;
 
-            var valueRate = SelectedValueRateModel ?? new ValueRateModel() { RateName = "Base Rate", ValuePerMinute = ValuePerMinute };
+        //    var valueRate = SelectedValueRateModel ?? new ValueRateModel() { RateName = "Base Rate", ValuePerMinute = ValuePerMinute };
 
-            if (!IsActive)
-            {
-                // Start: store (start, DateTime.MinValue) to mean "open interval"          
-                Activity.Add(new ActivityModel(now, DateTime.MinValue, valueRate.RateName, valueRate.ValuePerMinute));          
-                IsActive = true;
-                RaisePropertyChanged(nameof(Activity));
-                RaisePropertyChanged(nameof(ShowRateNameOnCard));
-                RaisePropertyChanged(nameof(SelectedRateName));
-                return;
-            }
+        //    if (!IsActive)
+        //    {
+        //        // Start: store (start, null) to mean "open interval"          
+        //        Activity.Add(new ActivityModel(now, null, valueRate.RateName, valueRate.ValuePerMinute));          
+        //        IsActive = true;
+        //        RaisePropertyChanged(nameof(Activity));
+        //        RaisePropertyChanged(nameof(ShowRateNameOnCard));
+        //        RaisePropertyChanged(nameof(SelectedRateName));
+        //        return;
+        //    }
 
-            // Stop: close the most recent open interval
-            for (int i = Activity.Count - 1; i >= 0; i--)
-            {
-                if (Activity[i].EndDate == DateTime.MinValue)
-                {
-                    Activity[i].EndDate = now;
-                    IsActive = false;
-                    RaisePropertyChanged(nameof(Activity));
-                    RaisePropertyChanged(nameof(ShowRateNameOnCard));
-                    RaisePropertyChanged(nameof(SelectedRateName));
-                    return;
-                }
-            }
+        //    // Stop: close the most recent open interval
+        //    for (int i = Activity.Count - 1; i >= 0; i--)
+        //    {
+        //        if (!Activity[i].EndDate.HasValue)
+        //        {
+        //            Activity[i].EndDate = now;
+        //            IsActive = false;
+        //            RaisePropertyChanged(nameof(Activity));
+        //            RaisePropertyChanged(nameof(ShowRateNameOnCard));
+        //            RaisePropertyChanged(nameof(SelectedRateName));
+        //            return;
+        //        }
+        //    }
 
-            // If we got here, state was inconsistent; recover by starting a new interval
-            Activity.Add(new ActivityModel(now, DateTime.MinValue, valueRate.RateName, valueRate.ValuePerMinute));
-            IsActive = true;
-            RaisePropertyChanged(nameof(Activity));
-            RaisePropertyChanged(nameof(ShowRateNameOnCard));
-            RaisePropertyChanged(nameof(SelectedRateName));
-        }
+        //    // If we got here, state was inconsistent; recover by starting a new interval
+        //    Activity.Add(new ActivityModel(now, null, valueRate.RateName, valueRate.ValuePerMinute));
+        //    IsActive = true;
+        //    RaisePropertyChanged(nameof(Activity));
+        //    RaisePropertyChanged(nameof(ShowRateNameOnCard));
+        //    RaisePropertyChanged(nameof(SelectedRateName));
+        //}
 
-        public void StopActivity()
-        {
-            if (!IsActive) return;
+        //public void StopActivity()
+        //{
+        //    if (!IsActive) return;
 
-            var now = DateTime.Now;
+        //    var now = DateTime.Now;
 
-            for (int i = Activity.Count - 1; i >= 0; i--)
-            {
-                if (Activity[i].EndDate == DateTime.MinValue)
-                {
-                    Activity[i].EndDate = now;
-                    IsActive = false;
-                    RaisePropertyChanged(nameof(Activity));
-                    RaisePropertyChanged(nameof(ShowRateNameOnCard));
-                    RaisePropertyChanged(nameof(SelectedRateName));
-                    return;
-                }
-            }
+        //    for (int i = Activity.Count - 1; i >= 0; i--)
+        //    {
+        //        if (!Activity[i].EndDate.HasValue)
+        //        {
+        //            Activity[i].EndDate = now;
+        //            IsActive = false;
+        //            RaisePropertyChanged(nameof(Activity));
+        //            RaisePropertyChanged(nameof(ShowRateNameOnCard));
+        //            RaisePropertyChanged(nameof(SelectedRateName));
+        //            return;
+        //        }
+        //    }
 
-            // If somehow there was no open interval, just mark inactive.
-            IsActive = false;
-        }
+        //    // If somehow there was no open interval, just mark inactive.
+        //    IsActive = false;
+        //}
 
 
         public TimeSpan GetActiveTime(DateTime start, DateTime end)
@@ -176,7 +176,7 @@ namespace Points.Models
             foreach (var period in Activity)
             {
                 var aStart = period.StartDate;
-                var aEnd = period.EndDate == DateTime.MinValue ? Min(end,DateTime.Now) : period.EndDate;
+                var aEnd = !period.EndDate.HasValue ? Min(end,DateTime.Now) : period.EndDate.Value;
 
                 var overlapStart = aStart > start ? aStart : start;
                 var overlapEnd = aEnd < end ? aEnd : end;
@@ -197,7 +197,7 @@ namespace Points.Models
             foreach (var period in Activity)
             {
                 var aStart = period.StartDate;
-                var aEnd = period.EndDate == DateTime.MinValue ? Min(end, DateTime.Now) : period.EndDate;
+                var aEnd = !period.EndDate.HasValue ? Min(end, DateTime.Now) : period.EndDate.Value;
 
                 var overlapStart = aStart > start ? aStart : start;
                 var overlapEnd = aEnd < end ? aEnd : end;
@@ -225,7 +225,7 @@ namespace Points.Models
 
             if (Activity.Count == 0) return DateTime.MinValue;
 
-            return Activity.Select(x => x.EndDate).Max();
+            return Activity.Select(x => x.EndDate.HasValue ? x.EndDate.Value : DateTime.MinValue).Max();
         }
     }
 }

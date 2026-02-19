@@ -11,7 +11,7 @@ namespace Points.ViewModels
     public sealed class EditActiveTimeRow : BindableObject
     {
         private DateTime _start;
-        private DateTime _end;
+        private DateTime? _end;
         private string _rateName;
         private double _valuePerMinute;
 
@@ -27,7 +27,7 @@ namespace Points.ViewModels
             }
         }
 
-        public DateTime End
+        public DateTime? End
         {
             get => _end;
             private set
@@ -40,18 +40,18 @@ namespace Points.ViewModels
         }
 
         public string StartText => Start.ToString("yyyy-MM-dd HH:mm:ss");
-        public string EndText => End.ToString("yyyy-MM-dd HH:mm:ss");
+        public string EndText => End.HasValue ? End.Value.ToString("yyyy-MM-dd HH:mm:ss") : "∞";
 
         public string RateName => _rateName;
         public double ValuePerMinute => _valuePerMinute;
 
         // NEW: duration in hours
-        public double Hours => (End - Start).TotalHours;
+        public double Hours => (End.Value - Start).TotalHours;
 
         // Optional: nice formatted text for binding
         public string HoursText => $"{Hours:F2} h";
 
-        public EditActiveTimeRow(DateTime start, DateTime end, string rateName, double valuePerMinute)
+        public EditActiveTimeRow(DateTime start, DateTime? end, string rateName, double valuePerMinute)
         {
             _start = start;
             _end = end;
@@ -102,7 +102,7 @@ namespace Points.ViewModels
             {
                 if (row is null) return;
 
-                var chosen = await _pickDateTime(row.End);
+                var chosen = await _pickDateTime(row.End.Value);
                 if (chosen is null) return;
 
                 row.SetEnd(chosen.Value);

@@ -13,10 +13,10 @@ namespace Points.Models
     {
         long CardID { get; set; }
         bool IsActive { get; set; }
-        ICommand ToggleActivityCommand { get; }
+        //ICommand ToggleActivityCommand { get; }
 
-        void StopActivity();
-        void Activitate();
+        //void StopActivity();
+        //void Activitate();
 
         // Keep your requested shape for now
         List<ActivityModel> Activity { get; }

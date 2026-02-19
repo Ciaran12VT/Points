@@ -191,10 +191,13 @@ namespace Points.Services.Sqlite
                     ActivityID      INTEGER PRIMARY KEY,
                     CardID          INTEGER NOT NULL,
                     Start           TEXT    NOT NULL, -- ISO-8601 datetime
-                    ""End""         TEXT    NOT NULL, -- ISO-8601 datetime
+                    ""End""           TEXT    NULL,     -- NULL = open
                     ValueRateName   TEXT    NOT NULL,
                     ValuePerMinute  REAL    NOT NULL,
-                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE,
+
+                    -- Optional sanity check: if End exists, Start must be < End
+                    CHECK (""End"" IS NULL OR Start < ""End"")
                 );
 
                 -- =========================
@@ -392,7 +395,14 @@ namespace Points.Services.Sqlite
                 CREATE INDEX IF NOT EXISTS IX_Trophy_AchievementID        ON AchievementTrophy(AchievementCardID);
 
                 CREATE INDEX IF NOT EXISTS IX_Activity_CardID             ON Activity(CardID);
-                CREATE INDEX IF NOT EXISTS IX_Activity_Start              ON Activity(Start);
+                -- At most ONE open activity in the whole DB
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_Activity_OneOpen
+                ON Activity(1)
+                WHERE ""End"" IS NULL;
+
+                -- Helpful for overlap queries
+                CREATE INDEX IF NOT EXISTS IX_Activity_StartEnd
+                ON Activity(Start, ""End"");
 
                 CREATE INDEX IF NOT EXISTS IX_ValueTracker_CardID      ON ValueTrackerCard(CardID);
                 CREATE INDEX IF NOT EXISTS IX_EventTracker_CardID      ON EventTrackerCard(CardID);
