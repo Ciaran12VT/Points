@@ -452,9 +452,22 @@ namespace Points.ViewModels
             var now = DateTime.Now;
             var planners = Pages.First(p => p.Name == "Planners");
 
-            var allCards = await _db.GetMainQuestModelsDataAsync(
+            List<DateTime> startDates = new()
+            {
                 new TimeScopeRange(TimeScope.Daily, now).Start,
-                new TimeScopeRange(TimeScope.Monthly, now).End);
+                new TimeScopeRange(TimeScope.Weekly, now).Start,
+                new TimeScopeRange(TimeScope.Monthly, now).Start
+            };
+            List<DateTime> endDates = new()
+            {
+                new TimeScopeRange(TimeScope.Daily, now).End,
+                new TimeScopeRange(TimeScope.Weekly, now).End,
+                new TimeScopeRange(TimeScope.Monthly, now).End
+            };
+
+            var allCards = await _db.GetMainQuestModelsDataAsync(
+                startDates.Min(),
+                endDates.Max());
 
             var allPlannerModels = await _db.GetPlannerModelsDataAsync();
             var enabledPlannerModels = allPlannerModels.Where(p => p.Enabled).ToList();
@@ -852,7 +865,7 @@ namespace Points.ViewModels
                 double valuePerMinute = card.ValuePerMinute;
 
                 // If TAT has selectable rates, prompt user BEFORE toggling
-                if (card is TatCardModel tat && tat.ValueRates.Count > 0)
+                if (card is TatCardModel tat && tat.ValueRates.Count > 0 && !card.IsActive)
                 {
                     List<string> rateNames = ["Base Rate", .. tat.ValueRates.Select(x => x.RateName)];
 

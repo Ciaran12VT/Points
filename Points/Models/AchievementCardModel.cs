@@ -137,12 +137,36 @@ namespace Points.Models
             };
         }
 
+        public string GetAvailableIn(DateTime lastEarnedAt)
+        {
+            // RangeAmount is int, RangeUnit is enum (you already have these).
+            var amt = RangeAmount;
+
+            return RangeUnit switch
+            {
+                AchievementRangeUnit.Minutes => $"Available in {Math.Round((lastEarnedAt.AddMinutes(amt) - DateTime.Now).TotalMinutes,2)} mins",
+                AchievementRangeUnit.Hours => $"Available in {Math.Round((lastEarnedAt.AddHours(amt) - DateTime.Now).TotalHours, 2)} hrs",
+                AchievementRangeUnit.Days => $"Available in {Math.Round((lastEarnedAt.AddDays(amt) - DateTime.Now).TotalDays, 2)} days",
+                AchievementRangeUnit.Weeks => $"Available in {Math.Round((lastEarnedAt.AddDays(7 * amt) - DateTime.Now).TotalDays, 2)} days",
+                AchievementRangeUnit.Months => $"Available in {Math.Round((lastEarnedAt.AddMonths(amt) - DateTime.Now).TotalDays, 2)} days",
+                _ => $"Available in {Math.Round((lastEarnedAt.AddDays(amt) - DateTime.Now).TotalDays, 2)} days"
+            };
+        }
+
         public string StatusDisplay
         {
             get
             {
                 if (IsLockedThisRange)
+                {
+                    if(LastEarnedAt.HasValue)
+                    {
+                        return $"Locked: {GetAvailableIn(LastEarnedAt.Value)}";
+                    }
+                    
                     return "Locked";
+                }
+                    
                 return Status;
             }
         }
@@ -438,6 +462,7 @@ namespace Points.Models
 
             RaisePropertyChanged(nameof(CurrentValueText));
             RaisePropertyChanged(nameof(CompletionTimeText));
+            RaisePropertyChanged(nameof(StatusDisplay));
         }
     }
 }

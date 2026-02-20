@@ -426,7 +426,7 @@ namespace Points.Services.Sqlite
         {
             // Wipes data only (keeps tables + indexes). Uses FK OFF to avoid delete-order constraints.
             return @"
-                    DELETE FROM PlannerGoal;
+                    DELETE FROM Activity;
                 ";
         }
 

@@ -63,7 +63,20 @@ namespace Points.ViewModels
             {
                 var range = new TimeScopeRange((TimeScope)tscope, DateTime.Now);
 
-                if(_cards == null) _cards = await _db.GetMainQuestModelsDataAsync(range.Start, range.End);
+                List<DateTime> startDates = new()
+                {
+                    new TimeScopeRange(TimeScope.Daily, DateTime.Now).Start,
+                    new TimeScopeRange(TimeScope.Weekly, DateTime.Now).Start,
+                    new TimeScopeRange(TimeScope.Monthly, DateTime.Now).Start
+                };
+                List<DateTime> endDates = new()
+                {
+                    new TimeScopeRange(TimeScope.Daily, DateTime.Now).End,
+                    new TimeScopeRange(TimeScope.Weekly, DateTime.Now).End,
+                    new TimeScopeRange(TimeScope.Monthly, DateTime.Now).End
+                };
+
+                if (_cards == null) _cards = await _db.GetMainQuestModelsDataAsync(startDates.Min(), endDates.Max());
 
                 if (_plannerModels == null) _plannerModels = await _db.GetPlannerModelsDataAsync();
 
