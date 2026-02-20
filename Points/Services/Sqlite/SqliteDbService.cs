@@ -15,6 +15,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
+//Collapse all regiosn: Ctrl + M, L
+
 namespace Points.Services.Sqlite
 {
     public class SqliteDbService : IDbService
