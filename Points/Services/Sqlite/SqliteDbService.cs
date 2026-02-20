@@ -54,22 +54,6 @@ namespace Points.Services.Sqlite
             });
         }
 
-        //public async Task<int> CloseAnyOpenActivitiesAsync()
-        //{
-        //    await InitializeAsync();
-
-        //    var minIso = DateTime.MinValue.ToString("o");
-
-        //    // Set End = Start for any rows whose End is MinValue (i.e. still "open")
-        //    return await Db.ExecuteAsync(
-        //        @"UPDATE Activity
-        //          SET ""End"" = ""Start""
-        //          WHERE datetime(""End"") = datetime(?) OR datetime(""End"") < datetime(""Start"")",
-        //        minIso);
-        //}
-
-
-
         #endregion
 
         #region Backups and DB Maintenance
@@ -254,6 +238,41 @@ namespace Points.Services.Sqlite
         #endregion
 
         #region Read
+
+        #region Home Seed
+
+        public async Task<HomeSeedData> GetHomeSeedDataAsync(DateTime rangeStart, DateTime rangeEnd)
+        {
+            var mainQuest = await GetMainQuestModelsDataAsync(rangeStart, rangeEnd);
+
+            var mission = await GetMissionCardModelsDataAsync("m.CompletedDate IS NULL OR m.CompletedDate >= datetime('now', 'localtime', 'start of day')");
+
+            var budget = await GetBudgetCardModelsDataAsync();
+
+            var achievements = await GetAchievementCardModelsDataAsync();
+
+            await PopulateAchievements(achievements, mainQuest, mission);
+
+            var valueTrackers = await GetValueTrackerCardModelsDataAsync();
+
+            var eventTrackers = await GetEventTrackerCardModelsDataAsync();
+
+            var seed = new HomeSeedData
+            {
+                MainQuestCards = mainQuest,
+                MissionCards = mission,
+                BudgetCards = budget,
+                Achievements = achievements,
+                ValueTrackers = valueTrackers,
+                EventTrackers = eventTrackers
+            };
+
+            return seed;
+        }
+
+        #endregion
+
+        #region Achievements
 
         public async Task<AchievementCardModel> GetAchievementCardModelDataAsync(int id)
         {
@@ -548,6 +567,174 @@ namespace Points.Services.Sqlite
             public string ImageSource { get; set; } = "";
         }
 
+        #region Evaluators
+
+        private async Task PopulateAchievements(List<AchievementCardModel> achievements, List<IActiveCardModel> mainQuest, List<MissionCardModel> mission)
+        {
+            Dictionary<string, TimeValueAchievementEvaluator> byTag = await BuildEvaluatorsByTag(achievements);
+            foreach (var mq in mainQuest)
+            {
+                var tags = mq.Tags.Split(',').Select(x => x.Trim());
+                var evals = byTag.Where(x => tags.Contains(x.Key)).Select(y => y.Value).ToList();
+                mq.TimeValueAchievementEvaluators = evals;
+            }
+
+            foreach (var ach in achievements)
+            {
+                if (byTag.TryGetValue(ach.Tags, out TimeValueAchievementEvaluator evaltr))
+                {
+                    if (ach.GoalType == AchievementGoalType.Value)
+                    {
+                        ach.CurrentValue = evaltr.Evaluations.Sum(x => x.CurrentValue);
+                    }
+                    else if (ach.GoalType == AchievementGoalType.ActiveTime)
+                    {
+                        //TODO: Work out how to populate this if the achievement is ActiveTime-based
+                    }
+                }
+            }
+        }
+
+
+        private async Task<Dictionary<string, TimeValueAchievementEvaluator>> BuildEvaluatorsByTag(IEnumerable<AchievementCardModel> cards)
+        {
+            if (cards == null) throw new ArgumentNullException(nameof(cards));
+
+            var result = new Dictionary<string, TimeValueAchievementEvaluator>();
+
+            foreach (var group in cards.GroupBy(c => c.Tags ?? string.Empty))
+            {
+                var evaluationTasks = group.Select(card => CreateEvaluation(card)); // Tasks
+
+                var evaluations = await Task.WhenAll(evaluationTasks); // Await all
+
+                result[group.Key] = new TimeValueAchievementEvaluator
+                {
+                    Evaluations = evaluations.ToList()
+                };
+            }
+
+            return result;
+        }
+
+
+        private async Task<TimeValueAchievementEvaluation> CreateEvaluation(AchievementCardModel card)
+        {
+            return card.GoalType switch
+            {
+                AchievementGoalType.ActiveTime => new TimeValueAchievementEvaluation
+                {
+                    AchievemenCard = card,
+                    CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentTotalActiveTimeInSeconds
+                },
+                AchievementGoalType.Value => new TimeValueAchievementEvaluation
+                {
+                    AchievemenCard = card,
+                    CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentValue
+                },
+                _ => throw new NotSupportedException(
+                    $"Unsupported GoalType '{card.GoalType}' for AchievementCard '{card}'.")
+            };
+        }
+
+        public sealed class TagValueSummaryRow
+        {
+            public double CurrentValue { get; set; }
+            public double CurrentTotalActiveTimeInSeconds { get; set; }
+        }
+
+        public async Task<TagValueSummaryRow> GetTagValueSummaryAsync(string tagName, DateTime rangeStart, DateTime rangeEnd)
+        {
+            await InitializeAsync();
+
+            // Convert to ISO-8601 to match how you store datetimes
+            var startIso = rangeStart.ToString("o");
+            var endIso = rangeEnd.ToString("o");
+
+            const string sql = @"
+                    WITH TaggedCards AS (
+                        SELECT c.CardID
+                        FROM Card c
+                        WHERE ',' || REPLACE(c.Tags, ' ', '') || ',' 
+                              LIKE '%,' || REPLACE(?, ' ', '') || ',%'
+                    ),
+
+                    TimeValued AS (
+                        SELECT
+                            SUM(
+                                ((julianday(a.""End"") - julianday(a.Start)) * 24.0 * 60.0)
+                                * a.ValuePerMinute
+                            ) AS Value,
+                            SUM(
+                                (julianday(a.""End"") - julianday(a.Start)) * 86400.0
+                            ) AS TotalActiveSeconds
+                        FROM Activity a
+                        WHERE a.CardID IN (SELECT CardID FROM TaggedCards)
+                          AND datetime(a.Start) >= datetime(?)
+                          AND datetime(a.""End"")   <= datetime(?)  
+                          AND a.""End"" >= a.Start
+                    ),
+
+                    StepValued AS (
+                        SELECT
+                            SUM(rep.StepValue) AS Value
+                        FROM ScCard sc
+                        JOIN TaggedCards tc     ON tc.CardID      = sc.CardID
+                        JOIN ScCardStep st      ON st.ScCardID    = sc.ScCardID
+                        JOIN ScCardStepRep rep  ON rep.ScCardStepID = st.ScCardStepID
+                        WHERE datetime(rep.TimeStamp) >= datetime(?)
+                          AND datetime(rep.TimeStamp) <= datetime(?)
+                    ),
+
+                    MissionValued AS (
+                        SELECT
+                            SUM(mc.Value) AS Value
+                        FROM MissionCard mc
+                        JOIN TaggedCards tc ON tc.CardID = mc.CardID
+                        WHERE datetime(mc.CompletedDate) >= datetime(?)
+                          AND datetime(mc.CompletedDate) <= datetime(?)
+                    )
+
+                    SELECT
+                        COALESCE(TimeValued.Value, 0)
+                      + COALESCE(StepValued.Value, 0)
+                      + COALESCE(MissionValued.Value, 0) AS CurrentValue,
+
+                        COALESCE(TimeValued.TotalActiveSeconds, 0) AS CurrentTotalActiveTimeInSeconds
+                    FROM TimeValued
+                    CROSS JOIN StepValued
+                    CROSS JOIN MissionValued;
+                ";
+
+            // Parameter order:
+            //  1: tagName
+            //  2: rangeStart (TimeValued)
+            //  3: rangeEnd   (TimeValued)
+            //  4: rangeStart (StepValued)
+            //  5: rangeEnd   (StepValued)
+            //  6: rangeStart (MissionValued)
+            //  7: rangeEnd   (MissionValued)
+            var rows = await Db.QueryAsync<TagValueSummaryRow>(
+                sql,
+                tagName,
+                startIso, endIso,
+                startIso, endIso,
+                startIso, endIso
+            );
+
+            var row = rows.FirstOrDefault() ?? new TagValueSummaryRow();
+
+            // Named tuple elements so the caller can use:
+            // result.CurrentValue and result.CurrentTotalActiveTimeInSeconds
+            return row;
+        }
+
+
+        #endregion
+
+        #endregion
+
+        #region Budget
 
         // =======================
         // Budget (READ)
@@ -651,7 +838,7 @@ namespace Points.Services.Sqlite
 
         private BudgetTransactionType BudgetTransactionTypeParse(string? type)
         {
-            if(Enum.TryParse<BudgetTransactionType>(type ?? "", true, out BudgetTransactionType btt))
+            if (Enum.TryParse<BudgetTransactionType>(type ?? "", true, out BudgetTransactionType btt))
             {
                 return btt;
             }
@@ -833,104 +1020,9 @@ namespace Points.Services.Sqlite
             public string TimeStamp { get; set; } = "";
         }
 
+        #endregion
 
-        //Home Seed
-
-        public async Task<HomeSeedData> GetHomeSeedDataAsync(DateTime rangeStart, DateTime rangeEnd)
-        {
-            var mainQuest = await GetMainQuestModelsDataAsync(rangeStart, rangeEnd);
-
-            var mission = await GetMissionCardModelsDataAsync("m.CompletedDate IS NULL OR m.CompletedDate >= datetime('now', 'localtime', 'start of day')");
-
-            var budget = await GetBudgetCardModelsDataAsync();
-
-            var achievements = await GetAchievementCardModelsDataAsync();
-
-            await PopulateAchievements(achievements, mainQuest, mission);
-
-            var valueTrackers = await GetValueTrackerCardModelsDataAsync();
-
-            var eventTrackers = await GetEventTrackerCardModelsDataAsync();
-
-            var seed = new HomeSeedData
-            {
-                MainQuestCards = mainQuest,
-                MissionCards = mission,
-                BudgetCards = budget,
-                Achievements = achievements,
-                ValueTrackers = valueTrackers,
-                EventTrackers = eventTrackers
-            };
-
-            return seed;
-        }
-
-        private async Task PopulateAchievements(List<AchievementCardModel> achievements, List<IActiveCardModel> mainQuest, List<MissionCardModel> mission)
-        {
-            Dictionary<string, TimeValueAchievementEvaluator> byTag = await BuildEvaluatorsByTag(achievements);
-            foreach (var mq in mainQuest)
-            {
-                var tags = mq.Tags.Split(',').Select(x => x.Trim());
-                var evals = byTag.Where(x => tags.Contains(x.Key)).Select(y => y.Value).ToList();
-                mq.TimeValueAchievementEvaluators = evals;
-            }
-
-            foreach (var ach in achievements)
-            {
-                if (byTag.TryGetValue(ach.Tags, out TimeValueAchievementEvaluator evaltr))
-                {
-                    if (ach.GoalType == AchievementGoalType.Value)
-                    {
-                        ach.CurrentValue = evaltr.Evaluations.Sum(x => x.CurrentValue);
-                    }
-                    else if(ach.GoalType == AchievementGoalType.ActiveTime)
-                    {
-                        //TODO: Work out how to populate this if the achievement is ActiveTime-based
-                    }
-                }
-            }
-        }
-
-        private async Task<Dictionary<string, TimeValueAchievementEvaluator>> BuildEvaluatorsByTag(IEnumerable<AchievementCardModel> cards)
-        {
-            if (cards == null) throw new ArgumentNullException(nameof(cards));
-
-            var result = new Dictionary<string, TimeValueAchievementEvaluator>();
-
-            foreach (var group in cards.GroupBy(c => c.Tags ?? string.Empty))
-            {
-                var evaluationTasks = group.Select(card => CreateEvaluation(card)); // Tasks
-
-                var evaluations = await Task.WhenAll(evaluationTasks); // Await all
-
-                result[group.Key] = new TimeValueAchievementEvaluator
-                {
-                    Evaluations = evaluations.ToList()
-                };
-            }
-
-            return result;
-        }
-
-
-        private async Task<TimeValueAchievementEvaluation> CreateEvaluation(AchievementCardModel card)
-        {
-            return card.GoalType switch
-            {
-                AchievementGoalType.ActiveTime => new TimeValueAchievementEvaluation
-                {
-                    AchievemenCard = card,
-                    CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentTotalActiveTimeInSeconds
-                },
-                AchievementGoalType.Value => new TimeValueAchievementEvaluation
-                {
-                    AchievemenCard = card,
-                    CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentValue
-                },
-                _ => throw new NotSupportedException(
-                    $"Unsupported GoalType '{card.GoalType}' for AchievementCard '{card}'.")
-            };
-        }
+        #region Main Quest
 
         //Main Quest
         public async Task<List<IActiveCardModel>> GetMainQuestModelsDataAsync(DateTime rangeStart, DateTime rangeEnd)
@@ -945,298 +1037,7 @@ namespace Points.Services.Sqlite
             return mainQuest;
         }
 
-        //Mission
-        public async Task<MissionCardModel> GetMissionCardModelDataAsync(int id)
-        {
-            // 1) Fetch the MissionCard + base Card in one go
-            const string sql = @"
-                SELECT
-                    m.MissionCardID      AS MissionCardID,
-                    m.CardID             AS CardID,
-
-                    c.Title              AS Title,
-                    c.Tags               AS Tags,
-
-                    m.Status             AS Status,
-                    m.Description        AS Description,
-                    m.SubType            AS SubType,
-                    m.Value              AS Value,
-
-                    m.CreatedDate        AS CreatedDate,
-                    m.AvailableFromDate  AS AvailableFromDate,
-                    m.DueDate            AS DueDate,
-                    m.CompletedDate      AS CompletedDate,
-                    m.EventDate          AS EventDate,
-
-                    m.EstCompletionTimeText AS EstCompletionTimeText,
-                    m.IsFailed           AS IsFailed,
-                    m.ValuePerMinute     AS ValuePerMinute
-                FROM MissionCard m
-                JOIN Card c ON c.CardID = m.CardID
-                WHERE m.MissionCardID = ?
-                LIMIT 1;
-            ";
-
-            var row = (await Db.QueryAsync<MissionCardJoinedRow>(sql, id)).FirstOrDefault();
-            if (row == null) throw new KeyNotFoundException($"MissionCard not found. MissionCardID={id}");
-
-            Enum.TryParse<MissionSubType>(row.SubType, ignoreCase: true, out var subType);
-
-            // 2) Materialize the model
-            var model = new MissionCardModel
-            {
-                Id = row.MissionCardID,
-                CardID = row.CardID,
-
-                Title = row.Title ?? "",
-                Tags = row.Tags ?? "",
-
-                Status = row.Status ?? "",
-                Description = row.Description ?? "",
-                SubType = subType,
-
-                Value = row.Value,
-                ValuePerMinute = row.ValuePerMinute,
-
-                CreatedDate = ParseIsoDateTime(row.CreatedDate),
-                AvailableFromDate = ParseIsoDateTime(row.AvailableFromDate),
-                DueDate = ParseIsoDateTime(row.DueDate),
-                CompletedDate = string.IsNullOrWhiteSpace(row.CompletedDate) ? (DateTime?)null : ParseIsoDateTime(row.CompletedDate),
-                EventDate = string.IsNullOrWhiteSpace(row.EventDate) ? (DateTime?)null : ParseIsoDateTime(row.EventDate),
-
-                EstCompletionTime = StringToTimeSpan(row.EstCompletionTimeText),
-                IsFailed = row.IsFailed != 0,
-            };
-
-            // 3) Load activity slices by CardID
-            const string actSql = @"
-                SELECT
-                    ActivityID       AS ActivityID,
-                    CardID           AS CardID,
-                    Start            AS Start,
-                    ""End""          AS End,
-                    ValueRateName    AS ValueRateName,
-                    ValuePerMinute   AS ValuePerMinute
-                FROM Activity
-                WHERE CardID = ?
-                ORDER BY Start;
-            ";
-
-            var actRows = await Db.QueryAsync<ActivityRow>(actSql, row.CardID);
-
-            model.Activity = actRows
-                .Select(a => ActivityMapper.ToModel(a, ParseIsoDateTime))
-                .ToList();
-
-
-            return model;
-        }
-
-        private TimeSpan? StringToTimeSpan(string? estCompletionTimeText)
-        {
-            if (string.IsNullOrEmpty(estCompletionTimeText)) return null;
-
-            var parts = estCompletionTimeText.Split(':');
-
-            var hours = parts[0];
-            var minutes = parts[1];
-            var seconds = parts[2];
-
-            int hoursInt = int.Parse(hours);
-            var minutesInt = int.Parse(minutes);
-            var secondsInt = int.Parse(seconds);
-
-            return new TimeSpan(hoursInt, minutesInt, secondsInt);
-        }
-
-        private static DateTime ParseIsoDateTime(string value)  => DateTime.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);
-
-        // Internal DTOs for sqlite-net mapping
-        private sealed class MissionCardJoinedRow
-        {
-            public int MissionCardID { get; set; }
-            public long CardID { get; set; }
-
-            public string? Title { get; set; }
-            public string? Tags { get; set; }
-
-            public string? Status { get; set; }
-            public string? Description { get; set; }
-            public string? SubType { get; set; }
-
-            public double Value { get; set; }
-
-            // Stored as TEXT (ISO-8601)
-            public string CreatedDate { get; set; } = "";
-            public string AvailableFromDate { get; set; } = "";
-            public string DueDate { get; set; } = "";
-            public string? CompletedDate { get; set; }
-            public string? EventDate { get; set; }
-
-            public string? EstCompletionTimeText { get; set; }
-
-            // Stored as INTEGER (0/1)
-            public int IsFailed { get; set; }
-
-            public double ValuePerMinute { get; set; }
-        }
-
-        private sealed class ActivityRow
-        {
-            public int ActivityID { get; set; }
-            public long CardID { get; set; }
-
-            // Stored as TEXT (ISO-8601)
-            public string Start { get; set; } = "";
-            public string? End { get; set; }
-            public string ValueRateName { get; set; } = "";
-
-            public double ValuePerMinute { get; set; }
-        }
-
-
-        public async Task<List<MissionCardModel>> GetMissionCardModelsDataAsync(string whereClause = null)
-        {
-            // Base query: MissionCard + Card
-            var sql = @"
-                SELECT
-                    m.MissionCardID         AS MissionCardID,
-                    m.CardID                AS CardID,
-
-                    c.Title                 AS Title,
-                    c.Tags                  AS Tags,
-
-                    m.Status                AS Status,
-                    m.Description           AS Description,
-                    m.SubType               AS SubType,
-                    m.Value                 AS Value,
-
-                    m.CreatedDate           AS CreatedDate,
-                    m.AvailableFromDate     AS AvailableFromDate,
-                    m.DueDate               AS DueDate,
-                    m.CompletedDate         AS CompletedDate,
-                    m.EventDate             AS EventDate,
-
-                    m.EstCompletionTimeText AS EstCompletionTimeText,
-                    m.IsFailed              AS IsFailed,
-                    m.ValuePerMinute        AS ValuePerMinute
-                FROM MissionCard m
-                JOIN Card c ON c.CardID = m.CardID
-            ";
-
-            // Support callers passing either:
-            //  - null/empty
-            //  - "WHERE ..."
-            //  - "m.Status = 'In-Progress' AND m.IsFailed = 0"   (we'll add WHERE)
-            //  - "ORDER BY ..." (if you do this, you should pass a full clause starting with ORDER BY)
-            if (!string.IsNullOrWhiteSpace(whereClause))
-            {
-                var wc = whereClause.Trim();
-
-                if (wc.StartsWith("WHERE", StringComparison.OrdinalIgnoreCase) ||
-                    wc.StartsWith("ORDER BY", StringComparison.OrdinalIgnoreCase) ||
-                    wc.StartsWith("LIMIT", StringComparison.OrdinalIgnoreCase))
-                {
-                    sql += " " + wc;
-                }
-                else
-                {
-                    sql += " WHERE " + wc;
-                }
-            }
-
-            var rows = await Db.QueryAsync<MissionCardJoinedRow>(sql);
-
-            if (rows.Count == 0)
-                return new List<MissionCardModel>();
-
-            // Materialize mission models and keep a lookup by CardID (Activity is stored by CardID)
-            var byCardId = new Dictionary<long, MissionCardModel>();
-
-            foreach (var row in rows)
-            {
-                Enum.TryParse<MissionSubType>(row.SubType, ignoreCase: true, out var subType);
-
-                var model = new MissionCardModel
-                {
-                    Id = row.MissionCardID,
-                    CardID = row.CardID,
-
-                    Title = row.Title ?? "",
-                    Tags = row.Tags ?? "",
-
-                    Status = row.Status ?? "",
-                    Description = row.Description ?? "",
-                    SubType = subType,
-
-                    Value = row.Value,
-                    ValuePerMinute = row.ValuePerMinute,
-
-                    CreatedDate = ParseIsoDateTime(row.CreatedDate),
-                    AvailableFromDate = ParseIsoDateTime(row.AvailableFromDate),
-                    DueDate = ParseIsoDateTime(row.DueDate),
-
-                    // We'll restore IsComplete via Complete()/Fail() below.
-                    CompletedDate = null,
-
-                    EventDate = string.IsNullOrWhiteSpace(row.EventDate)  ? (DateTime?)null : ParseIsoDateTime(row.EventDate),
-
-                    EstCompletionTime = StringToTimeSpan(row.EstCompletionTimeText),
-
-                    // We'll restore IsFailed via Fail() below if needed.
-                    IsFailed = row.IsFailed != 0,
-
-                    Activity = new List<ActivityModel>()
-                };
-
-                // Restore completion state correctly (IsComplete has a private setter)
-                if (!string.IsNullOrWhiteSpace(row.CompletedDate))
-                {
-                    var completedAt = ParseIsoDateTime(row.CompletedDate!);
-
-                    if (row.IsFailed != 0)
-                        model.Fail(completedAt);
-                    else
-                        model.Complete(completedAt);
-                }
-
-                byCardId[row.CardID] = model;
-            }
-
-            // Load all Activity rows in one go
-            var cardIds = byCardId.Keys.ToList();
-            var placeholders = string.Join(", ", Enumerable.Repeat("?", cardIds.Count));
-
-            var actSql = $@"
-                SELECT
-                    ActivityID       AS ActivityID,
-                    CardID           AS CardID,
-                    Start            AS Start,
-                    ""End""          AS End,
-                    ValueRateName    AS ValueRateName,
-                    ValuePerMinute   AS ValuePerMinute
-                FROM Activity
-                WHERE CardID IN ({placeholders})
-                ORDER BY CardID, Start;
-            ";
-
-            var actRows = await Db.QueryAsync<ActivityRow>(actSql, cardIds.Cast<object>().ToArray());
-
-            foreach (var a in actRows)
-            {
-                if (!byCardId.TryGetValue(a.CardID, out var mission))
-                    continue;
-
-                mission.Activity.Add(ActivityMapper.ToModel(a, ParseIsoDateTime));
-            }
-
-            // Return in the same order as the base query result set // (Dictionary doesn't preserve ordering reliably).
-            var result = new List<MissionCardModel>(rows.Count); 
-            foreach (var row in rows) result.Add(byCardId[row.CardID]);
-
-            return result;
-        }
-
+        #region SC Cards
 
         //SC
         public async Task<ScCardModel> GetScModelDataAsync(int id)
@@ -1498,7 +1299,7 @@ namespace Points.Services.Sqlite
                 ";
 
                 var repRows = await Db.QueryAsync<ScCardStepRepRow>(
-                    repsSql, 
+                    repsSql,
                     stepIds.Cast<object>()
                     .Append(rangeStart.ToString("o"))
                     .Append(rangeEnd.ToString("o"))
@@ -1545,6 +1346,9 @@ namespace Points.Services.Sqlite
             public double StepValue { get; set; }
         }
 
+        #endregion
+
+        #region TAT Cards
 
         //TAT
         public async Task<TatCardModel> GetTatModelDataAsync(int id)
@@ -1632,16 +1436,6 @@ namespace Points.Services.Sqlite
             model.SetSchedules(scheduleModels);
 
             return model;
-        }
-
-        public sealed class PragmaTableInfo
-        {
-            public int cid { get; set; }
-            public string name { get; set; } = "";
-            public string type { get; set; } = "";
-            public int notnull { get; set; }
-            public string? dflt_value { get; set; }
-            public int pk { get; set; }
         }
 
         public async Task<List<TatCardModel>> GetTatModelsDataAsync(DateTime rangeStart, DateTime rangeEnd)
@@ -1791,54 +1585,299 @@ namespace Points.Services.Sqlite
             public string? RateName { get; set; }
             public double ValuePerMinute { get; set; }
         }
-        public async Task<Tuple<DateTime, DateTime>> GetPreviousAndNextActivePeriodDateTimes(DateTime current)
+
+        #endregion
+
+        #endregion
+
+        #region Missions
+
+        //Mission
+        public async Task<MissionCardModel> GetMissionCardModelDataAsync(int id)
         {
-            var currentIso = current.ToString("o");
-
-
-            var sql = @"
+            // 1) Fetch the MissionCard + base Card in one go
+            const string sql = @"
                 SELECT
-                    (
-                        SELECT ""End""
-                        FROM Activity
-                        WHERE ""End"" <> ?
-                          AND datetime(""End"") < datetime(?)
-                        ORDER BY datetime(""End"") DESC
-                        LIMIT 1
-                    ) AS PreviousEnd,
-                    (
-                        SELECT Start
-                        FROM Activity
-                        WHERE datetime(Start) > datetime(?)
-                        ORDER BY datetime(Start) ASC
-                        LIMIT 1
-                    ) AS NextStart;
+                    m.MissionCardID      AS MissionCardID,
+                    m.CardID             AS CardID,
+
+                    c.Title              AS Title,
+                    c.Tags               AS Tags,
+
+                    m.Status             AS Status,
+                    m.Description        AS Description,
+                    m.SubType            AS SubType,
+                    m.Value              AS Value,
+
+                    m.CreatedDate        AS CreatedDate,
+                    m.AvailableFromDate  AS AvailableFromDate,
+                    m.DueDate            AS DueDate,
+                    m.CompletedDate      AS CompletedDate,
+                    m.EventDate          AS EventDate,
+
+                    m.EstCompletionTimeText AS EstCompletionTimeText,
+                    m.IsFailed           AS IsFailed,
+                    m.ValuePerMinute     AS ValuePerMinute
+                FROM MissionCard m
+                JOIN Card c ON c.CardID = m.CardID
+                WHERE m.MissionCardID = ?
+                LIMIT 1;
             ";
 
-            var rows = await Db.QueryAsync<AdjacentActivityDatesRow>(
-                sql,
-                null,
-                currentIso,
-                currentIso
-            );
+            var row = (await Db.QueryAsync<MissionCardJoinedRow>(sql, id)).FirstOrDefault();
+            if (row == null) throw new KeyNotFoundException($"MissionCard not found. MissionCardID={id}");
 
-            var row = rows.FirstOrDefault();
+            Enum.TryParse<MissionSubType>(row.SubType, ignoreCase: true, out var subType);
 
-            var previous = row?.PreviousEnd != null
-                ? DateTime.Parse(row.PreviousEnd, null, System.Globalization.DateTimeStyles.RoundtripKind)
-                : DateTime.MinValue;
+            // 2) Materialize the model
+            var model = new MissionCardModel
+            {
+                Id = row.MissionCardID,
+                CardID = row.CardID,
 
-            var next = row?.NextStart != null
-                ? DateTime.Parse(row.NextStart, null, System.Globalization.DateTimeStyles.RoundtripKind)
-                : DateTime.MaxValue;
+                Title = row.Title ?? "",
+                Tags = row.Tags ?? "",
 
-            return Tuple.Create(previous, next);
+                Status = row.Status ?? "",
+                Description = row.Description ?? "",
+                SubType = subType,
+
+                Value = row.Value,
+                ValuePerMinute = row.ValuePerMinute,
+
+                CreatedDate = ParseIsoDateTime(row.CreatedDate),
+                AvailableFromDate = ParseIsoDateTime(row.AvailableFromDate),
+                DueDate = ParseIsoDateTime(row.DueDate),
+                CompletedDate = string.IsNullOrWhiteSpace(row.CompletedDate) ? (DateTime?)null : ParseIsoDateTime(row.CompletedDate),
+                EventDate = string.IsNullOrWhiteSpace(row.EventDate) ? (DateTime?)null : ParseIsoDateTime(row.EventDate),
+
+                EstCompletionTime = StringToTimeSpan(row.EstCompletionTimeText),
+                IsFailed = row.IsFailed != 0,
+            };
+
+            // 3) Load activity slices by CardID
+            const string actSql = @"
+                SELECT
+                    ActivityID       AS ActivityID,
+                    CardID           AS CardID,
+                    Start            AS Start,
+                    ""End""          AS End,
+                    ValueRateName    AS ValueRateName,
+                    ValuePerMinute   AS ValuePerMinute
+                FROM Activity
+                WHERE CardID = ?
+                ORDER BY Start;
+            ";
+
+            var actRows = await Db.QueryAsync<ActivityRow>(actSql, row.CardID);
+
+            model.Activity = actRows
+                .Select(a => ActivityMapper.ToModel(a, ParseIsoDateTime))
+                .ToList();
+
+
+            return model;
         }
 
-        private sealed class AdjacentActivityDatesRow
+        // Internal DTOs for sqlite-net mapping
+        private sealed class MissionCardJoinedRow
         {
-            public string? PreviousEnd { get; set; }
-            public string? NextStart { get; set; }
+            public int MissionCardID { get; set; }
+            public long CardID { get; set; }
+
+            public string? Title { get; set; }
+            public string? Tags { get; set; }
+
+            public string? Status { get; set; }
+            public string? Description { get; set; }
+            public string? SubType { get; set; }
+
+            public double Value { get; set; }
+
+            // Stored as TEXT (ISO-8601)
+            public string CreatedDate { get; set; } = "";
+            public string AvailableFromDate { get; set; } = "";
+            public string DueDate { get; set; } = "";
+            public string? CompletedDate { get; set; }
+            public string? EventDate { get; set; }
+
+            public string? EstCompletionTimeText { get; set; }
+
+            // Stored as INTEGER (0/1)
+            public int IsFailed { get; set; }
+
+            public double ValuePerMinute { get; set; }
+        }
+
+        public async Task<List<MissionCardModel>> GetMissionCardModelsDataAsync(string whereClause = null)
+        {
+            // Base query: MissionCard + Card
+            var sql = @"
+                SELECT
+                    m.MissionCardID         AS MissionCardID,
+                    m.CardID                AS CardID,
+
+                    c.Title                 AS Title,
+                    c.Tags                  AS Tags,
+
+                    m.Status                AS Status,
+                    m.Description           AS Description,
+                    m.SubType               AS SubType,
+                    m.Value                 AS Value,
+
+                    m.CreatedDate           AS CreatedDate,
+                    m.AvailableFromDate     AS AvailableFromDate,
+                    m.DueDate               AS DueDate,
+                    m.CompletedDate         AS CompletedDate,
+                    m.EventDate             AS EventDate,
+
+                    m.EstCompletionTimeText AS EstCompletionTimeText,
+                    m.IsFailed              AS IsFailed,
+                    m.ValuePerMinute        AS ValuePerMinute
+                FROM MissionCard m
+                JOIN Card c ON c.CardID = m.CardID
+            ";
+
+            // Support callers passing either:
+            //  - null/empty
+            //  - "WHERE ..."
+            //  - "m.Status = 'In-Progress' AND m.IsFailed = 0"   (we'll add WHERE)
+            //  - "ORDER BY ..." (if you do this, you should pass a full clause starting with ORDER BY)
+            if (!string.IsNullOrWhiteSpace(whereClause))
+            {
+                var wc = whereClause.Trim();
+
+                if (wc.StartsWith("WHERE", StringComparison.OrdinalIgnoreCase) ||
+                    wc.StartsWith("ORDER BY", StringComparison.OrdinalIgnoreCase) ||
+                    wc.StartsWith("LIMIT", StringComparison.OrdinalIgnoreCase))
+                {
+                    sql += " " + wc;
+                }
+                else
+                {
+                    sql += " WHERE " + wc;
+                }
+            }
+
+            var rows = await Db.QueryAsync<MissionCardJoinedRow>(sql);
+
+            if (rows.Count == 0)
+                return new List<MissionCardModel>();
+
+            // Materialize mission models and keep a lookup by CardID (Activity is stored by CardID)
+            var byCardId = new Dictionary<long, MissionCardModel>();
+
+            foreach (var row in rows)
+            {
+                Enum.TryParse<MissionSubType>(row.SubType, ignoreCase: true, out var subType);
+
+                var model = new MissionCardModel
+                {
+                    Id = row.MissionCardID,
+                    CardID = row.CardID,
+
+                    Title = row.Title ?? "",
+                    Tags = row.Tags ?? "",
+
+                    Status = row.Status ?? "",
+                    Description = row.Description ?? "",
+                    SubType = subType,
+
+                    Value = row.Value,
+                    ValuePerMinute = row.ValuePerMinute,
+
+                    CreatedDate = ParseIsoDateTime(row.CreatedDate),
+                    AvailableFromDate = ParseIsoDateTime(row.AvailableFromDate),
+                    DueDate = ParseIsoDateTime(row.DueDate),
+
+                    // We'll restore IsComplete via Complete()/Fail() below.
+                    CompletedDate = null,
+
+                    EventDate = string.IsNullOrWhiteSpace(row.EventDate) ? (DateTime?)null : ParseIsoDateTime(row.EventDate),
+
+                    EstCompletionTime = StringToTimeSpan(row.EstCompletionTimeText),
+
+                    // We'll restore IsFailed via Fail() below if needed.
+                    IsFailed = row.IsFailed != 0,
+
+                    Activity = new List<ActivityModel>()
+                };
+
+                // Restore completion state correctly (IsComplete has a private setter)
+                if (!string.IsNullOrWhiteSpace(row.CompletedDate))
+                {
+                    var completedAt = ParseIsoDateTime(row.CompletedDate!);
+
+                    if (row.IsFailed != 0)
+                        model.Fail(completedAt);
+                    else
+                        model.Complete(completedAt);
+                }
+
+                byCardId[row.CardID] = model;
+            }
+
+            // Load all Activity rows in one go
+            var cardIds = byCardId.Keys.ToList();
+            var placeholders = string.Join(", ", Enumerable.Repeat("?", cardIds.Count));
+
+            var actSql = $@"
+                SELECT
+                    ActivityID       AS ActivityID,
+                    CardID           AS CardID,
+                    Start            AS Start,
+                    ""End""          AS End,
+                    ValueRateName    AS ValueRateName,
+                    ValuePerMinute   AS ValuePerMinute
+                FROM Activity
+                WHERE CardID IN ({placeholders})
+                ORDER BY CardID, Start;
+            ";
+
+            var actRows = await Db.QueryAsync<ActivityRow>(actSql, cardIds.Cast<object>().ToArray());
+
+            foreach (var a in actRows)
+            {
+                if (!byCardId.TryGetValue(a.CardID, out var mission))
+                    continue;
+
+                mission.Activity.Add(ActivityMapper.ToModel(a, ParseIsoDateTime));
+            }
+
+            // Return in the same order as the base query result set // (Dictionary doesn't preserve ordering reliably).
+            var result = new List<MissionCardModel>(rows.Count);
+            foreach (var row in rows) result.Add(byCardId[row.CardID]);
+
+            return result;
+        }
+
+        #endregion
+
+        #region Trackers
+
+        private sealed class TrackerValueRow
+        {
+            public int TrackerValueID { get; set; }
+            public long CardID { get; set; }
+            public string TimeStamp { get; set; } = "";
+            public double Value { get; set; }
+        }
+
+        #region Value Trackers
+
+        private sealed class ValueTrackerJoinedRow
+        {
+            public int ValueTrackerCardID { get; set; }
+            public long CardID { get; set; }
+            public string? Title { get; set; }
+            public string? Tags { get; set; }
+
+            public string? Unit { get; set; }
+            public string CreatedDate { get; set; } = "";
+            public string RangeStart { get; set; } = "";
+
+            public int ScheduleEvery { get; set; }
+            public string? ScheduleUnit { get; set; }
         }
 
         public async Task<ValueTrackerCardModel> GetValueTrackerCardModelDataAsync(int id)
@@ -1909,75 +1948,6 @@ namespace Points.Services.Sqlite
 
             return model;
         }
-
-        private async Task<List<CardSchedule>> GetCardSchedulesData(long cardID)
-        {
-            // Load schedules
-            var scheduleRows = await Db.QueryAsync<CardScheduleRow>(
-                @"SELECT
-                      ScheduleID   AS ScheduleID,
-                      CardID       AS CardID,
-                      FrequencyType AS FrequencyType,
-                      FrequencyValue AS FrequencyValue,
-                      FromDateTime AS FromDateTime,
-                      ToDateTime   AS ToDateTime,
-                      IsEnabled    AS IsEnabled,
-                      Note         AS Note
-                  FROM CardSchedule
-                  WHERE CardID = ?
-                  ORDER BY datetime(FromDateTime);",
-                            cardID);
-
-            var scheduleModels = scheduleRows.Select(r =>
-            {
-                Enum.TryParse<FrequencyType>(r.FrequencyType ?? "", out var ft);
-
-                return new CardSchedule
-                {
-                    ScheduleId = r.ScheduleID,
-                    CardId = r.CardID,
-                    FrequencyType = ft,
-                    FrequencyValue = r.FrequencyValue,
-                    FromDateTime = ParseIso(r.FromDateTime),
-                    ToDateTime = string.IsNullOrWhiteSpace(r.ToDateTime) ? null : ParseIso(r.ToDateTime),
-                    IsEnabled = r.IsEnabled != 0,
-                    Note = r.Note ?? ""
-                };
-            }).ToList();
-
-            return scheduleModels;
-        }
-
-        public async Task<CardSchedule?> GetCardScheduleByIdAsync(long scheduleId)
-        {
-            await InitializeAsync();
-
-            var rows = await Db.QueryAsync<CardScheduleRow>(
-                @"SELECT ScheduleId, CardId, IsEnabled, Note, FrequencyType, FrequencyValue, FromDateTime, ToDateTime
-                  FROM CardSchedule
-                  WHERE ScheduleId = ?",
-                scheduleId);
-
-            var row = rows.FirstOrDefault();
-            return row == null ? null : CardScheduleMapper.ToDomain(row);
-        }
-
-
-        public async Task<string?> GetCardTitleByIdAsync(long cardId)
-        {
-            await InitializeAsync();
-
-            var rows = await Db.QueryAsync<CardTitle>(
-                @"SELECT  Title
-                  FROM Card
-                  WHERE CardId = ?",
-                cardId);
-
-            var row = rows.FirstOrDefault();
-            return row?.Title ?? "";
-        }
-
-        public class CardTitle { public string Title { get; set; } };
 
         public async Task<List<ValueTrackerCardModel>> GetValueTrackerCardModelsDataAsync(string whereClause = null)
         {
@@ -2063,21 +2033,10 @@ namespace Points.Services.Sqlite
         }
 
 
-        private sealed class ValueTrackerJoinedRow
-        {
-            public int ValueTrackerCardID { get; set; }
-            public long CardID { get; set; }
-            public string? Title { get; set; }
-            public string? Tags { get; set; }
 
-            public string? Unit { get; set; }
-            public string CreatedDate { get; set; } = "";
-            public string RangeStart { get; set; } = "";
+        #endregion
 
-            public int ScheduleEvery { get; set; }
-            public string? ScheduleUnit { get; set; }
-        }
-
+        #region Event Trackers
         private sealed class EventTrackerJoinedRow
         {
             public int EventTrackerCardID { get; set; }
@@ -2090,14 +2049,6 @@ namespace Points.Services.Sqlite
             public string RangeStart { get; set; } = "";
 
             public string? GroupByPeriod { get; set; }
-        }
-
-        private sealed class TrackerValueRow
-        {
-            public int TrackerValueID { get; set; }
-            public long CardID { get; set; }
-            public string TimeStamp { get; set; } = "";
-            public double Value { get; set; }
         }
 
         public async Task<EventTrackerCardModel> GetEventTrackerCardModelDataAsync(int id)
@@ -2230,6 +2181,67 @@ namespace Points.Services.Sqlite
             return models;
         }
 
+        #endregion
+
+        #endregion
+
+        #region Card Schedules
+
+        private async Task<List<CardSchedule>> GetCardSchedulesData(long cardID)
+        {
+            // Load schedules
+            var scheduleRows = await Db.QueryAsync<CardScheduleRow>(
+                @"SELECT
+                      ScheduleID   AS ScheduleID,
+                      CardID       AS CardID,
+                      FrequencyType AS FrequencyType,
+                      FrequencyValue AS FrequencyValue,
+                      FromDateTime AS FromDateTime,
+                      ToDateTime   AS ToDateTime,
+                      IsEnabled    AS IsEnabled,
+                      Note         AS Note
+                  FROM CardSchedule
+                  WHERE CardID = ?
+                  ORDER BY datetime(FromDateTime);",
+                            cardID);
+
+            var scheduleModels = scheduleRows.Select(r =>
+            {
+                Enum.TryParse<FrequencyType>(r.FrequencyType ?? "", out var ft);
+
+                return new CardSchedule
+                {
+                    ScheduleId = r.ScheduleID,
+                    CardId = r.CardID,
+                    FrequencyType = ft,
+                    FrequencyValue = r.FrequencyValue,
+                    FromDateTime = ParseIso(r.FromDateTime),
+                    ToDateTime = string.IsNullOrWhiteSpace(r.ToDateTime) ? null : ParseIso(r.ToDateTime),
+                    IsEnabled = r.IsEnabled != 0,
+                    Note = r.Note ?? ""
+                };
+            }).ToList();
+
+            return scheduleModels;
+        }
+
+        public async Task<CardSchedule?> GetCardScheduleByIdAsync(long scheduleId)
+        {
+            await InitializeAsync();
+
+            var rows = await Db.QueryAsync<CardScheduleRow>(
+                @"SELECT ScheduleId, CardId, IsEnabled, Note, FrequencyType, FrequencyValue, FromDateTime, ToDateTime
+                  FROM CardSchedule
+                  WHERE ScheduleId = ?",
+                scheduleId);
+
+            var row = rows.FirstOrDefault();
+            return row == null ? null : CardScheduleMapper.ToDomain(row);
+        }
+
+        #endregion
+
+        #region Planner Goals
 
         public async Task<List<PlannerGoalDetailsModel>> GetPlannerModelsDataAsync()
         {
@@ -2263,7 +2275,6 @@ namespace Points.Services.Sqlite
             }).ToList();
         }
 
-
         private sealed class PlannerGoalRow
         {
             public long CardID { get; set; }
@@ -2274,8 +2285,420 @@ namespace Points.Services.Sqlite
             public string? DeFactoEnd { get; set; }
         }
 
-        private static string? ToDbTimeOnly(TimeOnly? t) => t?.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+        #endregion
 
+        #region Activity
+
+        public async Task<Tuple<DateTime, DateTime>> GetPreviousAndNextActivePeriodDateTimes(DateTime current)
+        {
+            var currentIso = current.ToString("o");
+
+
+            var sql = @"
+                SELECT
+                    (
+                        SELECT ""End""
+                        FROM Activity
+                        WHERE ""End"" <> ?
+                          AND datetime(""End"") < datetime(?)
+                        ORDER BY datetime(""End"") DESC
+                        LIMIT 1
+                    ) AS PreviousEnd,
+                    (
+                        SELECT Start
+                        FROM Activity
+                        WHERE datetime(Start) > datetime(?)
+                        ORDER BY datetime(Start) ASC
+                        LIMIT 1
+                    ) AS NextStart;
+            ";
+
+            var rows = await Db.QueryAsync<AdjacentActivityDatesRow>(
+                sql,
+                null,
+                currentIso,
+                currentIso
+            );
+
+            var row = rows.FirstOrDefault();
+
+            var previous = row?.PreviousEnd != null
+                ? DateTime.Parse(row.PreviousEnd, null, System.Globalization.DateTimeStyles.RoundtripKind)
+                : DateTime.MinValue;
+
+            var next = row?.NextStart != null
+                ? DateTime.Parse(row.NextStart, null, System.Globalization.DateTimeStyles.RoundtripKind)
+                : DateTime.MaxValue;
+
+            return Tuple.Create(previous, next);
+        }
+
+        public async Task<ActivityModel?> GetCurrentActiveActivityAsync()
+        {
+            await InitializeAsync();
+
+            var row = await GetCurrentActiveRowAsync(); // private row-level method
+
+            if (row == null)
+                return null;
+
+            return ActivityMapper.ToModel(row, ParseIsoDateTime);
+        }
+
+        private async Task<ActivityRow?> GetCurrentActiveRowAsync()
+        {
+            await InitializeAsync();
+
+            const string sql = @"
+                SELECT ActivityID, CardID, Start, ""End"", ValueRateName, ValuePerMinute
+                FROM Activity
+                WHERE ""End"" IS NULL
+                ORDER BY Start DESC
+                LIMIT 1;
+            ";
+
+            var rows = await Db.QueryAsync<ActivityRow>(sql);
+            var row = rows.FirstOrDefault();
+
+            if (row == null)
+                return null;
+
+            // Defensive: if DB NULL was mapped into End, normalize to empty string for now.
+            row.End ??= "";
+
+            return row;
+        }
+
+        private sealed class AdjacentActivityDatesRow
+        {
+            public string? PreviousEnd { get; set; }
+            public string? NextStart { get; set; }
+        }
+
+        private sealed class ActivityRow
+        {
+            public int ActivityID { get; set; }
+            public long CardID { get; set; }
+
+            // Stored as TEXT (ISO-8601)
+            public string Start { get; set; } = "";
+            public string? End { get; set; }
+            public string ValueRateName { get; set; } = "";
+
+            public double ValuePerMinute { get; set; }
+        }
+
+        private static class ActivityMapper
+        {
+            public static ActivityModel ToModel(ActivityRow row, Func<string, DateTime> parseIsoDateTime)
+            {
+                if (row == null) throw new ArgumentNullException(nameof(row));
+                if (string.IsNullOrWhiteSpace(row.Start))
+                    throw new InvalidOperationException("ActivityRow.Start is required.");
+
+                // End is NULL for open; also treat whitespace as open to be resilient to legacy data
+                DateTime? end = null;
+                if (!string.IsNullOrWhiteSpace(row.End))
+                    end = parseIsoDateTime(row.End!);
+
+                return new ActivityModel
+                {
+                    Id = row.ActivityID,
+                    CardID = row.CardID,
+                    StartDate = parseIsoDateTime(row.Start),
+                    EndDate = end,
+                    RateName = row.ValueRateName ?? "",
+                    ValuePerMinute = row.ValuePerMinute
+                };
+            }
+        }
+
+        /* Toggle Activity */
+
+        public async Task<ToggleActivityModelResult> ToggleActivityAsync(long cardId, DateTime utcNow, string valueRateName, double valuePerMinute)
+        {
+            // Call the internal row-level method
+            var rowResult = await ToggleActivityInternalAsync(cardId, utcNow, valueRateName, valuePerMinute);
+
+            return new ToggleActivityModelResult
+            {
+                Closed = rowResult.Closed != null
+                    ? ActivityMapper.ToModel(rowResult.Closed, ParseIsoDateTime)
+                    : null,
+
+                Opened = rowResult.Opened != null
+                    ? ActivityMapper.ToModel(rowResult.Opened, ParseIsoDateTime)
+                    : null
+            };
+        }
+
+        private async Task<ToggleActivityRowResult> ToggleActivityInternalAsync(long cardId, DateTime utcNow, string valueRateName, double valuePerMinute)
+        {
+            await InitializeAsync();
+
+            var nowIso = DateTime.SpecifyKind(utcNow, DateTimeKind.Utc).ToString("o");
+
+            ActivityRow? closed = null;
+            ActivityRow? opened = null;
+
+            await Db.RunInTransactionAsync(tran =>
+            {
+                // 1) Fetch current open activity (at most one due to UX_Activity_OneOpen)
+                closed = tran.Query<ActivityRow>(@"
+                    SELECT
+                        ActivityID       AS ActivityID,
+                        CardID           AS CardID,
+                        Start            AS Start,
+                        ""End""          AS End,
+                        ValueRateName    AS ValueRateName,
+                        ValuePerMinute   AS ValuePerMinute
+                    FROM Activity
+                    WHERE ""End"" IS NULL
+                    ORDER BY Start DESC
+                    LIMIT 1;
+                ").FirstOrDefault();
+
+                // 2) If there's an open activity, close it
+                if (closed != null)
+                {
+                    tran.Execute(@"
+                        UPDATE Activity
+                        SET ""End"" = ?
+                        WHERE ActivityID = ?;
+                    ", nowIso, closed.ActivityID);
+
+                    // reflect in returned row
+                    closed.End = nowIso;
+
+                    // If it's the same card, we stop here (toggle off)
+                    if (closed.CardID == cardId)
+                        return;
+                }
+
+                // 3) Otherwise open a new activity for cardId
+                // (If a different card was open, we closed it above.)
+                tran.Execute(@"
+                    INSERT INTO Activity (CardID, Start, ""End"", ValueRateName, ValuePerMinute)
+                    VALUES (?, ?, NULL, ?, ?);
+                ", cardId, nowIso, valueRateName, valuePerMinute);
+
+                // Get inserted row id and return the full row
+                var newId = tran.ExecuteScalar<long>("SELECT last_insert_rowid();");
+
+                opened = new ActivityRow
+                {
+                    ActivityID = (int)newId,
+                    CardID = cardId,
+                    Start = nowIso,
+                    End = null,
+                    ValueRateName = valueRateName ?? "",
+                    ValuePerMinute = valuePerMinute
+                };
+            });
+
+            return new ToggleActivityRowResult { Closed = closed, Opened = opened };
+        }
+
+        public sealed class ToggleActivityModelResult
+        {
+            public ActivityModel? Closed { get; init; }
+            public ActivityModel? Opened { get; init; }
+        }
+
+        private sealed class ToggleActivityRowResult
+        {
+            public ActivityRow? Closed { get; init; }
+            public ActivityRow? Opened { get; init; }
+        }
+
+        /* UPSERT */
+
+        private static bool Overlaps(string aStart, string? aEnd, string bStart, string? bEnd)
+        {
+            // overlap if:
+            // aStart < bEnd (or bEnd is null)
+            // and bStart < aEnd (or aEnd is null)
+            return (bEnd == null || string.CompareOrdinal(aStart, bEnd) < 0)
+                && (aEnd == null || string.CompareOrdinal(bStart, aEnd) < 0);
+        }
+
+        private static bool HasInternalOverlap(List<ActivityModel> activities)
+        {
+            var ordered = activities
+                .OrderBy(a => a.StartDate)
+                .ToList();
+
+            for (int i = 0; i < ordered.Count - 1; i++)
+            {
+                var a = ordered[i];
+                var b = ordered[i + 1];
+
+                var aStart = DateTime.SpecifyKind(a.StartDate, DateTimeKind.Utc).ToString("o");
+                var aEnd = a.EndDate.HasValue ? DateTime.SpecifyKind(a.EndDate.Value, DateTimeKind.Utc).ToString("o") : null;
+
+                var bStart = DateTime.SpecifyKind(b.StartDate, DateTimeKind.Utc).ToString("o");
+                var bEnd = b.EndDate.HasValue ? DateTime.SpecifyKind(b.EndDate.Value, DateTimeKind.Utc).ToString("o") : null;
+
+                if (Overlaps(aStart, aEnd, bStart, bEnd))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public sealed class ActivityUpdateResult
+        {
+            public bool Success { get; init; }
+            public string Message { get; init; } = "";
+        }
+
+        public async Task<ActivityUpdateResult> UpsertActivitiesAsync(List<ActivityModel> activities)
+        {
+            await InitializeAsync();
+
+            if (activities == null) throw new ArgumentNullException(nameof(activities));
+            if (activities.Count == 0)
+                return new ActivityUpdateResult { Success = true, Message = "Activities updated." };
+
+            // 1) Incoming overlap check
+            if (HasInternalOverlap(activities))
+            {
+                return new ActivityUpdateResult
+                {
+                    Success = false,
+                    Message = "Overlapping Activities cannot be written to the database"
+                };
+            }
+
+            try
+            {
+                await Db.RunInTransactionAsync(tran =>
+                {
+                    // TEMP table for incoming set
+                    tran.Execute(@"
+                        CREATE TEMP TABLE IF NOT EXISTS _IncomingActivity (
+                            ActivityID     INTEGER NULL,
+                            CardID         INTEGER NOT NULL,
+                            Start          TEXT    NOT NULL,
+                            ""End""        TEXT    NULL,
+                            ValueRateName  TEXT    NOT NULL,
+                            ValuePerMinute REAL    NOT NULL
+                        );
+                    ");
+                    tran.Execute("DELETE FROM _IncomingActivity;");
+
+                    // Fill temp table
+                    foreach (var a in activities)
+                    {
+                        var startIso = DateTime.SpecifyKind(a.StartDate, DateTimeKind.Utc).ToString("o");
+                        var endIso = a.EndDate.HasValue
+                            ? DateTime.SpecifyKind(a.EndDate.Value, DateTimeKind.Utc).ToString("o")
+                            : null;
+
+                        tran.Execute(@"
+                            INSERT INTO _IncomingActivity (ActivityID, CardID, Start, ""End"", ValueRateName, ValuePerMinute)
+                            VALUES (?, ?, ?, ?, ?, ?);
+                        ",
+                        a.Id > 0 ? a.Id : (object?)null,
+                        a.CardID,
+                        startIso,
+                        endIso,
+                        a.RateName ?? "",
+                        a.ValuePerMinute);
+                    }
+
+                    // 2) Forbidden overlap check:
+                    // Find any DB activity that overlaps an incoming activity
+                    // where the DB activity is NOT part of the incoming update set.
+                    //
+                    // overlap rule:
+                    // db.Start < incoming.End OR incoming.End IS NULL
+                    // AND incoming.Start < db.End OR db.End IS NULL
+                    //
+                    // and ensure DB row not in incoming IDs
+                    var forbidden = tran.ExecuteScalar<long?>(@"
+                        SELECT db.ActivityID
+                        FROM Activity db
+                        JOIN _IncomingActivity inc
+                          ON db.CardID = inc.CardID
+                         AND (
+                              (inc.""End"" IS NULL OR db.Start < inc.""End"")
+                              AND
+                              (db.""End"" IS NULL OR inc.Start < db.""End"")
+                         )
+                        WHERE db.ActivityID NOT IN (
+                            SELECT ActivityID FROM _IncomingActivity WHERE ActivityID IS NOT NULL
+                        )
+                        LIMIT 1;
+                    ");
+
+                    if (forbidden != null)
+                        throw new InvalidOperationException("Cannot overlap with existing Activities in the database.");
+
+                    // 3) Apply upserts (update existing, insert new)
+                    foreach (var a in activities)
+                    {
+                        var startIso = DateTime.SpecifyKind(a.StartDate, DateTimeKind.Utc).ToString("o");
+                        var endIso = a.EndDate.HasValue
+                            ? DateTime.SpecifyKind(a.EndDate.Value, DateTimeKind.Utc).ToString("o")
+                            : null;
+
+                        if (a.Id > 0)
+                        {
+                            tran.Execute(@"
+                                UPDATE Activity
+                                SET CardID = ?,
+                                    Start = ?,
+                                    ""End"" = ?,
+                                    ValueRateName = ?,
+                                    ValuePerMinute = ?
+                                WHERE ActivityID = ?;
+                            ",
+                                    a.CardID, startIso, endIso, a.RateName ?? "", a.ValuePerMinute, a.Id);
+                        }
+                        else
+                        {
+                            tran.Execute(@"
+                                INSERT INTO Activity (CardID, Start, ""End"", ValueRateName, ValuePerMinute)
+                                VALUES (?, ?, ?, ?, ?);
+                            ",
+                    a.CardID, startIso, endIso, a.RateName ?? "", a.ValuePerMinute);
+
+                            // Optional: if you want to write IDs back into the passed objects:
+                            // a.Id = (int)tran.ExecuteScalar<long>("SELECT last_insert_rowid();");
+                        }
+                    }
+                });
+
+                return new ActivityUpdateResult { Success = true, Message = "Activities updated." };
+            }
+            catch (InvalidOperationException ex)
+            {
+                return new ActivityUpdateResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        #endregion
+
+        #region Common Classes and Methods
+
+        public async Task<string?> GetCardTitleByIdAsync(long cardId)
+        {
+            await InitializeAsync();
+
+            var rows = await Db.QueryAsync<CardTitle>(
+                @"SELECT  Title
+                  FROM Card
+                  WHERE CardId = ?",
+                cardId);
+
+            var row = rows.FirstOrDefault();
+            return row?.Title ?? "";
+        }
+
+        public class CardTitle { public string Title { get; set; } };
+
+        private static string? ToDbTimeOnly(TimeOnly? t) => t?.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
         private static TimeOnly? ParseNullableTimeOnly(string? s)
         {
@@ -2293,11 +2716,156 @@ namespace Points.Services.Sqlite
             return TimeOnly.Parse(s, CultureInfo.InvariantCulture);
         }
 
+        private TimeSpan? StringToTimeSpan(string? estCompletionTimeText)
+        {
+            if (string.IsNullOrEmpty(estCompletionTimeText)) return null;
 
+            var parts = estCompletionTimeText.Split(':');
+
+            var hours = parts[0];
+            var minutes = parts[1];
+            var seconds = parts[2];
+
+            int hoursInt = int.Parse(hours);
+            var minutesInt = int.Parse(minutes);
+            var secondsInt = int.Parse(seconds);
+
+            return new TimeSpan(hoursInt, minutesInt, secondsInt);
+        }
+
+        private static DateTime ParseIsoDateTime(string value) => DateTime.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);
+
+        public sealed class PragmaTableInfo
+        {
+            public int cid { get; set; }
+            public string name { get; set; } = "";
+            public string type { get; set; } = "";
+            public int notnull { get; set; }
+            public string? dflt_value { get; set; }
+            public int pk { get; set; }
+        }
+
+        #endregion
 
         #endregion
 
         #region Write
+
+        #region Card Save
+        //Card
+        public async Task SaveCardModelAsync(ICardModel model)
+        {
+            await SaveCardModelsAsync(new List<ICardModel>() { model });
+        }
+
+        public async Task SaveCardModelsAsync(List<ICardModel> models)
+        {
+            foreach (var model in models)
+            {
+                //Check if model has CardID and that CardID exists in the DB already
+                long? cardId = await CheckForCardID(model);
+
+                if (cardId == null)
+                {
+                    // Insert a base Card
+                    await Db.ExecuteAsync("INSERT INTO Card (Title, Tags) VALUES (?, ?);", model.Title, model.Tags);
+
+                    // Get the new CardID
+                    cardId = await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                }
+                else
+                {
+                    await Db.ExecuteAsync("UPDATE Card SET Title = ?, Tags = ? WHERE CardID = ?", model.Title, model.Tags, cardId);
+                }
+
+                if (model is ScCardModel sc)
+                {
+                    await SaveScModelDataAsync(sc, cardId.Value);
+                }
+                else if (model is TatCardModel tat)
+                {
+                    await SaveTatModelDataAsync(tat, cardId.Value);
+                }
+                else if (model is MissionCardModel mcm)
+                {
+                    await SaveMissionCardModelDataAsync(mcm, cardId.Value);
+                }
+                else if (model is BudgetCardModel bcm)
+                {
+                    await SaveBudgetCardModelDataAsync(bcm, cardId.Value);
+                }
+                else if (model is AchievementCardModel acm)
+                {
+                    await SaveAchievementCardModelDataAsync(acm, cardId.Value);
+                }
+                else if (model is ValueTrackerCardModel vtc)
+                {
+                    await SaveValueTrackerCardModelDataAsync(vtc, cardId.Value);
+                }
+                else if (model is EventTrackerCardModel etc)
+                {
+                    await SaveEventTrackerCardModelDataAsync(etc, cardId.Value);
+                }
+
+            }
+        }
+
+        private async Task<long?> CheckForCardID(ICardModel model)
+        {
+            if (model is ScCardModel sc)
+            {
+                var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM ScCard WHERE ScCardID = ? LIMIT 1", model.Id);
+
+                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
+
+            }
+            else if (model is TatCardModel tat)
+            {
+                var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM TatCard WHERE TatCardID  = ? LIMIT 1", model.Id);
+
+                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
+            }
+            else if (model is MissionCardModel mcm)
+            {
+                var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM MissionCard WHERE MissionCardID = ? LIMIT 1", model.Id);
+
+                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
+            }
+            else if (model is BudgetCardModel bcm)
+            {
+                var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM BudgetCard WHERE BudgetCardID = ? LIMIT 1", model.Id);
+
+                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
+            }
+            else if (model is AchievementCardModel acm)
+            {
+                var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM AchievementCard WHERE AchievementCardID = ? LIMIT 1", model.Id);
+
+                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
+            }
+            else if (model is ValueTrackerCardModel vtc)
+            {
+                var ids = await Db.QueryScalarsAsync<long>(
+                    "SELECT CardID FROM ValueTrackerCard WHERE ValueTrackerCardID = ? LIMIT 1",
+                    model.Id);
+
+                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
+            }
+            else if (model is EventTrackerCardModel etc)
+            {
+                var ids = await Db.QueryScalarsAsync<long>(
+                    "SELECT CardID FROM EventTrackerCard WHERE EventTrackerCardID = ? LIMIT 1",
+                    model.Id);
+
+                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
+            }
+
+            return null;
+        }
+
+        #endregion
+
+        #region Achievements
         public async Task SaveAchievementCardModelDataAsync(AchievementCardModel acm, long cardId)
         {
             await InitializeAsync();
@@ -2528,10 +3096,7 @@ namespace Points.Services.Sqlite
             );
         }
 
-        private static bool PrerequisiteSatisfied(
-            string fileName,
-            HashSet<string> earnableFiles,
-            HashSet<string> earnedFiles)
+        private static bool PrerequisiteSatisfied(string fileName, HashSet<string> earnableFiles, HashSet<string> earnedFiles)
         {
             // Find the *longest* suffix that:
             //  - starts immediately after an underscore
@@ -2562,7 +3127,9 @@ namespace Points.Services.Sqlite
             return earnedFiles.Contains(prerequisite);
         }
 
+        #endregion
 
+        #region Budgets
 
         //Budget
         private async Task SaveBudgetCardModelDataAsync(BudgetCardModel model, long cardId)
@@ -2641,125 +3208,10 @@ namespace Points.Services.Sqlite
             public int TimeOfDaySeconds { get; set; }
         }
 
-        //Card
-        public async Task SaveCardModelAsync(ICardModel model)
-        {
-            await SaveCardModelsAsync(new List<ICardModel>() { model });
-        }
 
-        public async Task SaveCardModelsAsync(List<ICardModel> models)
-        {
-            //if (models.OfType<IActiveCardModel>().Count() > 0 && models.Cast<IActiveCardModel>().Where(x => x.IsActive).Count() > 0)
-            //{
-            //    await CloseAnyOpenActivitiesAsync();
-            //}
+        #endregion
 
-            foreach (var model in models)
-            {
-                //Check if model has CardID and that CardID exists in the DB already
-                long? cardId = await CheckForCardID(model);
-
-                if(cardId == null)
-                {
-                    // Insert a base Card
-                    await Db.ExecuteAsync("INSERT INTO Card (Title, Tags) VALUES (?, ?);", model.Title, model.Tags);
-
-                    // Get the new CardID
-                    cardId = await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
-                }
-                else
-                {
-                    await Db.ExecuteAsync("UPDATE Card SET Title = ?, Tags = ? WHERE CardID = ?", model.Title, model.Tags, cardId);
-                }
-
-                if (model is ScCardModel sc)
-                {
-                    await SaveScModelDataAsync(sc, cardId.Value);
-                }
-                else if (model is TatCardModel tat)
-                {
-                    await SaveTatModelDataAsync(tat, cardId.Value);
-                }
-                else if (model is MissionCardModel mcm)
-                {
-                    await SaveMissionCardModelDataAsync(mcm, cardId.Value);
-                }
-                else if (model is BudgetCardModel bcm)
-                {
-                    await SaveBudgetCardModelDataAsync(bcm, cardId.Value);
-                }
-                else if (model is AchievementCardModel acm)
-                {
-                    await SaveAchievementCardModelDataAsync(acm, cardId.Value);
-                }
-                else if (model is ValueTrackerCardModel vtc)
-                {
-                    await SaveValueTrackerCardModelDataAsync(vtc, cardId.Value);
-                }
-                else if (model is EventTrackerCardModel etc)
-                {
-                    await SaveEventTrackerCardModelDataAsync(etc, cardId.Value);
-                }
-
-            }
-        }
-
-        private async Task<long?> CheckForCardID(ICardModel model)
-        {
-            if (model is ScCardModel sc)
-            {
-                var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM ScCard WHERE ScCardID = ? LIMIT 1", model.Id);
-
-                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
-
-            }
-            else if (model is TatCardModel tat)
-            {
-                var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM TatCard WHERE TatCardID  = ? LIMIT 1", model.Id);
-
-                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
-            }
-            else if (model is MissionCardModel mcm)
-            {
-                var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM MissionCard WHERE MissionCardID = ? LIMIT 1", model.Id);
-
-                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
-            }
-            else if (model is BudgetCardModel bcm)
-            {
-                var ids = await Db.QueryScalarsAsync<long> ("SELECT CardID FROM BudgetCard WHERE BudgetCardID = ? LIMIT 1", model.Id);
-
-                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
-            }
-            else if (model is AchievementCardModel acm)
-            {
-                var ids = await Db.QueryScalarsAsync<long>("SELECT CardID FROM AchievementCard WHERE AchievementCardID = ? LIMIT 1", model.Id);
-
-                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
-            }
-            else if (model is ValueTrackerCardModel vtc)
-            {
-                var ids = await Db.QueryScalarsAsync<long>(
-                    "SELECT CardID FROM ValueTrackerCard WHERE ValueTrackerCardID = ? LIMIT 1",
-                    model.Id);
-
-                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
-            }
-            else if (model is EventTrackerCardModel etc)
-            {
-                var ids = await Db.QueryScalarsAsync<long>(
-                    "SELECT CardID FROM EventTrackerCard WHERE EventTrackerCardID = ? LIMIT 1",
-                    model.Id);
-
-                return ids.FirstOrDefault() == 0 ? (long?)null : ids.First();
-            }
-
-            return null;
-        }
-
-        // =========================
-        // New Methods
-        // =========================
+        #region SC Cards
 
         // This should Add a new entity to the ScCardStepRep table for the ScCardStepID
         public async Task AddRepForStep(int scCardStepID, DateTime repTime, double stepValue)
@@ -2800,136 +3252,58 @@ namespace Points.Services.Sqlite
                 ts);
         }
 
-        // This should add an entity in the Activity table.
-        // Since the app doesn't know CardID, we resolve it from the typed model.Id and type.
-        //public async Task<int> AddActivity(IActiveCardModel model, DateTime startTime)
-        //{
-        //    if (model == null) throw new ArgumentNullException(nameof(model));
 
-        //    var cardId = await ResolveCardIdForActivityModel(model);
-
-        //    string rateName = "Base Rate";
-        //    double valuePerMinuteToUse = model.ValuePerMinute;
-
-        //    if(model is TatCardModel tat && tat.SelectedValueRateModel != null)
-        //    {
-        //        rateName = tat.SelectedValueRateModel.RateName;
-        //        valuePerMinuteToUse = tat.SelectedValueRateModel.ValuePerMinute;
-        //    }
-
-        //    // Activity.End is NOT NULL in your schema, so we write End=start initially.
-        //    await Db.ExecuteAsync(
-        //        @"INSERT INTO Activity (CardID, Start, ""End"", ValueRateName, ValuePerMinute) VALUES (?, ?, ?, ?, ?);",
-        //        cardId,
-        //        startTime.ToString("o"),
-        //        DateTime.MinValue.ToString("o"),
-        //        rateName,
-        //        valuePerMinuteToUse);
-
-        //    var activityId = await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
-        //    return (int)activityId;
-        //}
-
-        //// As with AddActivity, find the CardID then end the current open activity slice.
-        //public async Task EndActivity(IActiveCardModel model, DateTime endTime)
-        //{
-        //    if (model == null) throw new ArgumentNullException(nameof(model));
-
-        //    var cardId = await ResolveCardIdForActivityModel(model);
-
-        //    // Prefer an "open" activity where End==Start (how Save* currently tends to create them).
-        //    // If none found, fall back to the most recent activity row.
-        //    var activityId = await Db.ExecuteScalarAsync<long?>(
-        //        @"SELECT ActivityID
-        //          FROM Activity
-        //          WHERE CardID = ?
-        //            AND (""End"" = Start OR ""End"" = '' OR ""End"" IS NULL)
-        //          ORDER BY Start DESC
-        //          LIMIT 1;",
-        //        cardId);
-
-        //    if (activityId == null)
-        //    {
-        //        activityId = await Db.ExecuteScalarAsync<long?>(
-        //            @"SELECT ActivityID
-        //              FROM Activity
-        //              WHERE CardID = ?
-        //              ORDER BY Start DESC
-        //              LIMIT 1;",
-        //            cardId);
-        //    }
-
-        //    if (activityId == null)
-        //        return; // nothing to end
-
-        //    await Db.ExecuteAsync(
-        //        @"UPDATE Activity
-        //          SET ""End"" = ?
-        //          WHERE ActivityID = ?;",
-        //        endTime.ToString("o"),
-        //        activityId.Value);
-
-        //    await CloseAnyOpenActivitiesAsync();
-        //}
-
-        private static DateTime ParseIsoToUtcDateTime(string iso)
+        //SC
+        private async Task SaveScModelDataAsync(ScCardModel model, long cardId)
         {
-            // Round-trip parse (handles offsets properly)
-            var dto = DateTimeOffset.Parse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind);
-            return dto.UtcDateTime;
+            if (model.Id == 0)
+            {
+                // Insert the “typed” row (e.g. ScCard)
+                await Db.ExecuteAsync(
+                    "INSERT INTO ScCard (CardID, Status, Description) VALUES (?, ?, ?);",
+                    cardId, model.Status, model.Description);
+
+                model.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+            }
+            else
+            {
+                await Db.ExecuteAsync(
+                    "UPDATE ScCard SET Status = ?, Description = ? WHERE CardID = ?",
+                    model.Status, model.Description, cardId);
+            }
+
+            foreach (var step in model.Steps)
+            {
+                if (step.Id == 0)
+                {
+                    await Db.ExecuteAsync(
+                        "INSERT INTO ScCardStep (ScCardID, SortOrder, Title, StepValue) VALUES (?, ?, ?, ?);",
+                        model.Id, step.SortOrder, step.Title, step.StepValue);
+
+                    step.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                }
+                else
+                {
+                    await Db.ExecuteAsync(
+                        "UPDATE ScCardStep SET SortOrder = ?, Title = ?, StepValue = ? WHERE ScCardStepID = ?",
+                        step.SortOrder, step.Title, step.StepValue, step.Id);
+                }
+
+                const string insertRepSql = @"INSERT OR IGNORE INTO ScCardStepRep (ScCardStepID, TimeStamp, StepValue) VALUES (?, ?, ?);";
+
+                foreach (var rep in step.Reps)
+                {
+                    await Db.ExecuteAsync(insertRepSql, step.Id, rep.ToString("o"), step.StepValue);
+                }
+
+            }
+
+            await SaveCardSchedules(cardId, model.Schedules);
         }
 
-        // -------------------------
-        // Helper: resolve CardID from typed model.Id
-        // -------------------------
-        private async Task<long> ResolveCardIdForActivityModel(IActiveCardModel model)
-        {
-            // model.Id is the "typed" ID (TatCardID / ScCardID / MissionCardID / etc.)
-            // We map type -> table -> CardID.
-            //
-            // Add/remove cases to match whatever cards in your app actually support activity.
+        #endregion
 
-            if (model is ScCardModel)
-            {
-                return await Db.ExecuteScalarAsync<long>(
-                    @"SELECT CardID FROM ScCard WHERE ScCardID = ?;",
-                    model.Id);
-            }
-
-            if (model is TatCardModel)
-            {
-                return await Db.ExecuteScalarAsync<long>(
-                    @"SELECT CardID FROM TatCard WHERE TatCardID = ?;",
-                    model.Id);
-            }
-
-            if (model is MissionCardModel)
-            {
-                return await Db.ExecuteScalarAsync<long>(
-                    @"SELECT CardID FROM MissionCard WHERE MissionCardID = ?;",
-                    model.Id);
-            }
-
-            if (model is BudgetCardModel)
-            {
-                return await Db.ExecuteScalarAsync<long>(
-                    @"SELECT CardID FROM BudgetCard WHERE BudgetCardID = ?;",
-                    model.Id);
-            }
-
-            if (model is AchievementCardModel)
-            {
-                return await Db.ExecuteScalarAsync<long>(
-                    @"SELECT CardID FROM AchievementCard WHERE AchievementCardID = ?;",
-                    model.Id);
-            }
-
-            throw new NotSupportedException(
-                $"Unsupported activity model type: {model.GetType().Name}. " +
-                "Add a ResolveCardIdForActivityModel(...) case for it.");
-        }
-
-
+        #region Missions
         //Mission
         private async Task SaveMissionCardModelDataAsync(MissionCardModel model, long cardId)
         {
@@ -3010,67 +3384,9 @@ namespace Points.Services.Sqlite
         }
 
 
-        //SC
-        private async Task SaveScModelDataAsync(ScCardModel model, long cardId)
-        {
-            if (model.Id == 0)
-            {
-                // Insert the “typed” row (e.g. ScCard)
-                await Db.ExecuteAsync(
-                    "INSERT INTO ScCard (CardID, Status, Description) VALUES (?, ?, ?);",
-                    cardId, model.Status, model.Description);
+        #endregion
 
-                model.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
-            }
-            else
-            {
-                await Db.ExecuteAsync(
-                    "UPDATE ScCard SET Status = ?, Description = ? WHERE CardID = ?",
-                    model.Status, model.Description, cardId);
-
-                //foreach (var act in model.Activity)
-                //{
-                //    if (act.Id == 0)
-                //    {
-                //        await Db.ExecuteAsync("INSERT INTO Activity (CardID, \"Start\", \"End\", ValueRateName, ValuePerMinute) VALUES(?, ?, ?, ?, ?)", cardId, act.StartDate.ToString("o"), act.EndDate.ToString("o"), "Base Rate", act.ValuePerMinute);
-
-                //        act.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
-                //    }
-                //    else
-                //    {
-                //        await Db.ExecuteAsync("UPDATE Activity SET \"Start\" = ? , \"End\" = ?, ValueRateName = ?, ValuePerMinute = ? WHERE ActivityID = ?", act.StartDate.ToString("o"), act.EndDate.ToString("o"), "Base Rate", act.ValuePerMinute, act.Id);
-                //    }
-                //}
-            }
-
-            foreach (var step in model.Steps)
-            {
-                if(step.Id == 0)
-                {
-                    await Db.ExecuteAsync(
-                        "INSERT INTO ScCardStep (ScCardID, SortOrder, Title, StepValue) VALUES (?, ?, ?, ?);",
-                        model.Id, step.SortOrder, step.Title, step.StepValue);
-                
-                     step.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
-                }
-                else
-                {
-                    await Db.ExecuteAsync(
-                        "UPDATE ScCardStep SET SortOrder = ?, Title = ?, StepValue = ? WHERE ScCardStepID = ?",
-                        step.SortOrder, step.Title, step.StepValue, step.Id);
-                }
-
-                const string insertRepSql = @"INSERT OR IGNORE INTO ScCardStepRep (ScCardStepID, TimeStamp, StepValue) VALUES (?, ?, ?);";
-
-                foreach (var rep in step.Reps)
-                {
-                    await Db.ExecuteAsync(insertRepSql, step.Id, rep.ToString("o"), step.StepValue);
-                }
-
-            }
-
-            await SaveCardSchedules(cardId, model.Schedules);
-        }
+        #region TAT Cards
 
         //TAT
         private async Task SaveTatModelDataAsync(TatCardModel model, long cardId)
@@ -3089,19 +3405,6 @@ namespace Points.Services.Sqlite
                 await Db.ExecuteAsync(
                     "UPDATE TatCard SET ValuePerMinute = ?, Status = ?, Description = ?, TargetActiveTimeSeconds = ? WHERE CardID = ?",
                     model.ValuePerMinute, model.Status, model.Description, (model.TargetActiveTime.HasValue ? model.TargetActiveTime.Value.TotalSeconds : null), cardId);
-                //foreach (var act in model.Activity)
-                //{
-                //    if (act.Id == 0)
-                //    {
-                //        await Db.ExecuteAsync("INSERT INTO Activity (CardID, \"Start\", \"End\", ValueRateName, ValuePerMinute) VALUES(?, ?, ?, ?, ?)",
-                //            cardId, act.StartDate.ToString("o"), act.EndDate.ToString("o"), act.RateName ?? "Base Rate", act.ValuePerMinute);
-                //    }
-                //    else
-                //    {
-                //        await Db.ExecuteAsync("UPDATE Activity SET \"Start\" = ? , \"End\" = ?, ValueRateName = ?, ValuePerMinute = ? WHERE ActivityID = ?", 
-                //            act.StartDate.ToString("o"), act.EndDate.ToString("o"), act.RateName ?? "Base Rate", act.ValuePerMinute, act.Id);
-                //    }
-                //}
             }
 
             //Do a query to get all of the ValueRates for this Tat in the datbase
@@ -3109,7 +3412,7 @@ namespace Points.Services.Sqlite
 
             foreach (var vr in model.ValueRates)
             {
-                if(vr.Id == 0)
+                if (vr.Id == 0)
                 {
                     await Db.ExecuteAsync(
                         "INSERT INTO TatCardValueRate (TatCardID, RateName, ValuePerMinute) VALUES (?, ?, ?);", model.Id, vr.RateName, vr.ValuePerMinute);
@@ -3136,6 +3439,13 @@ namespace Points.Services.Sqlite
 
             await SaveCardSchedules(cardId, model.Schedules);
         }
+
+
+        #endregion
+
+        #region Trackers
+
+        #region Value Trackers
 
         private async Task SaveValueTrackerCardModelDataAsync(ValueTrackerCardModel model, long cardId)
         {
@@ -3175,41 +3485,6 @@ namespace Points.Services.Sqlite
             await SaveTrackerValuesAsync(cardId, model.Values);
         }
 
-
-        private async Task SaveEventTrackerCardModelDataAsync(EventTrackerCardModel model, long cardId)
-        {
-            if (model.Id == 0)
-            {
-                await Db.ExecuteAsync(
-                    @"INSERT INTO EventTrackerCard
-              (CardID, Unit, CreatedDate, RangeStart, GroupByPeriod)
-              VALUES (?, ?, ?, ?, ?);",
-                    cardId,
-                    model.Unit ?? "",
-                    model.CreatedDate.ToString("o"),
-                    model.RangeStart.ToString("o"),
-                    model.GroupByPeriod ?? "Day"
-                );
-
-                model.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
-            }
-            else
-            {
-                await Db.ExecuteAsync(
-                    @"UPDATE EventTrackerCard
-              SET Unit = ?, CreatedDate = ?, RangeStart = ?, GroupByPeriod = ?
-              WHERE CardID = ?;",
-                    model.Unit ?? "",
-                    model.CreatedDate.ToString("o"),
-                    model.RangeStart.ToString("o"),
-                    model.GroupByPeriod ?? "Day",
-                    cardId
-                );
-            }
-
-            // Events are still persisted via the same TrackerValue table
-            await SaveTrackerValuesAsync(cardId, model.Values);
-        }
 
         private async Task SaveTrackerValuesAsync(long cardId, IEnumerable<TrackerValueModel> values)
         {
@@ -3255,6 +3530,50 @@ namespace Points.Services.Sqlite
             }
         }
 
+        #endregion
+
+        #region Event Trackers
+        private async Task SaveEventTrackerCardModelDataAsync(EventTrackerCardModel model, long cardId)
+        {
+            if (model.Id == 0)
+            {
+                await Db.ExecuteAsync(
+                    @"INSERT INTO EventTrackerCard
+              (CardID, Unit, CreatedDate, RangeStart, GroupByPeriod)
+              VALUES (?, ?, ?, ?, ?);",
+                    cardId,
+                    model.Unit ?? "",
+                    model.CreatedDate.ToString("o"),
+                    model.RangeStart.ToString("o"),
+                    model.GroupByPeriod ?? "Day"
+                );
+
+                model.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+            }
+            else
+            {
+                await Db.ExecuteAsync(
+                    @"UPDATE EventTrackerCard
+              SET Unit = ?, CreatedDate = ?, RangeStart = ?, GroupByPeriod = ?
+              WHERE CardID = ?;",
+                    model.Unit ?? "",
+                    model.CreatedDate.ToString("o"),
+                    model.RangeStart.ToString("o"),
+                    model.GroupByPeriod ?? "Day",
+                    cardId
+                );
+            }
+
+            // Events are still persisted via the same TrackerValue table
+            await SaveTrackerValuesAsync(cardId, model.Values);
+        }
+
+
+        #endregion
+
+        #endregion
+
+        #region Reports
 
         // -------------------------
         // Reports / Ad-hoc SQL
@@ -3264,10 +3583,7 @@ namespace Points.Services.Sqlite
         /// Executes an arbitrary SELECT (or WITH...SELECT) and returns the result set as display lines
         /// suitable for the ReportDetailsPage Results CollectionView (1 string per row).
         /// </summary>
-        public async Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(
-             string sql,
-             bool includeHeaderRow = true,
-             params object?[] args)
+        public async Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(string sql, bool includeHeaderRow = true, params object?[] args)
         {
             await InitializeAsync();
 
@@ -3355,60 +3671,10 @@ namespace Points.Services.Sqlite
             });
         }
 
-        private static void BindParameter(sqlite3_stmt stmt, int index, object? value)
-        {
-            if (value == null)
-            {
-                raw.sqlite3_bind_null(stmt, index);
-                return;
-            }
 
-            switch (value)
-            {
-                case string s:
-                    raw.sqlite3_bind_text(stmt, index, s);
-                    return;
+        #endregion
 
-                case bool b:
-                    raw.sqlite3_bind_int(stmt, index, b ? 1 : 0);
-                    return;
-
-                case byte or short or int or long:
-                    raw.sqlite3_bind_int64(stmt, index, Convert.ToInt64(value, CultureInfo.InvariantCulture));
-                    return;
-
-                case float or double or decimal:
-                    raw.sqlite3_bind_double(stmt, index, Convert.ToDouble(value, CultureInfo.InvariantCulture));
-                    return;
-
-                case DateTime dt:
-                    raw.sqlite3_bind_text(stmt, index, dt.ToString("o"));
-                    return;
-
-                default:
-                    raw.sqlite3_bind_text(stmt, index, value.ToString() ?? "");
-                    return;
-            }
-        }
-
-        private static string ReadColumnAsText(sqlite3_stmt stmt, int colIndex)
-        {
-            var t = raw.sqlite3_column_type(stmt, colIndex);
-
-            return t switch
-            {
-                raw.SQLITE_NULL => "NULL",
-                raw.SQLITE_INTEGER => raw.sqlite3_column_int64(stmt, colIndex).ToString(CultureInfo.InvariantCulture),
-                raw.SQLITE_FLOAT => raw.sqlite3_column_double(stmt, colIndex).ToString(CultureInfo.InvariantCulture),
-
-                // NOTE: column_text may also be utf8z depending on package version; this works reliably:
-                raw.SQLITE_TEXT => raw.sqlite3_column_text(stmt, colIndex).utf8_to_string() ?? "",
-
-                raw.SQLITE_BLOB => $"[BLOB {raw.sqlite3_column_bytes(stmt, colIndex)} bytes]",
-                _ => ""
-            };
-        }
-
+        #region Card Schedules
 
         //Card Schedules
         private async Task SaveCardSchedules(long cardId, ObservableCollection<CardSchedule> schedules)
@@ -3492,8 +3758,6 @@ namespace Points.Services.Sqlite
                     cardId);
             }
         }
-
-
         public sealed class CardScheduleRow
         {
             public long ScheduleID { get; set; }
@@ -3505,10 +3769,6 @@ namespace Points.Services.Sqlite
             public int IsEnabled { get; set; }
             public string Note { get; set; } = "";
         }
-
-        private static string ToIso(DateTime dt) => dt.ToString("o");
-        private static DateTime ParseIso(string s) => DateTime.Parse(s, null, DateTimeStyles.RoundtripKind);
-
         public static class CardScheduleMapper
         {
             public static CardSchedule ToDomain(CardScheduleRow row)
@@ -3528,6 +3788,72 @@ namespace Points.Services.Sqlite
                 };
             }
         }
+
+        #endregion
+
+        #region Common Methods
+
+        private static string ToIso(DateTime dt) => dt.ToString("o");
+
+        private static DateTime ParseIso(string s) => DateTime.Parse(s, null, DateTimeStyles.RoundtripKind);
+
+        private static void BindParameter(sqlite3_stmt stmt, int index, object? value)
+        {
+            if (value == null)
+            {
+                raw.sqlite3_bind_null(stmt, index);
+                return;
+            }
+
+            switch (value)
+            {
+                case string s:
+                    raw.sqlite3_bind_text(stmt, index, s);
+                    return;
+
+                case bool b:
+                    raw.sqlite3_bind_int(stmt, index, b ? 1 : 0);
+                    return;
+
+                case byte or short or int or long:
+                    raw.sqlite3_bind_int64(stmt, index, Convert.ToInt64(value, CultureInfo.InvariantCulture));
+                    return;
+
+                case float or double or decimal:
+                    raw.sqlite3_bind_double(stmt, index, Convert.ToDouble(value, CultureInfo.InvariantCulture));
+                    return;
+
+                case DateTime dt:
+                    raw.sqlite3_bind_text(stmt, index, dt.ToString("o"));
+                    return;
+
+                default:
+                    raw.sqlite3_bind_text(stmt, index, value.ToString() ?? "");
+                    return;
+            }
+        }
+
+        private static string ReadColumnAsText(sqlite3_stmt stmt, int colIndex)
+        {
+            var t = raw.sqlite3_column_type(stmt, colIndex);
+
+            return t switch
+            {
+                raw.SQLITE_NULL => "NULL",
+                raw.SQLITE_INTEGER => raw.sqlite3_column_int64(stmt, colIndex).ToString(CultureInfo.InvariantCulture),
+                raw.SQLITE_FLOAT => raw.sqlite3_column_double(stmt, colIndex).ToString(CultureInfo.InvariantCulture),
+
+                // NOTE: column_text may also be utf8z depending on package version; this works reliably:
+                raw.SQLITE_TEXT => raw.sqlite3_column_text(stmt, colIndex).utf8_to_string() ?? "",
+
+                raw.SQLITE_BLOB => $"[BLOB {raw.sqlite3_column_bytes(stmt, colIndex)} bytes]",
+                _ => ""
+            };
+        }
+
+        #endregion
+
+        #region Planner Goals
 
         public async Task SavePlannerModelsDataAsync(List<PlannerGoalDetailsModel> plannerModelsToSave)
         {
@@ -3611,6 +3937,7 @@ namespace Points.Services.Sqlite
         }
 
 
+        #endregion
 
         #endregion
 
@@ -3654,512 +3981,6 @@ namespace Points.Services.Sqlite
                   WHERE TrophyID = ?;",
                 trophyId
             );
-        }
-
-
-        #endregion
-
-        #region Compute
-
-        public sealed class TagValueSummaryRow
-        {
-            public double CurrentValue { get; set; }
-            public double CurrentTotalActiveTimeInSeconds { get; set; }
-        }
-
-        public sealed class DebugActivityRow
-        {
-            public long ActivityID { get; set; }     // or int, depending on your schema
-            public long CardID { get; set; }         // or int
-
-            public string Start { get; set; }        // stored as TEXT ISO-8601
-            public string End { get; set; }          // stored as TEXT ISO-8601
-
-            public double SecondsDiff { get; set; }
-        }
-
-
-        public async Task<TagValueSummaryRow> GetTagValueSummaryAsync(string tagName, DateTime rangeStart, DateTime rangeEnd)
-        {
-            await InitializeAsync();
-
-            // Convert to ISO-8601 to match how you store datetimes
-            var startIso = rangeStart.ToString("o");
-            var endIso = rangeEnd.ToString("o");
-
-            //const string debugSql = @"
-            //            SELECT 
-            //                a.ActivityID,
-            //                a.CardID,
-            //                a.Start,
-            //                a.""End"",
-            //                (julianday(a.""End"") - julianday(a.Start)) * 86400.0 AS SecondsDiff
-            //            FROM Activity a
-            //            JOIN Card c ON c.CardID = a.CardID
-            //            WHERE ',' || REPLACE(c.Tags, ' ', '') || ',' LIKE '%,' || REPLACE(?, ' ', '') || ',%'
-            //              AND datetime(a.Start) >= datetime(?)
-            //              AND datetime(a.""End"")   <= datetime(?)
-            //            ORDER BY SecondsDiff;
-            //            ";
-
-            //var debugRows = await Db.QueryAsync<DebugActivityRow>(
-            //    debugSql, tagName, startIso, endIso);
-
-
-            const string sql = @"
-                    WITH TaggedCards AS (
-                        SELECT c.CardID
-                        FROM Card c
-                        WHERE ',' || REPLACE(c.Tags, ' ', '') || ',' 
-                              LIKE '%,' || REPLACE(?, ' ', '') || ',%'
-                    ),
-
-                    TimeValued AS (
-                        SELECT
-                            SUM(
-                                ((julianday(a.""End"") - julianday(a.Start)) * 24.0 * 60.0)
-                                * a.ValuePerMinute
-                            ) AS Value,
-                            SUM(
-                                (julianday(a.""End"") - julianday(a.Start)) * 86400.0
-                            ) AS TotalActiveSeconds
-                        FROM Activity a
-                        WHERE a.CardID IN (SELECT CardID FROM TaggedCards)
-                          AND datetime(a.Start) >= datetime(?)
-                          AND datetime(a.""End"")   <= datetime(?)  
-                          AND a.""End"" >= a.Start
-                    ),
-
-                    StepValued AS (
-                        SELECT
-                            SUM(rep.StepValue) AS Value
-                        FROM ScCard sc
-                        JOIN TaggedCards tc     ON tc.CardID      = sc.CardID
-                        JOIN ScCardStep st      ON st.ScCardID    = sc.ScCardID
-                        JOIN ScCardStepRep rep  ON rep.ScCardStepID = st.ScCardStepID
-                        WHERE datetime(rep.TimeStamp) >= datetime(?)
-                          AND datetime(rep.TimeStamp) <= datetime(?)
-                    ),
-
-                    MissionValued AS (
-                        SELECT
-                            SUM(mc.Value) AS Value
-                        FROM MissionCard mc
-                        JOIN TaggedCards tc ON tc.CardID = mc.CardID
-                        WHERE datetime(mc.CompletedDate) >= datetime(?)
-                          AND datetime(mc.CompletedDate) <= datetime(?)
-                    )
-
-                    SELECT
-                        COALESCE(TimeValued.Value, 0)
-                      + COALESCE(StepValued.Value, 0)
-                      + COALESCE(MissionValued.Value, 0) AS CurrentValue,
-
-                        COALESCE(TimeValued.TotalActiveSeconds, 0) AS CurrentTotalActiveTimeInSeconds
-                    FROM TimeValued
-                    CROSS JOIN StepValued
-                    CROSS JOIN MissionValued;
-                ";
-
-            // Parameter order:
-            //  1: tagName
-            //  2: rangeStart (TimeValued)
-            //  3: rangeEnd   (TimeValued)
-            //  4: rangeStart (StepValued)
-            //  5: rangeEnd   (StepValued)
-            //  6: rangeStart (MissionValued)
-            //  7: rangeEnd   (MissionValued)
-            var rows = await Db.QueryAsync<TagValueSummaryRow>(
-                sql,
-                tagName,
-                startIso, endIso,
-                startIso, endIso,
-                startIso, endIso
-            );
-
-            var row = rows.FirstOrDefault() ?? new TagValueSummaryRow();
-
-            // Named tuple elements so the caller can use:
-            // result.CurrentValue and result.CurrentTotalActiveTimeInSeconds
-            return row;
-        }
-
-        #endregion
-
-        #region Refactor
-
-        public async Task<ActivityModel?> GetCurrentActiveActivityAsync()
-        {
-            await InitializeAsync();
-
-            var row = await GetCurrentActiveRowAsync(); // private row-level method
-
-            if (row == null)
-                return null;
-
-            return ActivityMapper.ToModel(row, ParseIsoDateTime);
-        }
-
-
-        private async Task<ActivityRow?> GetCurrentActiveRowAsync()
-        {
-            await InitializeAsync();
-
-            const string sql = @"
-                SELECT ActivityID, CardID, Start, ""End"", ValueRateName, ValuePerMinute
-                FROM Activity
-                WHERE ""End"" IS NULL
-                ORDER BY Start DESC
-                LIMIT 1;
-            ";
-
-            var rows = await Db.QueryAsync<ActivityRow>(sql);
-            var row = rows.FirstOrDefault();
-
-            if (row == null)
-                return null;
-
-            // Defensive: if DB NULL was mapped into End, normalize to empty string for now.
-            row.End ??= "";
-
-            return row;
-        }
-
-        private async Task<List<ActivityRow>> GetActivityRowsForCardAsync(long cardId, DateTime start, DateTime end)
-        {
-            await InitializeAsync();
-
-            // Empty/invalid window -> no activities
-            if (end <= start)
-                return new List<ActivityRow>();
-
-            // Ensure UTC + ISO "o" convention
-            // If your DateTimes are already UTC, this keeps them UTC.
-            // If they are Local/Unspecified, this forces a consistent UTC representation.
-            var startIso = DateTime.SpecifyKind(start, DateTimeKind.Utc).ToString("o");
-            var endIso = DateTime.SpecifyKind(end, DateTimeKind.Utc).ToString("o");
-
-            const string sql = @"
-                SELECT ActivityID, CardID, Start, ""End"", ValueRateName, ValuePerMinute
-                FROM Activity
-                WHERE CardID = ?
-                  AND Start < ?
-                  AND (""End"" IS NULL OR ""End"" > ?)
-                ORDER BY Start ASC;
-            ";
-
-            var rows = await Db.QueryAsync<ActivityRow>(sql, cardId, endIso, startIso);
-
-            // Defensive: normalize NULL End to "" while your DTO still uses string End
-            foreach (var r in rows)
-                r.End ??= "";
-
-            return rows;
-        }
-
-        private static class ActivityMapper
-        {
-            public static ActivityModel ToModel(ActivityRow row, Func<string, DateTime> parseIsoDateTime)
-            {
-                if (row == null) throw new ArgumentNullException(nameof(row));
-                if (string.IsNullOrWhiteSpace(row.Start))
-                    throw new InvalidOperationException("ActivityRow.Start is required.");
-
-                // End is NULL for open; also treat whitespace as open to be resilient to legacy data
-                DateTime? end = null;
-                if (!string.IsNullOrWhiteSpace(row.End))
-                    end = parseIsoDateTime(row.End!);
-
-                return new ActivityModel
-                {
-                    Id = row.ActivityID,
-                    CardID = row.CardID,
-                    StartDate = parseIsoDateTime(row.Start),
-                    EndDate = end,
-                    RateName = row.ValueRateName ?? "",
-                    ValuePerMinute = row.ValuePerMinute
-                };
-            }
-        }
-
-        /* Toggle Activity */
-
-        public sealed class ToggleActivityModelResult
-        {
-            public ActivityModel? Closed { get; init; }
-            public ActivityModel? Opened { get; init; }
-        }
-
-
-        private sealed class ToggleActivityRowResult
-        {
-            public ActivityRow? Closed { get; init; }
-            public ActivityRow? Opened { get; init; }
-        }
-
-        public async Task<ToggleActivityModelResult> ToggleActivityAsync(
-            long cardId,
-            DateTime utcNow,
-            string valueRateName,
-            double valuePerMinute)
-        {
-            // Call the internal row-level method
-            var rowResult = await ToggleActivityInternalAsync(
-                cardId,
-                utcNow,
-                valueRateName,
-                valuePerMinute);
-
-            return new ToggleActivityModelResult
-            {
-                Closed = rowResult.Closed != null
-                    ? ActivityMapper.ToModel(rowResult.Closed, ParseIsoDateTime)
-                    : null,
-
-                Opened = rowResult.Opened != null
-                    ? ActivityMapper.ToModel(rowResult.Opened, ParseIsoDateTime)
-                    : null
-            };
-        }
-
-
-        private async Task<ToggleActivityRowResult> ToggleActivityInternalAsync(
-            long cardId,
-            DateTime utcNow,
-            string valueRateName,
-            double valuePerMinute)
-        {
-            await InitializeAsync();
-
-            var nowIso = DateTime.SpecifyKind(utcNow, DateTimeKind.Utc).ToString("o");
-
-            ActivityRow? closed = null;
-            ActivityRow? opened = null;
-
-            await Db.RunInTransactionAsync(tran =>
-            {
-                // 1) Fetch current open activity (at most one due to UX_Activity_OneOpen)
-                closed = tran.Query<ActivityRow>(@"
-                    SELECT
-                        ActivityID       AS ActivityID,
-                        CardID           AS CardID,
-                        Start            AS Start,
-                        ""End""          AS End,
-                        ValueRateName    AS ValueRateName,
-                        ValuePerMinute   AS ValuePerMinute
-                    FROM Activity
-                    WHERE ""End"" IS NULL
-                    ORDER BY Start DESC
-                    LIMIT 1;
-                ").FirstOrDefault();
-
-                // 2) If there's an open activity, close it
-                if (closed != null)
-                {
-                    tran.Execute(@"
-                        UPDATE Activity
-                        SET ""End"" = ?
-                        WHERE ActivityID = ?;
-                    ", nowIso, closed.ActivityID);
-
-                    // reflect in returned row
-                    closed.End = nowIso;
-
-                    // If it's the same card, we stop here (toggle off)
-                    if (closed.CardID == cardId)
-                        return;
-                }
-
-                // 3) Otherwise open a new activity for cardId
-                // (If a different card was open, we closed it above.)
-                tran.Execute(@"
-                    INSERT INTO Activity (CardID, Start, ""End"", ValueRateName, ValuePerMinute)
-                    VALUES (?, ?, NULL, ?, ?);
-                ", cardId, nowIso, valueRateName, valuePerMinute);
-
-                // Get inserted row id and return the full row
-                var newId = tran.ExecuteScalar<long>("SELECT last_insert_rowid();");
-
-                opened = new ActivityRow
-                {
-                    ActivityID = (int)newId,
-                    CardID = cardId,
-                    Start = nowIso,
-                    End = null,
-                    ValueRateName = valueRateName ?? "",
-                    ValuePerMinute = valuePerMinute
-                };
-            });
-
-            return new ToggleActivityRowResult { Closed = closed, Opened = opened };
-        }
-
-
-        /* UPSERT */
-
-        private static bool Overlaps(string aStart, string? aEnd, string bStart, string? bEnd)
-        {
-            // overlap if:
-            // aStart < bEnd (or bEnd is null)
-            // and bStart < aEnd (or aEnd is null)
-            return (bEnd == null || string.CompareOrdinal(aStart, bEnd) < 0)
-                && (aEnd == null || string.CompareOrdinal(bStart, aEnd) < 0);
-        }
-
-        private static bool HasInternalOverlap(List<ActivityModel> activities)
-        {
-            var ordered = activities
-                .OrderBy(a => a.StartDate)
-                .ToList();
-
-            for (int i = 0; i < ordered.Count - 1; i++)
-            {
-                var a = ordered[i];
-                var b = ordered[i + 1];
-
-                var aStart = DateTime.SpecifyKind(a.StartDate, DateTimeKind.Utc).ToString("o");
-                var aEnd = a.EndDate.HasValue ? DateTime.SpecifyKind(a.EndDate.Value, DateTimeKind.Utc).ToString("o") : null;
-
-                var bStart = DateTime.SpecifyKind(b.StartDate, DateTimeKind.Utc).ToString("o");
-                var bEnd = b.EndDate.HasValue ? DateTime.SpecifyKind(b.EndDate.Value, DateTimeKind.Utc).ToString("o") : null;
-
-                if (Overlaps(aStart, aEnd, bStart, bEnd))
-                    return true;
-            }
-
-            return false;
-        }
-
-        public sealed class ActivityUpdateResult
-        {
-            public bool Success { get; init; }
-            public string Message { get; init; } = "";
-        }
-
-        public async Task<ActivityUpdateResult> UpsertActivitiesAsync(List<ActivityModel> activities)
-        {
-            await InitializeAsync();
-
-            if (activities == null) throw new ArgumentNullException(nameof(activities));
-            if (activities.Count == 0)
-                return new ActivityUpdateResult { Success = true, Message = "Activities updated." };
-
-            // 1) Incoming overlap check
-            if (HasInternalOverlap(activities))
-            {
-                return new ActivityUpdateResult
-                {
-                    Success = false,
-                    Message = "Overlapping Activities cannot be written to the database"
-                };
-            }
-
-            try
-            {
-                await Db.RunInTransactionAsync(tran =>
-                {
-                    // TEMP table for incoming set
-                    tran.Execute(@"
-                        CREATE TEMP TABLE IF NOT EXISTS _IncomingActivity (
-                            ActivityID     INTEGER NULL,
-                            CardID         INTEGER NOT NULL,
-                            Start          TEXT    NOT NULL,
-                            ""End""        TEXT    NULL,
-                            ValueRateName  TEXT    NOT NULL,
-                            ValuePerMinute REAL    NOT NULL
-                        );
-                    ");
-                    tran.Execute("DELETE FROM _IncomingActivity;");
-
-                    // Fill temp table
-                    foreach (var a in activities)
-                    {
-                        var startIso = DateTime.SpecifyKind(a.StartDate, DateTimeKind.Utc).ToString("o");
-                        var endIso = a.EndDate.HasValue
-                            ? DateTime.SpecifyKind(a.EndDate.Value, DateTimeKind.Utc).ToString("o")
-                            : null;
-
-                        tran.Execute(@"
-                            INSERT INTO _IncomingActivity (ActivityID, CardID, Start, ""End"", ValueRateName, ValuePerMinute)
-                            VALUES (?, ?, ?, ?, ?, ?);
-                        ",
-                        a.Id > 0 ? a.Id : (object?)null,
-                        a.CardID,
-                        startIso,
-                        endIso,
-                        a.RateName ?? "",
-                        a.ValuePerMinute);
-                    }
-
-                    // 2) Forbidden overlap check:
-                    // Find any DB activity that overlaps an incoming activity
-                    // where the DB activity is NOT part of the incoming update set.
-                    //
-                    // overlap rule:
-                    // db.Start < incoming.End OR incoming.End IS NULL
-                    // AND incoming.Start < db.End OR db.End IS NULL
-                    //
-                    // and ensure DB row not in incoming IDs
-                    var forbidden = tran.ExecuteScalar<long?>(@"
-                        SELECT db.ActivityID
-                        FROM Activity db
-                        JOIN _IncomingActivity inc
-                          ON db.CardID = inc.CardID
-                         AND (
-                              (inc.""End"" IS NULL OR db.Start < inc.""End"")
-                              AND
-                              (db.""End"" IS NULL OR inc.Start < db.""End"")
-                         )
-                        WHERE db.ActivityID NOT IN (
-                            SELECT ActivityID FROM _IncomingActivity WHERE ActivityID IS NOT NULL
-                        )
-                        LIMIT 1;
-                    ");
-
-                    if (forbidden != null)
-                        throw new InvalidOperationException("Cannot overlap with existing Activities in the database.");
-
-                    // 3) Apply upserts (update existing, insert new)
-                    foreach (var a in activities)
-                    {
-                        var startIso = DateTime.SpecifyKind(a.StartDate, DateTimeKind.Utc).ToString("o");
-                        var endIso = a.EndDate.HasValue
-                            ? DateTime.SpecifyKind(a.EndDate.Value, DateTimeKind.Utc).ToString("o")
-                            : null;
-
-                        if (a.Id > 0)
-                        {
-                            tran.Execute(@"
-                                UPDATE Activity
-                                SET CardID = ?,
-                                    Start = ?,
-                                    ""End"" = ?,
-                                    ValueRateName = ?,
-                                    ValuePerMinute = ?
-                                WHERE ActivityID = ?;
-                            ",
-                                    a.CardID, startIso, endIso, a.RateName ?? "", a.ValuePerMinute, a.Id);
-                                }
-                                else
-                                {
-                                    tran.Execute(@"
-                                INSERT INTO Activity (CardID, Start, ""End"", ValueRateName, ValuePerMinute)
-                                VALUES (?, ?, ?, ?, ?);
-                            ",
-                            a.CardID, startIso, endIso, a.RateName ?? "", a.ValuePerMinute);
-
-                            // Optional: if you want to write IDs back into the passed objects:
-                            // a.Id = (int)tran.ExecuteScalar<long>("SELECT last_insert_rowid();");
-                        }
-                    }
-                });
-
-                return new ActivityUpdateResult { Success = true, Message = "Activities updated." };
-            }
-            catch (InvalidOperationException ex)
-            {
-                return new ActivityUpdateResult { Success = false, Message = ex.Message };
-            }
         }
 
 
