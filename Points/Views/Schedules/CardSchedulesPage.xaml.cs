@@ -108,16 +108,18 @@ public partial class CardSchedulesPage : ContentPage
 
     private async Task OpenEditorAsync(CardSchedule schedule, bool isNew)
     {
-        async Task OnSaved(CardSchedule saved)
+        async Task OnSaved(IScheduleModel saved)
         {
+            if(saved is not CardSchedule savedCardSchedule) return;
+
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 // Update model collection (source of truth)
-                var existing = saved.ScheduleId > 0
-                    ? _schedules.FirstOrDefault(s => s.ScheduleId == saved.ScheduleId)
+                var existing = savedCardSchedule.ScheduleId > 0
+                    ? _schedules.FirstOrDefault(s => s.ScheduleId == savedCardSchedule.ScheduleId)
                     : null;
 
-                if (existing is null && saved.ScheduleId == 0)
+                if (existing is null && savedCardSchedule.ScheduleId == 0)
                 {
                     // heuristic for non-persisted schedules
                     existing = _schedules.FirstOrDefault(s =>
@@ -128,21 +130,21 @@ public partial class CardSchedulesPage : ContentPage
 
                 if (existing is null)
                 {
-                    _schedules.Add(saved);
+                    _schedules.Add(savedCardSchedule);
                 }
                 else
                 {
                     // Copy fields into existing so bindings stay stable
-                    existing.FrequencyType = saved.FrequencyType;
-                    existing.FrequencyValue = saved.FrequencyValue;
-                    existing.FromDateTime = saved.FromDateTime;
-                    existing.ToDateTime = saved.ToDateTime;
-                    existing.IsEnabled = saved.IsEnabled;
-                    existing.Note = saved.Note;
+                    existing.FrequencyType = savedCardSchedule.FrequencyType;
+                    existing.FrequencyValue = savedCardSchedule.FrequencyValue;
+                    existing.FromDateTime = savedCardSchedule.FromDateTime;
+                    existing.ToDateTime = savedCardSchedule.ToDateTime;
+                    existing.IsEnabled = savedCardSchedule.IsEnabled;
+                    existing.Note = savedCardSchedule.Note;
 
                     // If you later assign ScheduleId after DB insert:
-                    existing.ScheduleId = saved.ScheduleId;
-                    existing.CardId = saved.CardId;
+                    existing.ScheduleId = savedCardSchedule.ScheduleId;
+                    existing.CardId = savedCardSchedule.CardId;
                 }
 
                 // Refresh the UI list wrapper

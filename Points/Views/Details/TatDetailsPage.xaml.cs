@@ -2,6 +2,7 @@
 using Points.Services;
 using Points.ViewModels;
 using Points.Views.Schedules;
+using Points.Views.Shared;
 using System.Diagnostics;
 
 namespace Points.Views.Details;
@@ -11,20 +12,27 @@ public partial class TatDetailsPage : ContentPage
     private readonly TatCardModel _model;
     private readonly IDbService _db;
     private readonly List<string> _allTags;
+    private readonly List<DependencyTaskOption> _dependencyOptions;
 
-    public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList, Services.IDbService db)
+    public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList, Services.IDbService db, List<DependencyTaskOption> dependencyOptions)
     {
         InitializeComponent();
         BindingContext = new TatDetailsViewModel(model, onSaved, onDelete, availableTagsList);
         _model = model;
         _db = db;
         _allTags = availableTagsList;
+        _dependencyOptions = dependencyOptions;
         Loaded += OnPageLoaded;
 
         ScheduleSummaryLabel.Text =
             _model.Schedules.Count == 0 ? "None" :
             _model.Schedules.Count == 1 ? "1 schedule" :
             $"{_model.Schedules.Count} schedules";
+
+        LocksSummaryLabel.Text =
+            _model.Locks.Count == 0 ? "None" :
+            _model.Locks.Count == 1 ? "1 lock" :
+            $"{_model.Locks.Count} locks";
     }
 
     private async void OnPageLoaded(object? sender, EventArgs e)
@@ -136,6 +144,33 @@ public partial class TatDetailsPage : ContentPage
                         : $"{_model.Schedules.Count} schedules";
                 }));
 
+    }
+
+    private async void OnEditLocksClicked(object sender, EventArgs e)
+    {
+        // Decide whether to require persistence:
+        // - If locks are keyed by CardId and saved via SaveLocksForCardAsync(cardId, ...),
+        //   you need a persisted card.
+        // - If your UI is in-memory-only until user taps OK/save, you can skip this guard.
+        if (_model.Id <= 0)
+        {
+            ShowError("Please tap OK to save the tracker first, then add locks.");
+            return;
+        }
+
+        // For now this is a stub page; later it becomes the real editor.
+        await Shell.Current.Navigation.PushAsync(
+            new EditLocksPage(
+                cardId: _model.Id,
+                locks: _model.Locks,
+                db: _db,
+                dependencyOptions: _dependencyOptions,
+                onChanged: () =>
+                {
+                    LocksSummaryLabel.Text = _model.Locks.Count == 0 ? "None"
+                        : _model.Locks.Count == 1 ? "1 lock"
+                        : $"{_model.Locks.Count} locks";
+                }));
     }
 
     private void ShowError(string msg)

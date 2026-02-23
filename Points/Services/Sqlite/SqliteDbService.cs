@@ -255,6 +255,8 @@ namespace Points.Services.Sqlite
 
             await PopulateAchievements(achievements, mainQuest, mission);
 
+            await PopulateLocks(mainQuest, mission);
+
             var valueTrackers = await GetValueTrackerCardModelsDataAsync();
 
             var eventTrackers = await GetEventTrackerCardModelsDataAsync();
@@ -2747,6 +2749,32 @@ namespace Points.Services.Sqlite
             public int pk { get; set; }
         }
 
+        /// <summary>
+        /// Helper to do: SELECT * FROM {table} WHERE {idColumn} IN (?,?,?) ORDER BY ...
+        /// Avoids N+1 queries.
+        /// </summary>
+        private async Task<List<T>> QueryByIdsAsync<T>(
+            string tableName,
+            string idColumn,
+            long[] ids,
+            string selectColumns,
+            string? orderBy = null)
+            where T : new()
+        {
+            if (ids.Length == 0) return new List<T>();
+
+            var placeholders = string.Join(",", Enumerable.Repeat("?", ids.Length));
+            var sql = $@"SELECT {selectColumns}
+                 FROM {tableName}
+                 WHERE {idColumn} IN ({placeholders})
+                 {(string.IsNullOrWhiteSpace(orderBy) ? "" : $"ORDER BY {orderBy}")};";
+
+            object[] args = ids.Cast<object>().ToArray();
+            return await Db.QueryAsync<T>(sql, args);
+        }
+
+
+
         #endregion
 
         #endregion
@@ -3945,6 +3973,8 @@ namespace Points.Services.Sqlite
 
         #region Delete
 
+        #region Achievements
+
         public async Task DeleteAchievementCardModelAsync(AchievementCardModel model)
         {
             await InitializeAsync();
@@ -3985,6 +4015,302 @@ namespace Points.Services.Sqlite
             );
         }
 
+        #endregion
+
+        #region Common Methods
+
+        private static void DeleteByIds(SQLite.SQLiteConnection conn, string table, string idColumn, List<long> ids)
+        {
+            // Chunk to avoid SQLite parameter limits if it ever grows.
+            const int chunkSize = 500;
+
+            for (int i = 0; i < ids.Count; i += chunkSize)
+            {
+                var chunk = ids.Skip(i).Take(chunkSize).ToArray();
+                var placeholders = string.Join(",", Enumerable.Repeat("?", chunk.Length));
+                var sql = $"DELETE FROM {table} WHERE {idColumn} IN ({placeholders});";
+                conn.Execute(sql, chunk.Cast<object>().ToArray());
+            }
+        }
+
+        #endregion
+
+        #endregion
+
+        #region Locks
+
+        #region Row Models
+
+        public sealed class LockRow
+        {
+            public long LockId { get; set; }
+            public int LockNumber { get; set; }
+            public long CardId { get; set; }
+
+            public string TimeWindowStart { get; set; } = "";
+            public string TimeWindowEnd { get; set; } = "";
+        }
+
+        public sealed class LockScheduleRow
+        {
+            public long ScheduleId { get; set; }
+            public long LockId { get; set; }
+
+            public string FrequencyType { get; set; } = "";
+            public int FrequencyValue { get; set; }
+
+            public string FromDateTime { get; set; } = "";
+            public string? ToDateTime { get; set; }
+        }
+
+        public sealed class LockTaskDependencyRow
+        {
+            public long LockTaskDependencyId { get; set; }
+            public long LockId { get; set; }
+
+            public long TaskDependencyCardId { get; set; }
+            public int MetricType { get; set; }  // stored as int
+            public int TimeScope { get; set; }   // stored as int
+            public double GoalValue { get; set; } // stored as REAL
+            public int GoalValence { get; set; }
+        }
+
+        #endregion
+
+        #region Mappers
+
+        public static class LockMapper
+        {
+            public static LockModel ToDomain(LockRow row, IEnumerable<LockScheduleRow> scheduleRows, IEnumerable<LockTaskDependencyRow> dependencyRows)
+            {
+                return new LockModel
+                {
+                    LockId = row.LockId,
+                    LockNumber = row.LockNumber,
+                    CardId = row.CardId,
+                    TimeWindowStart = TimeOnly.ParseExact(row.TimeWindowStart, "HH:mm:ss", CultureInfo.InvariantCulture),
+                    TimeWindowEnd = TimeOnly.ParseExact(row.TimeWindowEnd, "HH:mm:ss", CultureInfo.InvariantCulture),
+                    Schedules = scheduleRows.Select(LockScheduleMapper.ToDomain).ToList(),
+                    Dependencies = dependencyRows.Select(LockTaskDependencyMapper.ToDomain).ToList(),
+                };
+            }
+        }
+
+        public static class LockScheduleMapper
+        {
+            public static LockScheduleModel ToDomain(LockScheduleRow row)
+            {
+                return new LockScheduleModel
+                {
+                    ScheduleId = row.ScheduleId,
+                    LockId = row.LockId,
+                    FrequencyType = (FrequencyType)Enum.Parse(typeof(FrequencyType), row.FrequencyType),
+                    FrequencyValue = row.FrequencyValue,
+                    FromDateTime = DateTime.Parse(row.FromDateTime, null, DateTimeStyles.RoundtripKind),
+                    ToDateTime = string.IsNullOrWhiteSpace(row.ToDateTime)
+                        ? null
+                        : DateTime.Parse(row.ToDateTime!, null, DateTimeStyles.RoundtripKind),
+                };
+            }
+        }
+
+        public static class LockTaskDependencyMapper
+        {
+            public static LockTaskDependencyModel ToDomain(LockTaskDependencyRow row)
+            {
+                return new LockTaskDependencyModel
+                {
+                    LockTaskDependencyId = row.LockTaskDependencyId,
+                    LockId = row.LockId,
+                    TaskDependencyCardId = row.TaskDependencyCardId,
+                    MetricType = (LockDependencyMetricType)row.MetricType,
+                    TimeScope = (TimeScope)row.TimeScope,
+                    GoalValue = row.GoalValue,
+                    GoalValence = (GoalValence)row.GoalValence
+                };
+            }
+        }
+
+        #endregion
+
+        public async Task<List<LockModel>> GetLocksForCardAsync(long cardId)
+        {
+            await InitializeAsync();
+
+            // 1) Load all locks for this card
+            var lockRows = await Db.QueryAsync<LockRow>(
+                @"SELECT LockId, LockNumber, CardId, TimeWindowStart, TimeWindowEnd
+                  FROM Lock
+                  WHERE CardId = ?
+                  ORDER BY LockNumber ASC;",
+                cardId);
+
+            if (lockRows.Count == 0)
+                return new List<LockModel>();
+
+            var lockIds = lockRows.Select(x => x.LockId).ToArray();
+
+            // 2) Load all schedules for these locks (single query)
+            var scheduleRows = await QueryByIdsAsync<LockScheduleRow>(
+                tableName: "LockSchedule",
+                idColumn: "LockId",
+                ids: lockIds,
+                selectColumns: "ScheduleId, LockId, FrequencyType, FrequencyValue, FromDateTime, ToDateTime",
+                orderBy: "LockId ASC, ScheduleId ASC");
+
+            // 3) Load all dependencies for these locks (single query)
+            var dependencyRows = await QueryByIdsAsync<LockTaskDependencyRow>(
+                tableName: "LockTaskDependency",
+                idColumn: "LockId",
+                ids: lockIds,
+                selectColumns: "LockTaskDependencyId, LockId, TaskDependencyCardId, MetricType, TimeScope, GoalValue, GoalValence",
+                orderBy: "LockId ASC, LockTaskDependencyId ASC");
+
+            // 4) Group them for fast assembly
+            var schedulesByLock = scheduleRows
+                .GroupBy(x => x.LockId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var depsByLock = dependencyRows
+                .GroupBy(x => x.LockId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // 5) Map to domain
+            var result = new List<LockModel>(lockRows.Count);
+
+            foreach (var lr in lockRows)
+            {
+                schedulesByLock.TryGetValue(lr.LockId, out var s);
+                depsByLock.TryGetValue(lr.LockId, out var d);
+
+                result.Add(LockMapper.ToDomain(
+                    lr,
+                    s ?? Enumerable.Empty<LockScheduleRow>(),
+                    d ?? Enumerable.Empty<LockTaskDependencyRow>()));
+            }
+
+            return result;
+        }
+
+        public async Task SaveLocksForCardAsync(long cardId, List<LockModel> locksToSave)
+        {
+            await InitializeAsync();
+
+            locksToSave ??= new List<LockModel>();
+
+            // Ensure FK consistency
+            foreach (var l in locksToSave)
+                l.CardId = cardId;
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                // 1) Find existing locks for this card
+                var existingLockIds = conn.Query<LockRow>(
+                    @"SELECT LockId, LockNumber, CardId, TimeWindowStart, TimeWindowEnd
+                      FROM Lock
+                      WHERE CardId = ?;",
+                    cardId).Select(x => x.LockId).ToList();
+
+                if (existingLockIds.Count > 0)
+                {
+                    // 2) Delete children first
+                    DeleteByIds(conn, "LockSchedule", "LockId", existingLockIds);
+                    DeleteByIds(conn, "LockTaskDependency", "LockId", existingLockIds);
+
+                    // 3) Delete locks
+                    conn.Execute(@"DELETE FROM Lock WHERE CardId = ?;", cardId);
+                }
+
+                // 4) Insert new locks + children
+                foreach (var model in locksToSave.OrderBy(x => x.LockNumber))
+                {
+                    // --- insert Lock ---
+                    conn.Execute(
+                        @"INSERT INTO Lock (LockNumber, CardId, TimeWindowStart, TimeWindowEnd)
+                          VALUES (?, ?, ?, ?);",
+                        model.LockNumber,
+                        cardId,
+                        model.TimeWindowStart.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
+                        model.TimeWindowEnd.ToString("HH:mm:ss", CultureInfo.InvariantCulture)
+                    );
+
+                    var newLockId = conn.ExecuteScalar<long>("SELECT last_insert_rowid();");
+                    model.LockId = newLockId; // optional, but usually useful
+
+                    // --- insert schedules ---
+                    if (model.Schedules != null)
+                    {
+                        foreach (var s in model.Schedules)
+                        {
+                            conn.Execute(
+                                @"INSERT INTO LockSchedule (LockId, FrequencyType, FrequencyValue, FromDateTime, ToDateTime)
+                                  VALUES (?, ?, ?, ?, ?);",
+                                newLockId,
+                                s.FrequencyType.ToString(),              // TEXT enum name
+                                s.FrequencyValue,
+                                s.FromDateTime.ToString("o", CultureInfo.InvariantCulture),
+                                s.ToDateTime?.ToString("o", CultureInfo.InvariantCulture)
+                            );
+
+                            s.LockId = newLockId; // optional
+                        }
+                    }
+
+                    // --- insert dependencies ---
+                    if (model.Dependencies != null)
+                    {
+                        foreach (var d in model.Dependencies)
+                        {
+                            conn.Execute(
+                                @"INSERT INTO LockTaskDependency
+                                    (LockId, TaskDependencyCardId, MetricType, TimeScope, GoalValue, GoalValence)
+                                  VALUES (?, ?, ?, ?, ?, ?);",
+                                newLockId,
+                                d.TaskDependencyCardId,
+                                (int)d.MetricType,
+                                (int)d.TimeScope,
+                                d.GoalValue,
+                                (int)d.GoalValence
+                            );
+
+                            d.LockId = newLockId; // optional
+                        }
+                    }
+                }
+            });
+        }
+
+        private async Task PopulateLocks(List<IActiveCardModel> mainQuest, List<MissionCardModel> mission)
+        {
+            // Gather all cards that can have locks
+            var activeCards = mainQuest
+                .Cast<IActiveCardModel>()
+                .Concat(mission)
+                .ToList();
+
+            // Collect distinct card IDs
+            var cardIds = activeCards
+                .Select(c => c.CardID)
+                .Distinct()
+                .ToList();
+
+            // Fetch locks and build lookup
+            var locksByCardId = new Dictionary<long, List<LockModel>>();
+
+            foreach (var id in cardIds)
+            {
+                var locks = await GetLocksForCardAsync(id); // your existing method
+                locksByCardId[id] = locks;
+            }
+
+            // Assign onto each card
+            foreach (var card in activeCards)
+            {
+                card.Locks = locksByCardId.TryGetValue(card.CardID, out var locks)
+                    ? locks
+                    : new List<LockModel>();
+            }
+        }
 
         #endregion
 

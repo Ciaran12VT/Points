@@ -257,6 +257,30 @@
                         Clicked="OnEditSchedulesClicked" />
                 </Grid>
 
+                <!-- Locks -->
+                <Label Text="Locks" FontAttributes="Bold" FontSize="14" />
+
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="12"
+                      VerticalOptions="Center">
+
+                    <Label x:Name="LocksSummaryLabel"
+                       Text="None"
+                       Opacity="0.75"
+                       VerticalTextAlignment="Center" />
+
+                    <Button Grid.Column="1"
+                        Text="🔒"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"
+                        BackgroundColor="Green"
+                        Clicked="OnEditLocksClicked" />
+                </Grid>
+
                 <!-- Error -->
                 <Label x:Name="ErrorLabel"
                    Text=""

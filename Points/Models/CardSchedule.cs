@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Points.Models
 {
-    public sealed class CardSchedule
+    public sealed class CardSchedule : IScheduleModel
     {
         public long ScheduleId { get; set; }     // PK
         public long CardId { get; set; }         // ties schedule to any card type

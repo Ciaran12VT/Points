@@ -13,12 +13,6 @@ namespace Points.Models
     {
         long CardID { get; set; }
         bool IsActive { get; set; }
-        //ICommand ToggleActivityCommand { get; }
-
-        //void StopActivity();
-        //void Activitate();
-
-        // Keep your requested shape for now
         List<ActivityModel> Activity { get; }
         double ValuePerMinute { get; }
 
@@ -27,5 +21,7 @@ namespace Points.Models
         DateTime GetLastActiveTime();
 
         List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
+
+        List<LockModel> Locks { get; set; }
     }
 }

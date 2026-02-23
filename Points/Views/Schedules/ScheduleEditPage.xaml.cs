@@ -5,10 +5,10 @@ namespace Points.Views.Schedules;
 
 public partial class ScheduleEditPage : ContentPage
 {
-    private readonly CardSchedule _schedule;
-    private readonly Func<CardSchedule, Task> _onSaved;
+    private readonly IScheduleModel _schedule;
+    private readonly Func<IScheduleModel, Task> _onSaved;
 
-    public ScheduleEditPage(CardSchedule schedule, Func<CardSchedule, Task> onSaved)
+    public ScheduleEditPage(IScheduleModel schedule, Func<IScheduleModel, Task> onSaved)
     {
         InitializeComponent();
 

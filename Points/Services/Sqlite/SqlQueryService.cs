@@ -371,6 +371,35 @@ namespace Points.Services.Sqlite
                     UNIQUE (CardID, TimeScope)
                 );
 
+                -- =========================
+                -- Locks
+                -- =========================
+                CREATE TABLE IF NOT EXISTS Lock (
+                    LockId           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    LockNumber       INTEGER NOT NULL,
+                    CardId           INTEGER NOT NULL,
+                    TimeWindowStart  TEXT NOT NULL, -- ISO-8601
+                    TimeWindowEnd    TEXT NOT NULL  -- ISO-8601
+                );
+
+                CREATE TABLE IF NOT EXISTS LockSchedule (
+                    ScheduleId      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    LockId          INTEGER NOT NULL,
+                    FrequencyType   INTEGER NOT NULL, -- 0=Daily,1=Weekly,2=Monthly
+                    FrequencyValue  INTEGER NOT NULL DEFAULT 0,
+                    FromDateTime    TEXT NOT NULL,    -- ISO-8601
+                    ToDateTime      TEXT NULL         -- ISO-8601 or NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS LockTaskDependency (
+                    LockTaskDependencyId INTEGER PRIMARY KEY AUTOINCREMENT,
+                    LockId               INTEGER NOT NULL,
+                    TaskDependencyCardId INTEGER NOT NULL,
+                    MetricType           INTEGER NOT NULL DEFAULT 0, -- 0=ActiveTime,1=Points
+                    TimeScope            INTEGER NOT NULL DEFAULT 0,  -- 0=Daily,1=Weekly,2=Monthly
+                    GoalValue            REAL NOT NULL DEFAULT 0,
+                    GoalValence          INTEGER NOT NULL DEFAULT 0  -- 0=MustBeGreaterThan, 1=MustBeLessThan
+                );
 
                 -- =========================
                 -- Helpful indexes
@@ -418,6 +447,31 @@ namespace Points.Services.Sqlite
 
                 CREATE INDEX IF NOT EXISTS IX_PlannerGoal_CardID       ON PlannerGoal(CardID);
                 CREATE INDEX IF NOT EXISTS IX_PlannerGoal_Enabled ON PlannerGoal(Enabled);
+
+                -- Lookup locks by card
+                CREATE INDEX IF NOT EXISTS IX_Lock_CardId ON Lock(CardId);
+
+                -- Ensure fast ordered retrieval per card
+                CREATE INDEX IF NOT EXISTS IX_Lock_CardId_LockNumber ON Lock(CardId, LockNumber);
+
+
+                -- Lookup schedules for a lock
+                CREATE INDEX IF NOT EXISTS IX_LockSchedule_LockId ON LockSchedule(LockId);
+
+                -- Optional: optimise evaluation by frequency
+                CREATE INDEX IF NOT EXISTS IX_LockSchedule_LockId_Frequency ON LockSchedule(LockId, FrequencyType);
+
+                -- Optional: optimise date-range checks
+                CREATE INDEX IF NOT EXISTS IX_LockSchedule_DateRange ON LockSchedule(FromDateTime, ToDateTime);
+
+                -- Lookup dependencies per lock
+                CREATE INDEX IF NOT EXISTS IX_LockTaskDependency_LockId ON LockTaskDependency(LockId);
+
+                -- Optimise dependency evaluation by card
+                CREATE INDEX IF NOT EXISTS IX_LockTaskDependency_TaskCard ON LockTaskDependency(TaskDependencyCardId);
+
+                -- Optimise scoped dependency checks
+                CREATE INDEX IF NOT EXISTS IX_LockTaskDependency_TaskCard_TimeScope ON LockTaskDependency(TaskDependencyCardId, TimeScope);
 
                 ";
         }

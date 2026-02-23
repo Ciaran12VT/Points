@@ -1,6 +1,7 @@
 using CommunityToolkit.Maui.Behaviors;
 using Points.Helpers;
 using Points.Models;
+using Points.Services.Locks;
 using Points.ViewModels;
 using Points.Views.Details;
 
@@ -32,19 +33,8 @@ public partial class MissionCardView : ContentView
         var page = this.FindParentOfType<ContentPage>();
         if (page?.BindingContext is HomeViewModel vm)
         {
-            //onSaved = _ =>
-            //{
-            //    // If you already have a method that sorts mission cards, call it here.
-            //    // vm.SortMissionCards();
-            //    // Otherwise, no-op is fine.
-            //};
-            //onDelete = vm.DeleteMission;
-            //onFail = vm.FailMission;
-
             await vm.OpenExistingCardAsync((IActiveCardModel)BindingContext);
         }
-
-        //await Shell.Current.Navigation.PushAsync(new MissionDetailsPage(model, onSaved, onDelete, onFail));
     }
 
     private async void OnCompleteClicked(object sender, EventArgs e)
@@ -55,6 +45,15 @@ public partial class MissionCardView : ContentView
         var page = this.FindParentOfType<ContentPage>();
         if (page?.BindingContext is HomeViewModel vm)
         {
+            var now = (Shell.Current?.CurrentPage?.BindingContext as HomeViewModel)?.Now ?? DateTime.Now;
+
+            if (LockEvaluator.IsLockedNow(model, now, vm.GetActiveCardModels(), out var availableAt))
+            {
+                var rem = LockEvaluator.FormatRemaining(now, availableAt);
+                await Shell.Current.DisplayAlert("Locked", $"This mission is locked. Available in {rem}.", "OK");
+                return;
+            }
+
             if (!model.IsComplete)
             {
                 bool confirm = await page.DisplayAlert(

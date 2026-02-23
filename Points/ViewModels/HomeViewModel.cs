@@ -12,6 +12,8 @@ using System.Diagnostics;
 using Points.Views.Details;
 using System.Windows.Input;
 using System.Text.Json;
+using Points.Views.Shared;
+using Points.Services.Locks;
 
 namespace Points.ViewModels
 {
@@ -236,6 +238,20 @@ namespace Points.ViewModels
                 OnPropertyChanged(nameof(HasNegativeAvailableMission));
             }
         }
+
+        public List<IActiveCardModel> GetActiveCardModels()
+        {
+            var mainQuest = Pages.First(p => p.Name == "Main Quest");
+            var mission = Pages.First(p => p.Name == "Mission");
+
+            var merge = new List<IActiveCardModel>();
+            merge.AddRange(mainQuest.AllCards.OfType<IActiveCardModel>());
+            merge.AddRange(mission.AllCards.OfType<IActiveCardModel>());
+
+            return merge;
+        }
+
+        public IReadOnlyList<IActiveCardModel> ActiveCardsForLocks => GetActiveCardModels();
 
         //A reference to the currenlty active card, if there is any
         private IActiveCardModel? _activeCard;
@@ -634,13 +650,16 @@ namespace Points.ViewModels
 
             if (model is TatCardModel tat)
             {
+                var dependencyOptions = BuildDependencyTaskOptions();
+
                 await Shell.Current.Navigation.PushAsync(
                     new Points.Views.Details.TatDetailsPage(
                         tat,
                         saved => CommitCardToPage(page, saved),
                         deleted => RemoveCardFromPage(page, deleted),
                         GetTags(),
-                        _db
+                        _db,
+                        dependencyOptions
                     )
                 );
                 return;
@@ -697,6 +716,23 @@ namespace Points.ViewModels
                 );
                 return;
             }
+        }
+
+        private List<DependencyTaskOption> BuildDependencyTaskOptions()
+        {
+            var merge = GetActiveCardModels();
+
+            return merge
+                .Where(c => c.CardID > 0)
+                .GroupBy(c => c.CardID)
+                .Select(g => g.First())
+                .OrderBy(c => c.Title)
+                .Select(c => new DependencyTaskOption
+                {
+                    CardId = c.CardID,
+                    Title = c.Title
+                })
+                .ToList();
         }
 
         /// <summary>
@@ -859,6 +895,18 @@ namespace Points.ViewModels
             try
             {
                 var nowUtc = DateTime.UtcNow;
+
+                if (LockEvaluator.IsLockedNow(card, nowUtc, GetActiveCardModels(), out var availableAt))
+                {
+                    var rem = LockEvaluator.FormatRemaining(nowUtc, availableAt);
+
+                    // Choose your UX:
+                    // 1) quick error label in page, or
+                    // 2) DisplayAlert, or
+                    // 3) toast/snackbar
+                    await Shell.Current.DisplayAlert("Locked", $"This card is locked. Available in {rem}.", "OK");
+                    return;
+                }
 
                 // Snapshot values for the activity we might open
                 string rateName = "Base Rate";

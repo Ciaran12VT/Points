@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="Points.Views.Shared.TaskDependencyEditPage"
+    Title="TaskDependencySelectionPage">
+
+    <Grid Padding="12"
+          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+          ColumnDefinitions="Auto,*"
+          RowSpacing="12"
+          ColumnSpacing="18">
+
+        <Label Grid.Row="0" Grid.Column="0" Text="Task:" VerticalTextAlignment="Center"/>
+        <Picker Grid.Row="0" Grid.Column="1" x:Name="TaskPicker" Title="Select task"/>
+
+        <Label Grid.Row="1" Grid.Column="0" Text="Metric:" VerticalTextAlignment="Center"/>
+        <Picker Grid.Row="1" Grid.Column="1" x:Name="MetricPicker"/>
+
+        <Label Grid.Row="2" Grid.Column="0" Text="TimeScope:" VerticalTextAlignment="Center"/>
+        <Picker Grid.Row="2" Grid.Column="1" x:Name="TimeScopePicker"/>
+
+        <Label Grid.Row="3" Grid.Column="0" Text="Goal:" VerticalTextAlignment="Center"/>
+        <Entry Grid.Row="3" Grid.Column="1"
+               x:Name="GoalEntry"
+               Keyboard="Numeric"
+               HorizontalTextAlignment="End"
+               Placeholder="e.g. 8 or 5.2"/>
+
+        <Label Grid.Row="4" Grid.Column="0"
+               Text="Condition:"
+               VerticalTextAlignment="Center"/>
+
+        <Picker Grid.Row="4" Grid.Column="1" x:Name="ValencePicker"/>
+
+        <Button Grid.Row="5" Grid.ColumnSpan="2"
+                Text="Done"
+                Clicked="OnDoneClicked"/>
+    </Grid>
+</ContentPage>

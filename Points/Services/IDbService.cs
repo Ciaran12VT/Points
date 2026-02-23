@@ -121,6 +121,11 @@ namespace Points.Services
         Task<List<TimeValueAchievementEvaluator>> RefreshEvaluatorsAsync(List<TimeValueAchievementEvaluator> timeValueAchievementEvaluators);
         
         Task SavePlannerModelsDataAsync(List<PlannerGoalDetailsModel> plannerModelsToSave);
+
+        Task<List<LockModel>> GetLocksForCardAsync(long cardId);
+
+        Task SaveLocksForCardAsync(long cardId, List<LockModel> locksToSave);
+
     }
 
     public sealed class HomeSeedData

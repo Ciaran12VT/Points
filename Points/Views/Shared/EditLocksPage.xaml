@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="Points.Views.Shared.EditLocksPage"
+    Title="Add Lock">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="12">
+
+        <!-- Header + Add -->
+        <Grid ColumnDefinitions="*,Auto" Row="0" Margin="0,0,0,10">
+            <Label Text="Add Lock"
+                   FontAttributes="Bold"
+                   FontSize="18"
+                   VerticalTextAlignment="Center" />
+
+            <Button Grid.Column="1"
+                    Text="➕"
+                    WidthRequest="40"
+                    HeightRequest="40"
+                    CornerRadius="20"
+                    Padding="0"
+                    BackgroundColor="Green"
+                    Clicked="OnAddLockClicked"/>
+        </Grid>
+
+        <!-- List of locks -->
+        <CollectionView Grid.Row="1"
+                        x:Name="LocksCollection"
+                        ItemsSource="{Binding Locks}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+
+                    <Frame Padding="10" Margin="0,0,0,12" CornerRadius="12" HasShadow="True">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                              ColumnDefinitions="Auto,*,Auto,Auto"
+                              ColumnSpacing="8"
+                              RowSpacing="6">
+
+                            <!-- Row 1: Lock title + remove -->
+                            <Label Grid.Row="0" Grid.Column="0"
+                                   Text="Lock:"
+                                   TextColor="Yellow"
+                                   FontAttributes="Bold" />
+
+                            <!--<Label Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding LockTitle}"
+                                   VerticalTextAlignment="Center" />-->
+
+                            <Label Grid.Row="0" Grid.Column="2"
+                                   Text="{Binding LockNumber}"
+                                   VerticalTextAlignment="Start"
+                                   HorizontalTextAlignment="End"
+                                   Opacity="0.75"/>
+
+                            <Button Grid.Row="0" Grid.Column="3"
+                                    Text="✖"
+                                    TextColor="Red"
+                                    VerticalOptions="Start"
+                                    WidthRequest="32"
+                                    HeightRequest="20"
+                                    CornerRadius="16"
+                                    Padding="0"
+                                    BackgroundColor="Transparent"
+                                    Clicked="OnRemoveLockClicked"
+                                    CommandParameter="{Binding .}" />
+
+                            <!-- Row 2: Schedules (list) -->
+                            <Grid Grid.Row="1"
+                                  Grid.Column="0"
+                                  Grid.ColumnSpan="4"
+                                  RowDefinitions="Auto,*"
+                                  ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="8"
+                                  RowSpacing="6"
+                                  Margin="0,0,0,0">
+
+                                <!-- Header row -->
+                                <Label Grid.Row="0" Grid.Column="0"
+                                       Text="Schedule:"
+                                       TextColor="Yellow"
+                                       FontAttributes="Bold"
+                                       VerticalTextAlignment="Center" />
+
+                                <Button Grid.Row="0" Grid.Column="2"
+                                        Text="➕"
+                                        TextColor="Green"
+                                        WidthRequest="32"
+                                        HeightRequest="32"
+                                        CornerRadius="16"
+                                        Padding="0"
+                                        BackgroundColor="Transparent"
+                                        HorizontalOptions="End"
+                                        Clicked="OnAddScheduleClicked"
+                                        CommandParameter="{Binding .}" />
+
+                                <!-- Schedule rows -->
+                                <VerticalStackLayout Grid.Row="1"
+                                         Grid.Column="0"
+                                         Grid.ColumnSpan="3"
+                                         Spacing="4"
+                                         BindableLayout.ItemsSource="{Binding ScheduleRows}">
+
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                <Label Text="{Binding Summary}"
+                                                       LineBreakMode="TailTruncation"
+                                                       VerticalTextAlignment="Center" />
+
+                                                <Button Grid.Column="1"
+                                                        Text="✎"
+                                                        TextColor="LightBlue"
+                                                        WidthRequest="32"
+                                                        HeightRequest="32"
+                                                        CornerRadius="16"
+                                                        Padding="0"
+                                                        BackgroundColor="Transparent"
+                                                        Clicked="OnEditScheduleClicked"
+                                                        CommandParameter="{Binding .}" />
+
+                                                <Button Grid.Column="2"
+                                                        Text="✖"
+                                                        TextColor="Red"
+                                                        WidthRequest="32"
+                                                        HeightRequest="32"
+                                                        CornerRadius="16"
+                                                        Padding="0"
+                                                        BackgroundColor="Transparent"
+                                                        Clicked="OnRemoveScheduleClicked"
+                                                        CommandParameter="{Binding .}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+
+                                </VerticalStackLayout>
+                            </Grid>
+
+                            <!-- Row 3: Time Window -->
+                            <Label Grid.Row="2" Grid.Column="0"
+                                   Text="Time Window:"
+                                   FontAttributes="Bold"
+                                   TextColor="Yellow" />
+
+                            <Label Grid.Row="2" Grid.Column="1"
+                                   Text="{Binding TimeWindowSummary}"
+                                   LineBreakMode="TailTruncation"
+                                   VerticalTextAlignment="Center" />
+
+                            <Button Grid.Row="2" Grid.Column="3"
+                                    Text="✎"
+                                    TextColor="LightBlue"
+                                    VerticalOptions="Start"
+                                    WidthRequest="32"
+                                    HeightRequest="20"
+                                    CornerRadius="16"
+                                    Padding="0"
+                                    BackgroundColor="Transparent"
+                                    Clicked="OnEditTimeWindowClicked"
+                                    CommandParameter="{Binding .}" />
+                            <!-- Row 4: Task Dependencies -->
+                            <Grid Grid.Row="3"
+                                  Grid.Column="0"
+                                  Grid.ColumnSpan="4"
+                                  RowDefinitions="Auto,*"
+                                  ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="8"
+                                  RowSpacing="6"
+                                  Margin="0,8,0,0">
+
+                                <!-- Header row -->
+                                <Label Grid.Row="0" Grid.Column="0"
+                                       Text="Task Dependencies:"
+                                       FontAttributes="Bold"
+                                       TextColor="Yellow"
+                                       VerticalTextAlignment="Center" />
+
+                                <!-- Spacer (Grid.Column=1) is just the content area -->
+                                <Button Grid.Row="0" Grid.Column="2"
+                                        Text="➕"
+                                        TextColor="Green"
+                                        WidthRequest="32"
+                                        HeightRequest="32"
+                                        CornerRadius="16"
+                                        Padding="0"
+                                        BackgroundColor="Transparent"
+                                        HorizontalOptions="End"
+                                        Clicked="OnAddDependencyClicked"
+                                        CommandParameter="{Binding .}" />
+
+                                <!-- Dependency rows -->
+                                <VerticalStackLayout Grid.Row="1"
+                                                     Grid.Column="0"
+                                                     Grid.ColumnSpan="3"
+                                                     Spacing="4"
+                                                     BindableLayout.ItemsSource="{Binding DependencyRows}">
+
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                <Label Text="{Binding Summary}" LineBreakMode="TailTruncation" VerticalTextAlignment="Center" />
+
+                                                <Button Grid.Column="1"
+                                                        Text="✎"
+                                                        TextColor="LightBlue"
+                                                        WidthRequest="32"
+                                                        HeightRequest="32"
+                                                        CornerRadius="16"
+                                                        Padding="0"
+                                                        BackgroundColor="Transparent"
+                                                        Clicked="OnEditDependencyClicked"
+                                                        CommandParameter="{Binding .}" />
+
+                                                <Button Grid.Column="2"
+                                                        Text="✖"
+                                                        TextColor="Red"
+                                                        WidthRequest="32"
+                                                        HeightRequest="32"
+                                                        CornerRadius="16"
+                                                        Padding="0"
+                                                        BackgroundColor="Transparent"
+                                                        Clicked="OnRemoveDependencyClicked"
+                                                        CommandParameter="{Binding .}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+
+                                </VerticalStackLayout>
+                            </Grid>
+
+                        </Grid>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Save / Cancel -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8,0,0">
+            <Button Text="Cancel" Clicked="OnCancelClicked" />
+            <Button Grid.Column="1" Text="Save" BackgroundColor="Green" Clicked="OnSaveClicked" />
+        </Grid>
+
+    </Grid>
+</ContentPage>

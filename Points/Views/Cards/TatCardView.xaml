@@ -15,16 +15,35 @@
 
             <!-- Row 0: Title (top-left) -->
             <Label Grid.Row="0" Grid.Column="0"
-                   Text="{Binding Title}"
-                   TextColor="{Binding TextColor}"
+                   Text="{Binding Title}"      
                    FontSize="16"
                    VerticalOptions="Center">
+                <Label.TextColor>
+                    <MultiBinding Converter="{StaticResource LockTitleColorConverter}">
+                        <Binding Path="TextColor" />
+                        <Binding Path="." />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.ActiveCardsForLocks" />
+                    </MultiBinding>
+                </Label.TextColor>
             </Label>
 
-                <!-- Row 0: Activity toggle (top-right) -->
+            <!-- Row 0: Activity toggle (top-right) -->
             <HorizontalStackLayout Grid.Row="0"
                   Grid.Column="1"
                   HorizontalOptions="End">
+
+                <Label Text="🔒"
+                       VerticalOptions="Center"
+                       Margin="0,0,6,0">
+                    <Label.IsVisible>
+                        <MultiBinding Converter="{StaticResource IsLockedNowConverter}">
+                            <Binding Path="." />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.ActiveCardsForLocks" />
+                        </MultiBinding>
+                    </Label.IsVisible>
+                </Label>
 
                 <Label Text="{Binding SelectedRateName}" VerticalOptions="Center" HorizontalOptions="Start" Margin="9" TextColor="Yellow" IsVisible="{Binding ShowRateNameOnCard}"/>
 
@@ -45,16 +64,37 @@
                             <Binding Path="ValuePerMinute" />
                         </MultiBinding>
                     </Button.BackgroundColor>
+                    <Button.IsEnabled>
+                        <MultiBinding Converter="{StaticResource NotLockedConverter}">
+                            <Binding Path="." />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.ActiveCardsForLocks" />
+                        </MultiBinding>
+                    </Button.IsEnabled>
+                    <Button.Opacity>
+                        <MultiBinding Converter="{StaticResource LockedToOpacityConverter}">
+                            <Binding Path="." />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
+                            <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.ActiveCardsForLocks" />
+                        </MultiBinding>
+                    </Button.Opacity>
                 </Button>
 
             </HorizontalStackLayout>
 
             <!-- Row 1: Status (left, grey) -->
             <Label Grid.Row="1" Grid.Column="0"
-               Text="{Binding Status, StringFormat='Status: {0}'}"
-               FontSize="13"
-               TextColor="Gray" />
-
+                   FontSize="13"
+                   TextColor="Gray">
+                <Label.Text>
+                    <MultiBinding Converter="{StaticResource LockStatusTextConverter}">
+                        <Binding Path="." />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
+                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.ActiveCardsForLocks" />
+                    </MultiBinding>
+                </Label.Text>
+            </Label>
+            
             <!-- Row 1: Tags (right, grey) -->
             <Label Grid.Row="1" Grid.Column="1"
                Text="{Binding Tags, StringFormat='Tags: {0}'}"
@@ -110,6 +150,11 @@
             <converters:ValueTextConverter x:Key="ValueTextConverter" />
             <converters:ValuePerMinuteToValueColorConverter x:Key="ValueColorConverter" />
             <converters:ActiveButtonBackgroundConverter x:Key="ActiveButtonBgConverter" />
+            <converters:IsLockedNowConverter x:Key="IsLockedNowConverter" />
+            <converters:LockStatusTextConverter x:Key="LockStatusTextConverter" />
+            <converters:LockTitleColorConverter x:Key="LockTitleColorConverter" />
+            <converters:NotLockedConverter x:Key="NotLockedConverter" />
+            <converters:LockedToOpacityConverter x:Key="LockedToOpacityConverter" />
         </ResourceDictionary>
     </ContentView.Resources>
 
