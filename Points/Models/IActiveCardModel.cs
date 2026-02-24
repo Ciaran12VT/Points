@@ -23,5 +23,7 @@ namespace Points.Models
         List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
 
         List<LockModel> Locks { get; set; }
+
+        event Action<IActiveCardModel>? LongPressRequested;
     }
 }

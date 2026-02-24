@@ -101,7 +101,6 @@ namespace Points.Services
 
         // Ends the most recent/open Activity row for the card resolved via model type + model.Id
         //Task EndActivity(IActiveCardModel model, DateTime endTime);
-        Task<Tuple<DateTime,DateTime>> GetPreviousAndNextActivePeriodDateTimes(DateTime current);
 
         Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(string sql, bool includeHeaderRow = true, params object?[] args);
 
@@ -126,6 +125,11 @@ namespace Points.Services
 
         Task SaveLocksForCardAsync(long cardId, List<LockModel> locksToSave);
 
+        Task<bool> HasActivityOverlapAsync(int excludeActivityId, DateTime candidateStart, DateTime? candidateEnd);
+
+        Task<DateTime?> GetCurrentOpenActivityStartUtcAsync(long cardId);
+        Task<DateTime?> GetLastClosedActivityEndUtcAsync();
+        Task DeleteLockModelAsync(LockModel model);
     }
 
     public sealed class HomeSeedData

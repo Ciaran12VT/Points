@@ -43,24 +43,14 @@ public partial class EditLocksPage : ContentPage
         _vm.AddLock();
     }
 
-    private void OnRemoveLockClicked(object sender, EventArgs e)
+    private async void OnRemoveLockClicked(object sender, EventArgs e)
     {
         if ((sender as Button)?.CommandParameter is LockEditorVm lockVm)
+        {
+            await _db.DeleteLockModelAsync(lockVm.Model);
             _vm.RemoveLock(lockVm);
+        }            
     }
-
-    //private async void OnEditScheduleClicked(object sender, EventArgs e)
-    //{
-    //    if ((sender as Button)?.CommandParameter is not LockEditorVm lockVm)
-    //        return;
-
-    //    await EditSchedulesAsync(lockVm.Model);
-
-    //    // Refresh summaries / UI
-    //    lockVm.RebuildDependencyRows();  // optional; only needed if your UI depends on it
-    //                                     // Better:
-    //    lockVm.RefreshSummaries();       // if you implement it
-    //}
 
     private async void OnEditScheduleClicked(object sender, EventArgs e)
     {

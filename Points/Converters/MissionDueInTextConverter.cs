@@ -43,11 +43,16 @@ namespace Points.Converters
                     var text = GetTextVersion(timeLeft, true);
                     result = $"{labelText}: {text}";
                 }
-                else
+                else if(totalHours <= 0 && totalHours > -23)
                 {
                     int mins = timeLeft.Minutes < 0 ? timeLeft.Minutes * -1 : timeLeft.Minutes;
                     int secs = timeLeft.Seconds < 0 ? timeLeft.Seconds * -1 : timeLeft.Seconds;
                     result = $"{labelText}: {totalHours}:{mins:D2}:{secs:D2}";
+                }
+                else
+                {
+                    var text = GetTextVersion(timeLeft, true);
+                    result = $"{labelText}: {text}";
                 }
             }
             else if(mission.IsComplete)
@@ -105,6 +110,14 @@ namespace Points.Converters
             {
                 text += $"{days} day ";
             }
+            else if ((int)time.Days == -1)
+            {
+                text += $"{time.Days * -1} day ";
+            }
+            else if ((int)time.Days < -1)
+            {
+                text += $"{time.Days * -1} days ";
+            }
 
             if ((int)time.Hours >= 1)
             {
@@ -113,6 +126,14 @@ namespace Points.Converters
             else if ((int)time.Hours == 1)
             {
                 text += $"{hrs} hour";
+            }
+            else if ((int)time.Hours == -1)
+            {
+                text += $"{time.Hours * -1} hour";
+            }
+            else if ((int)time.Hours < -1)
+            {
+                text += $"{time.Hours * -1} hours";
             }
 
             return text;

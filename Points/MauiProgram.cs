@@ -62,22 +62,22 @@ namespace Points
     {
         public Task CancelAllAsync(IEnumerable<long> scheduleIds)
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
 
         public Task CancelOneAsync(long scheduleId)
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
 
         public Task ScheduleAllAsync(IEnumerable<CardSchedule> schedules, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
 
         public Task ScheduleOneAsync(CardSchedule schedule, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
     }
 }

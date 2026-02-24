@@ -14,6 +14,8 @@ using System.Windows.Input;
 using System.Text.Json;
 using Points.Views.Shared;
 using Points.Services.Locks;
+using CommunityToolkit.Maui.Views;
+using Points.Views.Popups;
 
 namespace Points.ViewModels
 {
@@ -26,6 +28,7 @@ namespace Points.ViewModels
         private IAlarmScheduler _alarmScheduler;
 
         #region Commands
+        public Command<IActiveCardModel> LongPressActivateCommand { get; }
         public Command<IActiveCardModel> ActivateCardCommand { get; }
         public Command AddCardCommand { get; }
         public Command ScrollToActiveCardCommand { get; }
@@ -190,10 +193,40 @@ namespace Points.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CurrentPage));
 
+                SetSelectedPageIcon();
+
                 if (Pages[value].Name == "Planners")
                     _ = ReloadPlannersAsync();
             }
         }
+
+        public ICommand NavigationItemClickedCommand => new Command<HomePageModel>(OnNavigationItemClicked);
+
+        private void SetSelectedPageIcon()
+        {
+            foreach (var page in Pages)
+            {
+                if(page == Pages[Position])
+                {
+                    page.BackColor = Colors.Green;
+                }
+                else
+                {
+                    page.BackColor = Colors.Black;
+                }
+                page.RaisePropertyChanged("BackColor");
+            }
+        }
+
+        private void OnNavigationItemClicked(HomePageModel hpm)
+        {
+            int i = Pages.IndexOf(hpm);
+            if(i > -1)
+            {
+                Position = i;
+            }
+        }
+
 
         //The value of the Global Value (also known as the "top right value")
         private double _topRightValue;
@@ -312,6 +345,26 @@ namespace Points.ViewModels
                 
             });
 
+            LongPressActivateCommand = new Command<IActiveCardModel>(card =>
+            {
+                if (card is null) return;
+
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    try
+                    {
+                        var page = Shell.Current?.CurrentPage;
+                        if (page is null) return;
+
+                        await page.ShowPopupAsync(new Points.Views.Popups.SimpleTestPopup($"Long-pressed: {card.Title}"));
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"ShowPopupAsync failed: {ex}");
+                    }
+                });
+            });
+
             // Pages + mock data moved out of constructor logic
             InitializePages();        // defines pages (empty)
                                       //SeedMockCards();          // adds mocks via the SAME route as UI adds
@@ -324,6 +377,75 @@ namespace Points.ViewModels
 
             // Ensure mission ordering after seeding
             SortMissionCards();
+        }
+
+        private void WireLongPress(ICardModel card)
+        {
+            if (card is IActiveCardModel active)
+            {
+                active.LongPressRequested -= OnCardLongPressRequested; // prevent double subscribe
+                active.LongPressRequested += OnCardLongPressRequested;
+            }
+        }
+
+        private async void OnCardLongPressRequested(IActiveCardModel card)
+        {
+            if (card is null) return;
+
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                var page = Shell.Current?.CurrentPage;
+                if (page is null) return;
+
+                // UI-only placeholder bounds/initial for now:
+                // We will replace these with DB-derived min/max/initial later.
+                var nowLocal = DateTime.Now;
+                
+                var activationLabel = card.IsActive ? "Ends at" : "Starts at";
+
+                DateTime minUtc;
+
+                if (card.IsActive)
+                {
+                    var startUtc = await _db.GetCurrentOpenActivityStartUtcAsync(card.CardID);
+                    if (startUtc == null)
+                        return; // should not happen if IsActive true
+
+                    minUtc = startUtc.Value;
+                }
+                else
+                {
+                    var lastEndUtc = await _db.GetLastClosedActivityEndUtcAsync();
+                    minUtc = lastEndUtc ?? DateTime.MinValue;
+                }
+
+                // Convert to local for UI
+                var minLocal = minUtc.ToLocalTime();
+
+                var maxLocal = nowLocal;              // typically Now (unless you want future times)
+
+                var initialLocal = nowLocal.AddMinutes(-5);
+
+                var chosenObj = await page.ShowPopupAsync(new EditActiveTimePopup(
+                    activationTypeText: activationLabel,
+                    selectedTime: initialLocal,
+                    minTime: minLocal,
+                    maxTime: maxLocal));
+
+                // Popup returns:
+                // - DateTime chosen (from Close(chosen))
+                // - null if dismissed by tapping outside
+                if (chosenObj is not DateTime chosenLocal)
+                    return; // cancelled
+
+                // Convert to UTC for DB + activity system
+                // (Make sure Kind is Local before ToUniversalTime)
+                var chosenUtc = DateTime.SpecifyKind(chosenLocal, DateTimeKind.Local).ToUniversalTime();
+
+                // Now execute the same toggle path, but at chosenUtc.
+                // Choose whether to prompt for TAT rate selection here:
+                RequestActivate(card, chosenUtc);
+            });
         }
 
         private async Task LoadAsync()
@@ -750,7 +872,9 @@ namespace Points.ViewModels
                 page.AddCard(card);
             }
 
-            if(!noDb) CommitCardToDb(card);
+            WireLongPress(card);
+
+            if (!noDb) CommitCardToDb(card);
 
             // Post-commit hooks centralized here
             AfterCardCommitted(page, card);
@@ -876,12 +1000,12 @@ namespace Points.ViewModels
         {
             Pages.Clear();
 
-            Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<IActiveCardModel>()));
-            Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>()));
-            Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>()));
-            Pages.Add(new HomePageModel("Challenges & Pinned Achievements", Enumerable.Empty<ICardModel>()));
-            Pages.Add(new HomePageModel("Arcs", Enumerable.Empty<ICardModel>()));
-            Pages.Add(new HomePageModel("Planners", Enumerable.Empty<ICardModel>()));
+            Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<IActiveCardModel>(), '♻'));
+            Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>(), '⚑'));
+            Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>(), '◷'));
+            Pages.Add(new HomePageModel("Challenges & Pinned Achievements", Enumerable.Empty<ICardModel>(), '★'));
+            Pages.Add(new HomePageModel("Arcs", Enumerable.Empty<ICardModel>(), '∿'));
+            Pages.Add(new HomePageModel("Planners", Enumerable.Empty<ICardModel>(), '☰'));
         }
 
         #endregion
@@ -890,15 +1014,20 @@ namespace Points.ViewModels
 
         public async void RequestActivate(IActiveCardModel card)
         {
+            RequestActivate(card, null);
+        }
+
+        public async void RequestActivate(IActiveCardModel card, DateTime? nowUtc = null)
+        {
             if (card == null) return;
 
             try
             {
-                var nowUtc = DateTime.UtcNow;
+                DateTime nowUtcNonNull = nowUtc ?? DateTime.UtcNow;
 
-                if (LockEvaluator.IsLockedNow(card, nowUtc, GetActiveCardModels(), out var availableAt))
+                if (LockEvaluator.IsLockedNow(card, nowUtcNonNull, GetActiveCardModels(), out var availableAt))
                 {
-                    var rem = LockEvaluator.FormatRemaining(nowUtc, availableAt);
+                    var rem = LockEvaluator.FormatRemaining(nowUtcNonNull, availableAt);
 
                     // Choose your UX:
                     // 1) quick error label in page, or
@@ -945,7 +1074,7 @@ namespace Points.ViewModels
                 // DB authoritative toggle
                 var result = await _db.ToggleActivityAsync(
                     cardId: card.CardID,
-                    utcNow: nowUtc,
+                    utcNow: nowUtcNonNull,
                     valueRateName: rateName,
                     valuePerMinute: valuePerMinute);
 
@@ -986,44 +1115,50 @@ namespace Points.ViewModels
                         // For MissionCardModel etc.
                         (model as ObservableObject)?.RaisePropertyChanged(nameof(IActiveCardModel.Activity));
                     }
+
+                    (model as ObservableObject)?.RaisePropertyChanged(nameof(IActiveCardModel.IsActive));
                 }
 
-                // Apply closed activity (if any)
-                if (result.Closed != null)
+
+                await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    var closedCard = ResolveCard(result.Closed.CardID);
-                    if (closedCard != null)
+                    // Apply closed activity (if any)
+                    if (result.Closed != null)
                     {
-                        UpsertActivity(closedCard, result.Closed);
-                        closedCard.IsActive = false;
-                        RefreshTatComputedProps(closedCard);
+                        var closedCard = ResolveCard(result.Closed.CardID);
+                        if (closedCard != null)
+                        {
+                            UpsertActivity(closedCard, result.Closed);
+                            closedCard.IsActive = false;
+                            RefreshTatComputedProps(closedCard);
+                        }
                     }
-                }
 
-                // Apply opened activity (if any)
-                if (result.Opened != null)
-                {
-                    var openedCard = ResolveCard(result.Opened.CardID) ?? card;
+                    // Apply opened activity (if any)
+                    if (result.Opened != null)
+                    {
+                        var openedCard = ResolveCard(result.Opened.CardID) ?? card;
 
-                    UpsertActivity(openedCard, result.Opened);
-                    openedCard.IsActive = true;
-                    RefreshTatComputedProps(openedCard);
+                        UpsertActivity(openedCard, result.Opened);
+                        openedCard.IsActive = true;
+                        RefreshTatComputedProps(openedCard);
 
-                    _activeCard = openedCard;
-                }
-                else
-                {
-                    // Nothing opened => no active card
-                    _activeCard = null;
-                }
+                        _activeCard = openedCard;
+                    }
+                    else
+                    {
+                        // Nothing opened => no active card
+                        _activeCard = null;
+                    }
+
+                    // Update HomeViewModel computed properties
+                    OnPropertyChanged(nameof(HasActiveCard));
+                    OnPropertyChanged(nameof(ActivePhaseName));
+                    OnPropertyChanged(nameof(ActivePhaseColor));
+                });
 
                 // Notification matches DB-authoritative active card
                 _activeCardNotificationService.UpdateActiveCardNotification(_activeCard);
-
-                // Update HomeViewModel computed properties
-                OnPropertyChanged(nameof(HasActiveCard));
-                OnPropertyChanged(nameof(ActivePhaseName));
-                OnPropertyChanged(nameof(ActivePhaseColor));
             }
             catch (Exception ex)
             {
@@ -1326,6 +1461,7 @@ namespace Points.ViewModels
 
         #endregion
 
+        public event Action? TickHappened;
         public void Tick()
         {
             Now = DateTime.Now;
@@ -1345,6 +1481,8 @@ namespace Points.ViewModels
             TopRightValue = total;
 
             OnPropertyChanged(nameof(RangeEnd));
+
+            TickHappened?.Invoke();
         }
 
         private void UpdateAchievementsPerTick()
@@ -1395,13 +1533,16 @@ namespace Points.ViewModels
         }
     }
 
-    public class HomePageModel
+    public class HomePageModel : ObservableObject
     {
+        public char IconChar { get; set; }
+        public Color BackColor { get; set; } = Colors.Black;
+
         public string Name { get; }
         public ObservableCollection<ICardModel> AllCards { get; } = new();
         public ObservableCollection<ICardModel> VisibleCards { get; } = new();
-
-        public HomePageModel(string name, IEnumerable<ICardModel> cards)
+        
+        public HomePageModel(string name, IEnumerable<ICardModel> cards, char icon)
         {
             Name = name;
             foreach (var c in cards)
@@ -1409,6 +1550,7 @@ namespace Points.ViewModels
                 AllCards.Add(c);
                 VisibleCards.Add(c);
             }
+            IconChar = icon;
         }
 
         #region Methods

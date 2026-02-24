@@ -124,7 +124,7 @@ public partial class TatDetailsPage : ContentPage
     private async void OnEditSchedulesClicked(object sender, EventArgs e)
     {
         // Require a persisted card so schedules can be keyed by CardId
-        if (_model.Id <= 0)
+        if (_model.CardID <= 0)
         {
             ShowError("Please tap OK to save the tracker first, then add schedules.");
             return;
@@ -134,7 +134,7 @@ public partial class TatDetailsPage : ContentPage
         // We'll wire these to DB repository methods next.
         await Shell.Current.Navigation.PushAsync(
             new CardSchedulesPage(
-                cardId: _model.Id,
+                cardId: _model.CardID,
                 schedules: _model.Schedules,
                 onChanged: () =>
                 {
@@ -152,7 +152,7 @@ public partial class TatDetailsPage : ContentPage
         // - If locks are keyed by CardId and saved via SaveLocksForCardAsync(cardId, ...),
         //   you need a persisted card.
         // - If your UI is in-memory-only until user taps OK/save, you can skip this guard.
-        if (_model.Id <= 0)
+        if (_model.CardID <= 0)
         {
             ShowError("Please tap OK to save the tracker first, then add locks.");
             return;
@@ -161,7 +161,7 @@ public partial class TatDetailsPage : ContentPage
         // For now this is a stub page; later it becomes the real editor.
         await Shell.Current.Navigation.PushAsync(
             new EditLocksPage(
-                cardId: _model.Id,
+                cardId: _model.CardID,
                 locks: _model.Locks,
                 db: _db,
                 dependencyOptions: _dependencyOptions,

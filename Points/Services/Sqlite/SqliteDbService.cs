@@ -2293,48 +2293,80 @@ namespace Points.Services.Sqlite
 
         #region Activity
 
-        public async Task<Tuple<DateTime, DateTime>> GetPreviousAndNextActivePeriodDateTimes(DateTime current)
+        public async Task<bool> HasActivityOverlapAsync(int excludeActivityId, DateTime candidateStart, DateTime? candidateEnd)
         {
-            var currentIso = current.ToString("o");
+            await InitializeAsync();
 
+            var startIso = DateTime.SpecifyKind(candidateStart, DateTimeKind.Utc).ToString("o");
+            var endIso = candidateEnd.HasValue
+                ? DateTime.SpecifyKind(candidateEnd.Value, DateTimeKind.Utc).ToString("o")
+                : null;
 
-            var sql = @"
-                SELECT
-                    (
-                        SELECT ""End""
-                        FROM Activity
-                        WHERE ""End"" <> ?
-                          AND datetime(""End"") < datetime(?)
-                        ORDER BY datetime(""End"") DESC
-                        LIMIT 1
-                    ) AS PreviousEnd,
-                    (
-                        SELECT Start
-                        FROM Activity
-                        WHERE datetime(Start) > datetime(?)
-                        ORDER BY datetime(Start) ASC
-                        LIMIT 1
-                    ) AS NextStart;
-            ";
+            // Global overlap rule:
+            // (candidateEnd IS NULL OR db.Start < candidateEnd)
+            // AND (db.End IS NULL OR candidateStart < db.End)
+            //
+            // Exclude the row being edited.
+            const string sql = @"
+                    SELECT 1
+                    FROM Activity db
+                    WHERE (? <= 0 OR db.ActivityID <> ?)
+                      AND (
+                            (? IS NULL OR db.Start < ?)
+                            AND
+                            (db.""End"" IS NULL OR ? < db.""End"")
+                          )
+                    LIMIT 1;
+                ";
 
-            var rows = await Db.QueryAsync<AdjacentActivityDatesRow>(
+            var hit = await Db.ExecuteScalarAsync<int?>(
                 sql,
-                null,
-                currentIso,
-                currentIso
+                excludeActivityId, excludeActivityId,
+                endIso, endIso,
+                startIso
             );
 
-            var row = rows.FirstOrDefault();
+            return hit.HasValue;
+        }
 
-            var previous = row?.PreviousEnd != null
-                ? DateTime.Parse(row.PreviousEnd, null, System.Globalization.DateTimeStyles.RoundtripKind)
-                : DateTime.MinValue;
+        public async Task<DateTime?> GetCurrentOpenActivityStartUtcAsync(long cardId)
+        {
+            await InitializeAsync();
 
-            var next = row?.NextStart != null
-                ? DateTime.Parse(row.NextStart, null, System.Globalization.DateTimeStyles.RoundtripKind)
-                : DateTime.MaxValue;
+            const string sql = @"
+                SELECT Start
+                FROM Activity
+                WHERE CardID = ?
+                  AND ""End"" IS NULL
+                ORDER BY Start DESC
+                LIMIT 1;
+            ";
 
-            return Tuple.Create(previous, next);
+            var startIso = await Db.ExecuteScalarAsync<string?>(sql, cardId);
+            if (string.IsNullOrWhiteSpace(startIso))
+                return null;
+
+            // RoundtripKind respects the +00:00 offset in your stored text
+            return DateTime.Parse(startIso, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+        }
+
+        public async Task<DateTime?> GetLastClosedActivityEndUtcAsync()
+        {
+            await InitializeAsync();
+
+            const string sql = @"
+                SELECT ""End""
+                FROM Activity
+                WHERE ""End"" IS NOT NULL
+                ORDER BY ""End"" DESC
+                LIMIT 1;
+            ";
+
+            var endIso = await Db.ExecuteScalarAsync<string?>(sql);
+            if (string.IsNullOrWhiteSpace(endIso))
+                return null;
+
+            return DateTime.Parse(endIso, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
         }
 
         public async Task<ActivityModel?> GetCurrentActiveActivityAsync()
@@ -2621,20 +2653,19 @@ namespace Points.Services.Sqlite
                     //
                     // and ensure DB row not in incoming IDs
                     var forbidden = tran.ExecuteScalar<long?>(@"
-                        SELECT db.ActivityID
-                        FROM Activity db
-                        JOIN _IncomingActivity inc
-                          ON db.CardID = inc.CardID
-                         AND (
-                              (inc.""End"" IS NULL OR db.Start < inc.""End"")
-                              AND
-                              (db.""End"" IS NULL OR inc.Start < db.""End"")
-                         )
-                        WHERE db.ActivityID NOT IN (
-                            SELECT ActivityID FROM _IncomingActivity WHERE ActivityID IS NOT NULL
-                        )
-                        LIMIT 1;
-                    ");
+                            SELECT db.ActivityID
+                            FROM Activity db
+                            JOIN _IncomingActivity inc
+                              ON (
+                                   (inc.""End"" IS NULL OR db.Start < inc.""End"")
+                                   AND
+                                   (db.""End"" IS NULL OR inc.Start < db.""End"")
+                                 )
+                            WHERE db.ActivityID NOT IN (
+                                SELECT ActivityID FROM _IncomingActivity WHERE ActivityID IS NOT NULL
+                            )
+                            LIMIT 1;
+                        ");
 
                     if (forbidden != null)
                         throw new InvalidOperationException("Cannot overlap with existing Activities in the database.");
@@ -4277,6 +4308,50 @@ namespace Points.Services.Sqlite
                         }
                     }
                 }
+            });
+        }
+
+        public async Task DeleteLockModelAsync(LockModel lockModel)
+        {
+            await InitializeAsync();
+
+            if (lockModel == null)
+                throw new ArgumentNullException(nameof(lockModel));
+
+            // We strongly prefer deleting by LockId (stable PK).
+            // If LockId isn't present, fall back to (CardId, LockNumber) if available.
+            var lockId = lockModel.LockId;
+            var hasPk = lockId > 0;
+
+            if (!hasPk)
+            {
+                if (lockModel.CardId <= 0)
+                    throw new InvalidOperationException("Cannot delete Lock without LockId or a valid CardId.");
+                // If LockNumber is meaningful/unique per card in your domain, we can resolve LockId.
+                // Otherwise, you should require LockId.
+                if (lockModel.LockNumber <= 0)
+                    throw new InvalidOperationException("Cannot delete Lock without LockId or a valid LockNumber.");
+
+                lockId = await Db.ExecuteScalarAsync<long>(
+                    @"SELECT LockId
+                      FROM Lock
+                      WHERE CardId = ? AND LockNumber = ?
+                      LIMIT 1;",
+                    lockModel.CardId,
+                    lockModel.LockNumber);
+
+                if (lockId <= 0)
+                    return; // Already gone / nothing to delete.
+            }
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                // 1) Delete children first
+                conn.Execute(@"DELETE FROM LockSchedule WHERE LockId = ?;", lockId);
+                conn.Execute(@"DELETE FROM LockTaskDependency WHERE LockId = ?;", lockId);
+
+                // 2) Delete the lock
+                conn.Execute(@"DELETE FROM Lock WHERE LockId = ?;", lockId);
             });
         }
 

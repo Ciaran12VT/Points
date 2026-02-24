@@ -1,4 +1,5 @@
-﻿using Points.Evaluators;
+﻿using CommunityToolkit.Maui.Views;
+using Points.Evaluators;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -20,6 +21,13 @@ namespace Points.Models
             get => _title;
             set => SetProperty(ref _title, value);
         }
+
+        public event Action<IActiveCardModel>? LongPressRequested;
+
+        public ICommand LongPressCommand => new Command(() =>
+        {
+            LongPressRequested?.Invoke(this);
+        });
 
         public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
 
@@ -62,6 +70,7 @@ namespace Points.Models
         {
             get => _isActive;
             set => SetProperty(ref _isActive, value);
+
         }
 
         private string _status = "In-Progress";
@@ -93,7 +102,6 @@ namespace Points.Models
 
         public TatCardModel()
         {
-
         }
 
         public TimeSpan GetActiveTime(DateTime start, DateTime end)

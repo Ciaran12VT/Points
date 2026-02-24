@@ -2,6 +2,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:converters="clr-namespace:Points.Converters;assembly=Points"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="Points.Views.Cards.ScCardView">
 
     <ContentView.Resources>
@@ -90,7 +91,8 @@
                 </Button>
 
                 <!-- Active Toggle button -->
-                <Button Text="●"
+                <Button     x:Name="ActivityToggleButton"
+                            Text="●"
 							WidthRequest="36"
 							HeightRequest="36"
 							CornerRadius="18"
@@ -101,6 +103,11 @@
 							VerticalOptions="Center"
 							Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ActivateCardCommand}"
 							CommandParameter="{Binding .}">
+                    <Button.Behaviors>
+                        <toolkit:TouchBehavior
+                            LongPressDuration="600"
+                            LongPressCommand="{Binding LongPressCommand}" />
+                    </Button.Behaviors>
                     <Button.BackgroundColor>
                         <MultiBinding Converter="{StaticResource ActiveButtonBgConverter}">
                             <Binding Path="IsActive" />

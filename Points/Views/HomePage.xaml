@@ -60,7 +60,7 @@
 
 
     <!-- PAGE CONTENT: top toolbar + carousel + bottom toolbar -->
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- TOP (IN-PAGE) TOOLBAR -->
         <Grid Grid.Row="0"
@@ -97,7 +97,7 @@
 
 
                 <!-- Date Range -->
-                <Button Text="📅"
+                <!--<Button Text="📅"
                 Command="{Binding OpenDateRangePickerViewCommand}"
                 WidthRequest="36"
                 HeightRequest="36"
@@ -106,7 +106,7 @@
                 Margin="0"
                 TextColor="White"
                 BackgroundColor="Black"
-                VerticalOptions="Center"/>
+                VerticalOptions="Center"/>-->
 
                 <!-- Planners -->
                 <Button Text="🎯"
@@ -136,8 +136,39 @@
             VerticalOptions="Center"/>
         </Grid>
 
+
+        <!-- NEW: DYNAMIC (IN-PAGE) TOOLBAR -->
+        <Grid Grid.Row="1"
+              Padding="12,0,12,12"
+              BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
+
+            <!-- Horizontal scrolling button row -->
+            <CollectionView ItemsSource="{Binding Pages}"
+                    ItemsLayout="HorizontalList"
+                    HorizontalScrollBarVisibility="Never"
+                    VerticalScrollBarVisibility="Never">
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Button Text="{Binding IconChar}"
+                        WidthRequest="20"
+                        HeightRequest="20"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0,0,8,0"
+                        TextColor="White"
+                        BackgroundColor="{Binding BackColor}"
+                        VerticalOptions="Center"
+                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=NavigationItemClickedCommand}"
+                        CommandParameter="{Binding .}"/>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </Grid>
+
         <!-- Carousel -->
-        <CarouselView Grid.Row="1" x:Name="MainCarousel"
+        <CarouselView Grid.Row="2" x:Name="MainCarousel"
                       ItemsSource="{Binding Pages}"
                       Position="{Binding Position, Mode=TwoWay}"
                       IsSwipeEnabled="True"
@@ -168,8 +199,9 @@
 
         </CarouselView>
 
+
         <!-- BOTTOM TOOLBAR -->
-        <Grid Grid.Row="2"
+        <Grid Grid.Row="3"
                   ColumnDefinitions="*,Auto"
                   Padding="12"
                   BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">

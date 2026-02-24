@@ -127,7 +127,8 @@
                     </Label>
 
                     <!-- New blue button -->
-                    <Button Text="●"
+                    <Button x:Name="ActivityToggleButton"
+                        Text="●"
                         WidthRequest="36"
                         HeightRequest="36"
                         CornerRadius="18"
@@ -138,6 +139,11 @@
                         VerticalOptions="Center"
                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ActivateCardCommand}"
                         CommandParameter="{Binding .}">
+                        <Button.Behaviors>
+                            <toolkit:TouchBehavior
+                            LongPressDuration="600"
+                            LongPressCommand="{Binding LongPressCommand}" />
+                        </Button.Behaviors>
                         <Button.BackgroundColor>
                             <MultiBinding Converter="{StaticResource ActiveButtonBgConverter}">
                                 <Binding Path="IsActive" />

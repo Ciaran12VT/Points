@@ -7,44 +7,133 @@ namespace Points.Views.Details;
 
 public partial class EditActiveTimePage : ContentPage
 {
-    // Returns edited tuples to the caller
+    // Returns edited activities to the caller
     private readonly TaskCompletionSource<List<ActivityModel>> _tcs;
     private readonly IDbService _db;
 
-    public EditActiveTimePage(List<ActivityModel> activity, TaskCompletionSource<List<ActivityModel>> tcs, Services.IDbService db)
+    public EditActiveTimePage(List<ActivityModel> activity, TaskCompletionSource<List<ActivityModel>> tcs, IDbService db)
     {
         InitializeComponent();
-        _tcs = tcs;
-        _db = db;
+
+        _tcs = tcs ?? throw new ArgumentNullException(nameof(tcs));
+        _db = db ?? throw new ArgumentNullException(nameof(db));
+
+        if (activity is null)
+            throw new ArgumentNullException(nameof(activity));
 
         BindingContext = new EditActiveTimeViewModel(
-            activity,
+            activity: activity,
+
             onSave: edited =>
             {
+                // NOTE: persistence is handled by the caller for now (per your existing pattern).
                 _tcs.TrySetResult(edited);
                 _ = Navigation.PopAsync();
             },
-            pickDateTime: async (current) =>
-            {
-                var prevandnext = await _db.GetPreviousAndNextActivePeriodDateTimes(current);
 
-                var result = await DateTimePickerSheet.PickAsync(this, current, prevandnext);
-                return result;
-            });
+            pickDateTime: CreatePickDateTimeDelegate(),
+
+            confirmDelete: (title, message) =>
+            {
+                // Used by the Delete ("X") button flow in the VM.
+                return DisplayAlert(title, message, "Delete", "Cancel");
+            }
+        );
+    }
+
+    public enum ActiveBoundary
+    {
+        Start = 0,
+        End = 1
+    }
+
+    private Func<EditActiveTimeRow, ActiveBoundary, Task<DateTime?>> CreatePickDateTimeDelegate()
+    {
+        return async (row, boundary) =>
+        {
+            if (row is null) return null;
+
+            var initial = boundary == ActiveBoundary.Start
+                ? row.Start
+                : (row.End ?? row.Start);
+
+            // Structural bounds (start < end)
+            DateTime min;
+            DateTime max;
+
+            if (boundary == ActiveBoundary.Start)
+            {
+                min = DateTime.MinValue;
+                max = row.End.HasValue
+                    ? row.End.Value.AddSeconds(-1)
+                    : DateTime.MaxValue;
+            }
+            else // Editing End
+            {
+                min = row.Start.AddSeconds(1);
+                max = DateTime.MaxValue;
+            }
+
+            // Optional: You may clamp further using prev/next if desired
+            // var prevNext = await _db.GetPreviousAndNextActivePeriodDateTimes(initial);
+            // min = Max(min, prevNext?.Item1 ?? DateTime.MinValue);
+            // max = Min(max, prevNext?.Item2 ?? DateTime.MaxValue);
+
+            Func<DateTime, Task<string?>> validateAsync = async chosen =>
+            {
+                if (chosen < min || chosen > max)
+                    return "That time is outside the allowed range.";
+
+                var candidateStart = boundary == ActiveBoundary.Start ? chosen : row.Start;
+                var candidateEnd = boundary == ActiveBoundary.End ? chosen : row.End;
+
+                var overlaps = await _db.HasActivityOverlapAsync(
+                    excludeActivityId: row.Id,
+                    candidateStart: candidateStart,
+                    candidateEnd: candidateEnd);
+
+                return overlaps
+                    ? "Overlaps another activity block."
+                    : null;
+            };
+
+            var title = boundary == ActiveBoundary.Start
+                ? "Edit start time"
+                : "Edit end time";
+
+            return await DateTimePickerSheet.PickAsync(
+                page: this,
+                initial: initial,
+                min: min,
+                max: max,
+                validateAsync: validateAsync,
+                title: title);
+        };
     }
 }
 
 internal static class DateTimePickerSheet
 {
-    public static Task<DateTime?> PickAsync(Page page, DateTime initial, Tuple<DateTime, DateTime> prevandnext)
+    /// <summary>
+    /// Shows a modal date+time picker, enforcing:
+    /// - hard bounds: chosen must be within [min, max]
+    /// - optional async validation: validateAsync returns null/empty => valid, otherwise an error message
+    /// </summary>
+    public static Task<DateTime?> PickAsync(
+        Page page,
+        DateTime initial,
+        DateTime min,
+        DateTime max,
+        Func<DateTime, Task<string?>>? validateAsync = null,
+        string title = "Edit")
     {
+        if (page is null) throw new ArgumentNullException(nameof(page));
+        if (min > max) throw new ArgumentException("min must be <= max");
+
         var tcs = new TaskCompletionSource<DateTime?>();
 
-        var prev = prevandnext?.Item1 ?? DateTime.MinValue;
-        var next = prevandnext?.Item2 ?? DateTime.MaxValue;
-
-        // Clamp initial into bounds so we never open invalid
-        initial = Clamp(initial, prev, next);
+        // Clamp initial into bounds so the modal never opens invalid
+        initial = Clamp(initial, min, max);
 
         var datePicker = new DatePicker
         {
@@ -52,9 +141,9 @@ internal static class DateTimePickerSheet
             HorizontalOptions = LayoutOptions.Fill
         };
 
-        // Optional: restrict DATE selection (not time) when bounds are meaningful
-        if (prev != DateTime.MinValue) datePicker.MinimumDate = prev.Date;
-        if (next != DateTime.MaxValue) datePicker.MaximumDate = next.Date;
+        // Note: DatePicker bounds are DATE-only, so we apply full DateTime bounds in validation
+        if (min != DateTime.MinValue) datePicker.MinimumDate = min.Date;
+        if (max != DateTime.MaxValue) datePicker.MaximumDate = max.Date;
 
         var timePicker = new TimePicker
         {
@@ -77,7 +166,8 @@ internal static class DateTimePickerSheet
             FontAttributes = FontAttributes.Bold,
             FontSize = 21f,
             HeightRequest = 48,
-            CornerRadius = 12
+            CornerRadius = 12,
+            IsEnabled = false
         };
 
         var cancel = new Button
@@ -93,67 +183,112 @@ internal static class DateTimePickerSheet
 
         DateTime GetChosen() => datePicker.Date + timePicker.Time;
 
-        void ValidateAndUpdateUi()
+        // Debounce + stale-result protection
+        CancellationTokenSource? debounceCts = null;
+        int validationVersion = 0;
+
+        void SetError(string message)
+        {
+            ok.IsEnabled = false;
+            validationLabel.IsVisible = true;
+            validationLabel.Text = message;
+        }
+
+        void ClearError()
+        {
+            ok.IsEnabled = true;
+            validationLabel.IsVisible = false;
+            validationLabel.Text = "";
+        }
+
+        async Task ValidateAndUpdateUiAsync()
         {
             var chosen = GetChosen();
-            bool inRange = chosen >= prev && chosen <= next;
 
-            ok.IsEnabled = inRange;
-
-            // Optional message
-            if (!inRange)
+            // Hard bounds first (fast)
+            if (chosen < min || chosen > max)
             {
-                validationLabel.IsVisible = true;
-                validationLabel.Text = $"Pick a time between {prev:G} and {next:G}";
+                SetError($"Pick a time between {FormatBound(min)} and {FormatBound(max)}.");
+                return;
             }
-            else
+
+            // No async validator => valid if in range
+            if (validateAsync is null)
             {
-                validationLabel.IsVisible = false;
-                validationLabel.Text = "";
+                ClearError();
+                return;
+            }
+
+            // Debounce rapid changes (especially TimePicker)
+            debounceCts?.Cancel();
+            debounceCts?.Dispose();
+            debounceCts = new CancellationTokenSource();
+            var token = debounceCts.Token;
+
+            var myVersion = ++validationVersion;
+
+            try
+            {
+                // small delay to avoid hammering the validator while user scrolls
+                await Task.Delay(150, token);
+
+                // If cancelled during the delay, stop
+                token.ThrowIfCancellationRequested();
+
+                var error = await validateAsync(chosen);
+
+                // Ignore stale validation results
+                if (myVersion != validationVersion) return;
+
+                if (string.IsNullOrWhiteSpace(error))
+                    ClearError();
+                else
+                    SetError(error);
+            }
+            catch (OperationCanceledException)
+            {
+                // ignore - user changed value again
+            }
+            catch (Exception ex)
+            {
+                // Defensive: block OK if validation itself fails
+                SetError($"Validation error: {ex.Message}");
             }
         }
 
-        // Run once initially
-        ValidateAndUpdateUi();
-
-        // Revalidate whenever user changes date/time
-        datePicker.DateSelected += (_, __) => ValidateAndUpdateUi();
-        timePicker.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == TimePicker.TimeProperty.PropertyName)
-                ValidateAndUpdateUi();
-        };
-
+        // Build modal page
         var modal = new ContentPage
         {
-            Title = "Edit",
+            Title = title,
             Content = new VerticalStackLayout
             {
                 Padding = 16,
                 Spacing = 12,
                 Children =
-                {
-                    new Label { Text = "Date", FontAttributes = FontAttributes.Bold },
-                    datePicker,
-                    new Label { Text = "Time", FontAttributes = FontAttributes.Bold },
-                    timePicker,
-                    validationLabel,
-                    new Grid
                     {
-                        ColumnDefinitions = new ColumnDefinitionCollection
+                        new Label { Text = "Date", FontAttributes = FontAttributes.Bold },
+                        datePicker,
+                        new Label { Text = "Time", FontAttributes = FontAttributes.Bold },
+                        timePicker,
+                        validationLabel,
+                        new Grid
                         {
-                            new ColumnDefinition { Width = GridLength.Star }
-                        },
-                        Children =
-                        {
-                            cancel,
-                            ok
+                            ColumnDefinitions =
+                            {
+                                new ColumnDefinition { Width = GridLength.Star },
+                                new ColumnDefinition { Width = GridLength.Star }
+                            },
+                            ColumnSpacing = 12,
+                            Children = { cancel, ok }
                         }
                     }
-                }
             }
         };
 
+        Grid.SetColumn(cancel, 0);
+        Grid.SetColumn(ok, 1);
+
+        // Important: only set null result if nothing else has set the TCS
         modal.Disappearing += (_, __) => tcs.TrySetResult(null);
 
         cancel.Clicked += async (_, __) =>
@@ -164,17 +299,25 @@ internal static class DateTimePickerSheet
 
         ok.Clicked += async (_, __) =>
         {
-            // Double-check before accepting
-            var chosen = GetChosen();
-            if (chosen < prev || chosen > next)
-            {
-                ValidateAndUpdateUi();
-                return;
-            }
+            // Re-validate once more before accepting (covers edge cases / races)
+            await ValidateAndUpdateUiAsync();
+            if (!ok.IsEnabled) return;
 
-            tcs.TrySetResult(chosen);
+            tcs.TrySetResult(GetChosen());
             await page.Navigation.PopModalAsync();
         };
+
+        // Validate whenever user changes date/time
+        datePicker.DateSelected += (_, __) => _ = ValidateAndUpdateUiAsync();
+
+        timePicker.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == TimePicker.TimeProperty.PropertyName)
+                _ = ValidateAndUpdateUiAsync();
+        };
+
+        // Initial validation
+        _ = ValidateAndUpdateUiAsync();
 
         _ = page.Navigation.PushModalAsync(new NavigationPage(modal));
         return tcs.Task;
@@ -185,5 +328,12 @@ internal static class DateTimePickerSheet
         if (value < min) return min;
         if (value > max) return max;
         return value;
+    }
+
+    private static string FormatBound(DateTime dt)
+    {
+        if (dt == DateTime.MinValue) return "the beginning of time";
+        if (dt == DateTime.MaxValue) return "the end of time";
+        return dt.ToString("MMM-dd HH:mm");
     }
 }

@@ -22,6 +22,13 @@ namespace Points.Models
             set => SetProperty(ref _title, value);
         }
 
+        public event Action<IActiveCardModel>? LongPressRequested;
+
+        public ICommand LongPressCommand => new Command(() =>
+        {
+            LongPressRequested?.Invoke(this);
+        });
+
         public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
 
         public List<LockModel> Locks { get; set; } = new();
@@ -130,7 +137,7 @@ namespace Points.Models
             {
                 retVal = $"Event Time: Today @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
             }
-            else if (value < DateTime.Now.AddDays(1))
+            else if (value.Date < DateTime.Now.AddDays(1).Date)
             {
                 retVal = $"Event Time: Tomorrow @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
             }
