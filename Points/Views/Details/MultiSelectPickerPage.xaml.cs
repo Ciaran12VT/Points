@@ -6,12 +6,7 @@ public partial class MultiSelectPickerPage : ContentPage
 {
     private readonly TaskCompletionSource<IReadOnlyList<string>?> _tcs = new();
 
-    public MultiSelectPickerPage(
-        string title,
-        IEnumerable<string> items,
-        IEnumerable<string>? initial,
-        bool isReadOnly = true,
-        bool isSingleTag = false)
+    public MultiSelectPickerPage(string title, IEnumerable<string> items, IEnumerable<string>? initial, bool isReadOnly = true, bool isSingleTag = false)
     {
         InitializeComponent();
         BindingContext = new MultiSelectPickerViewModel(title, items, initial, _tcs, isReadOnly, isSingleTag);
@@ -41,7 +36,7 @@ public partial class MultiSelectPickerPage : ContentPage
         if (vm.IsReadOnly)
             return;
 
-        if(vm.IsSingleTag)
+        if (vm.IsSingleTag && vm.HasMultipleValues())
         {
             vm.Clear();
         }

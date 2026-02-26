@@ -429,6 +429,29 @@ namespace Points.Services.Sqlite
                 ON Activity(1)
                 WHERE ""End"" IS NULL;
 
+                -- =========================
+                -- Dashboard Shortcuts
+                -- =========================
+                CREATE TABLE IF NOT EXISTS ShortcutGroup (
+                    ShortcutGroupId     INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Name                TEXT    NOT NULL,
+                    Color               TEXT    NOT NULL DEFAULT '#FF000000', -- store as #AARRGGBB
+                    ShortcutGroupOrder  INTEGER NOT NULL DEFAULT 0
+                );
+
+                -- Optional but strongly recommended: prevent duplicate group names
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_ShortcutGroup_Name
+                ON ShortcutGroup(Name);
+
+                CREATE TABLE IF NOT EXISTS Shortcut (
+                    ShortcutId        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    IconChar          TEXT    NOT NULL DEFAULT '',
+                    TargetCardId      INTEGER NOT NULL,
+                    ShortcutGroupId   INTEGER NOT NULL,
+                    ShortcutOrder     INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (ShortcutGroupId) REFERENCES ShortcutGroup(ShortcutGroupId) ON DELETE CASCADE
+                );
+
                 -- Helpful for overlap queries
                 CREATE INDEX IF NOT EXISTS IX_Activity_StartEnd
                 ON Activity(Start, ""End"");
@@ -473,6 +496,14 @@ namespace Points.Services.Sqlite
                 -- Optimise scoped dependency checks
                 CREATE INDEX IF NOT EXISTS IX_LockTaskDependency_TaskCard_TimeScope ON LockTaskDependency(TaskDependencyCardId, TimeScope);
 
+                -- Dashboard ordering retrieval
+                CREATE INDEX IF NOT EXISTS IX_ShortcutGroup_Order ON ShortcutGroup(ShortcutGroupOrder, ShortcutGroupId);
+
+                CREATE INDEX IF NOT EXISTS IX_Shortcut_Group_Order ON Shortcut(ShortcutGroupId, ShortcutOrder, ShortcutId);
+
+                -- Optional: quicker reverse lookup / diagnostics
+                CREATE INDEX IF NOT EXISTS IX_Shortcut_TargetCardId ON Shortcut(TargetCardId);
+
                 ";
         }
 
@@ -480,7 +511,7 @@ namespace Points.Services.Sqlite
         {
             // Wipes data only (keeps tables + indexes). Uses FK OFF to avoid delete-order constraints.
             return @"
-                    DELETE FROM Activity;
+                    DELETE FROM Shortcut;
                 ";
         }
 

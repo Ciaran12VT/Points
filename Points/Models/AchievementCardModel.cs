@@ -23,6 +23,8 @@ namespace Points.Models
             Trophies.CollectionChanged += (_, __) => RaisePropertyChanged(nameof(TrophyCount));
         }
 
+        public long CardID { get; set; }
+
         private string _title = "New Achievement";
         public string Title { get => _title; set => SetProperty(ref _title, value); }
 

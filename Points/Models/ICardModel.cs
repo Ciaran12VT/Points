@@ -10,6 +10,7 @@ namespace Points.Models
     public interface ICardModel
     {
         int Id { get; set; }
+        long CardID { get; set; }
         string Title { get; }
         string Tags { get; }
         double GetValue(DateTime start, DateTime end);

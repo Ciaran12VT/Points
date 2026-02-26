@@ -130,6 +130,14 @@ namespace Points.Services
         Task<DateTime?> GetCurrentOpenActivityStartUtcAsync(long cardId);
         Task<DateTime?> GetLastClosedActivityEndUtcAsync();
         Task DeleteLockModelAsync(LockModel model);
+
+
+        Task<List<ShortcutGroupModel>> GetShortcutGroupsAsync();
+        Task<List<ShortcutModel>> GetDashboardShortcutsAsync();
+        Task<ShortcutGroupModel> UpsertShortcutGroupAsync(ShortcutGroupModel group);
+        Task<ShortcutModel> SaveShortcutAsync(ShortcutModel shortcut);
+        Task DeleteShortcutAsync(long shortcutId);
+        Task DeleteShortcutGroupAsync(long shortcutGroupId);
     }
 
     public sealed class HomeSeedData

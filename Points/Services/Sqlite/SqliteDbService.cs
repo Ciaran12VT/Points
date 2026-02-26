@@ -395,6 +395,7 @@ namespace Points.Services.Sqlite
             var model = new AchievementCardModel
             {
                 Id = row.AchievementCardID,
+                CardID = row.CardID,
 
                 Title = row.Title ?? "",
                 Tags = row.Tags ?? "",
@@ -776,6 +777,7 @@ namespace Points.Services.Sqlite
             var model = new BudgetCardModel
             {
                 Id = row.BudgetCardID,
+                CardID = row.CardID,
 
                 Title = row.Title ?? "",
                 Tags = row.Tags ?? "",
@@ -896,6 +898,7 @@ namespace Points.Services.Sqlite
             var models = rows.Select(r => new BudgetCardModel
             {
                 Id = r.BudgetCardID,
+                CardID = r.CardID,
 
                 Title = r.Title ?? "",
                 Tags = r.Tags ?? "",
@@ -1915,6 +1918,7 @@ namespace Points.Services.Sqlite
             var model = new ValueTrackerCardModel
             {
                 Id = row.ValueTrackerCardID,
+                CardID = row.CardID,
                 Title = row.Title ?? "",
                 Tags = row.Tags ?? "",
                 Unit = row.Unit ?? "",
@@ -1986,6 +1990,7 @@ namespace Points.Services.Sqlite
                 var vt = new ValueTrackerCardModel
                 {
                     Id = r.ValueTrackerCardID,
+                    CardID = r.CardID,
                     Title = r.Title ?? "",
                     Tags = r.Tags ?? "",
                     Unit = r.Unit ?? "",
@@ -2004,7 +2009,7 @@ namespace Points.Services.Sqlite
 
             // Bulk-load values for all trackers
             var cardIds = rows.Select(r => r.CardID).Distinct().ToList();
-            var byCardId = models.ToDictionary(m => rows.First(r => r.ValueTrackerCardID == m.Id).CardID);
+            var byCardId = models.ToDictionary(m => m.CardID);
 
             var placeholders = string.Join(", ", cardIds.Select(_ => "?"));
             var valuesSql = $@"
@@ -2085,6 +2090,7 @@ namespace Points.Services.Sqlite
             var model = new EventTrackerCardModel
             {
                 Id = row.EventTrackerCardID,
+                CardID = row.CardID,
                 Title = row.Title ?? "",
                 Tags = row.Tags ?? "",
                 Unit = row.Unit ?? "",
@@ -2143,6 +2149,7 @@ namespace Points.Services.Sqlite
             var models = rows.Select(r => new EventTrackerCardModel
             {
                 Id = r.EventTrackerCardID,
+                CardID = r.CardID,
                 Title = r.Title ?? "",
                 Tags = r.Tags ?? "",
                 Unit = r.Unit ?? "",
@@ -2152,7 +2159,7 @@ namespace Points.Services.Sqlite
             }).ToList();
 
             var cardIds = rows.Select(r => r.CardID).Distinct().ToList();
-            var byCardId = models.ToDictionary(m => rows.First(r => r.EventTrackerCardID == m.Id).CardID);
+            var byCardId = models.ToDictionary(m => m.CardID);
 
             var placeholders = string.Join(", ", cardIds.Select(_ => "?"));
             var valuesSql = $@"
@@ -4389,5 +4396,324 @@ namespace Points.Services.Sqlite
 
         #endregion
 
+        #region Dashboard Shortcuts
+
+        #region Row Models
+
+        public sealed class ShortcutGroupRow
+        {
+            public long ShortcutGroupId { get; set; }
+            public string Name { get; set; } = "";
+            public string Color { get; set; } = "#FF000000"; // #AARRGGBB
+            public int ShortcutGroupOrder { get; set; }
+        }
+
+        public sealed class ShortcutRow
+        {
+            public long ShortcutId { get; set; }
+            public string IconChar { get; set; } = "";
+            public long TargetCardId { get; set; }
+            public long ShortcutGroupId { get; set; }
+            public int ShortcutOrder { get; set; }
+        }
+
+        /// <summary>
+        /// Join-row for Dashboard retrieval.
+        /// </summary>
+        public sealed class DashboardShortcutJoinRow
+        {
+            public long ShortcutId { get; set; }
+            public string IconChar { get; set; } = "";
+            public long TargetCardId { get; set; }
+            public int ShortcutOrder { get; set; }
+
+            public long ShortcutGroupId { get; set; }
+            public string GroupName { get; set; } = "";
+            public string GroupColor { get; set; } = "#FF000000";
+            public int ShortcutGroupOrder { get; set; }
+        }
+
+        #endregion
+
+        #region Mappers
+
+        public static class ShortcutGroupMapper
+        {
+            public static ShortcutGroupModel ToDomain(ShortcutGroupRow row)
+            {
+                return new ShortcutGroupModel
+                {
+                    ShortcutGroupId = row.ShortcutGroupId,
+                    Name = row.Name,
+                    Color = ParseColor(row.Color),
+                    ShortcutGroupOrder = row.ShortcutGroupOrder
+                };
+            }
+
+            public static ShortcutGroupRow ToRow(ShortcutGroupModel model)
+            {
+                return new ShortcutGroupRow
+                {
+                    ShortcutGroupId = model.ShortcutGroupId,
+                    Name = model.Name ?? "",
+                    Color = NormalizeArgbHex(ToHexArgb(model.Color)),
+                    ShortcutGroupOrder = model.ShortcutGroupOrder
+                };
+            }
+        }
+
+        public static class ShortcutMapper
+        {
+            public static ShortcutModel ToDomain(ShortcutRow row)
+            {
+                return new ShortcutModel
+                {
+                    ShortcutId = row.ShortcutId,
+                    IconChar = row.IconChar,
+                    TargetCardId = row.TargetCardId,
+                    ShortcutGroupId = row.ShortcutGroupId,
+                    ShortcutOrder = row.ShortcutOrder,
+                    Group = null
+                };
+            }
+
+            public static ShortcutRow ToRow(ShortcutModel model)
+            {
+                return new ShortcutRow
+                {
+                    ShortcutId = model.ShortcutId,
+                    IconChar = model.IconChar ?? "",
+                    TargetCardId = model.TargetCardId,
+                    ShortcutGroupId = model.ShortcutGroupId,
+                    ShortcutOrder = model.ShortcutOrder
+                };
+            }
+
+            public static ShortcutModel ToDomain(DashboardShortcutJoinRow row)
+            {
+                return new ShortcutModel
+                {
+                    ShortcutId = row.ShortcutId,
+                    IconChar = row.IconChar,
+                    TargetCardId = row.TargetCardId,
+                    ShortcutGroupId = row.ShortcutGroupId,
+                    ShortcutOrder = row.ShortcutOrder,
+                    Group = new ShortcutGroupModel
+                    {
+                        ShortcutGroupId = row.ShortcutGroupId,
+                        Name = row.GroupName,
+                        Color = ParseColor(row.GroupColor),
+                        ShortcutGroupOrder = row.ShortcutGroupOrder
+                    }
+                };
+            }
+        }
+
+        #endregion
+
+        #region Public API (domain-returning)
+
+        public async Task<List<ShortcutGroupModel>> GetShortcutGroupsAsync()
+        {
+            await InitializeAsync();
+
+            var rows = await Db.QueryAsync<ShortcutGroupRow>(
+                @"SELECT ShortcutGroupId, Name, Color, ShortcutGroupOrder
+                  FROM ShortcutGroup
+                  ORDER BY ShortcutGroupOrder ASC, ShortcutGroupId ASC;");
+
+            return rows.Select(ShortcutGroupMapper.ToDomain).ToList();
+        }
+
+        /// <summary>
+        /// Returns shortcuts ordered by (GroupOrder, ShortcutOrder).
+        /// Each ShortcutModel includes its Group populated (JOIN).
+        /// </summary>
+        public async Task<List<ShortcutModel>> GetDashboardShortcutsAsync()
+        {
+            await InitializeAsync();
+
+            var joinRows = await Db.QueryAsync<DashboardShortcutJoinRow>(
+                @"SELECT
+                      s.ShortcutId        AS ShortcutId,
+                      s.IconChar          AS IconChar,
+                      s.TargetCardId      AS TargetCardId,
+                      s.ShortcutOrder     AS ShortcutOrder,
+                      g.ShortcutGroupId   AS ShortcutGroupId,
+                      g.Name              AS GroupName,
+                      g.Color             AS GroupColor,
+                      g.ShortcutGroupOrder AS ShortcutGroupOrder
+                  FROM Shortcut s
+                  JOIN ShortcutGroup g ON g.ShortcutGroupId = s.ShortcutGroupId
+                  ORDER BY g.ShortcutGroupOrder ASC, s.ShortcutOrder ASC, s.ShortcutId ASC;");
+
+            return joinRows.Select(ShortcutMapper.ToDomain).ToList();
+        }
+
+        /// <summary>
+        /// Upsert group by name (case-insensitive). Returns the persisted group (including ID).
+        /// This supports your "user typed a new group name" scenario.
+        /// </summary>
+        public async Task<ShortcutGroupModel> UpsertShortcutGroupAsync(ShortcutGroupModel group)
+        {
+            await InitializeAsync();
+
+            if (group == null) throw new ArgumentNullException(nameof(group));
+            if (string.IsNullOrWhiteSpace(group.Name))
+                throw new ArgumentException("Group.Name is required.", nameof(group));
+
+            var name = group.Name.Trim();
+            var colorHex = NormalizeArgbHex(ToHexArgb(group.Color));
+            var order = group.ShortcutGroupOrder;
+
+            ShortcutGroupModel? result = null;
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                var existing = conn.Query<ShortcutGroupRow>(
+                    @"SELECT ShortcutGroupId, Name, Color, ShortcutGroupOrder
+                      FROM ShortcutGroup
+                      WHERE Name = ? COLLATE NOCASE
+                      LIMIT 1;",
+                    name).FirstOrDefault();
+
+                if (existing != null)
+                {
+                    conn.Execute(
+                        @"UPDATE ShortcutGroup
+                          SET Color = ?, ShortcutGroupOrder = ?
+                          WHERE ShortcutGroupId = ?;",
+                        colorHex, order, existing.ShortcutGroupId);
+
+                    // Return updated domain model
+                    result = new ShortcutGroupModel
+                    {
+                        ShortcutGroupId = existing.ShortcutGroupId,
+                        Name = existing.Name,
+                        Color = ParseColor(colorHex),
+                        ShortcutGroupOrder = order
+                    };
+                    return;
+                }
+
+                conn.Execute(
+                    @"INSERT INTO ShortcutGroup (Name, Color, ShortcutGroupOrder)
+                      VALUES (?, ?, ?);",
+                    name, colorHex, order);
+
+                var newId = conn.ExecuteScalar<long>("SELECT last_insert_rowid();");
+
+                result = new ShortcutGroupModel
+                {
+                    ShortcutGroupId = newId,
+                    Name = name,
+                    Color = ParseColor(colorHex),
+                    ShortcutGroupOrder = order
+                };
+            });
+
+            return result ?? throw new InvalidOperationException("UpsertShortcutGroupAsync failed unexpectedly.");
+        }
+
+        public async Task<ShortcutModel> SaveShortcutAsync(ShortcutModel shortcut)
+        {
+            await InitializeAsync();
+
+            if (shortcut == null) throw new ArgumentNullException(nameof(shortcut));
+            if (shortcut.TargetCardId <= 0) throw new ArgumentException("TargetCardId must be set.", nameof(shortcut));
+            if (shortcut.ShortcutGroupId <= 0) throw new ArgumentException("ShortcutGroupId must be set.", nameof(shortcut));
+
+            shortcut.IconChar = (shortcut.IconChar ?? "").Trim();
+
+            var row = ShortcutMapper.ToRow(shortcut);
+            long savedId = row.ShortcutId;
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                if (savedId <= 0)
+                {
+                    conn.Execute(
+                        @"INSERT INTO Shortcut (IconChar, TargetCardId, ShortcutGroupId, ShortcutOrder)
+                          VALUES (?, ?, ?, ?);",
+                        row.IconChar, row.TargetCardId, row.ShortcutGroupId, row.ShortcutOrder);
+
+                    savedId = conn.ExecuteScalar<long>("SELECT last_insert_rowid();");
+                }
+                else
+                {
+                    conn.Execute(
+                        @"UPDATE Shortcut
+                          SET IconChar = ?, TargetCardId = ?, ShortcutGroupId = ?, ShortcutOrder = ?
+                          WHERE ShortcutId = ?;",
+                        row.IconChar, row.TargetCardId, row.ShortcutGroupId, row.ShortcutOrder, savedId);
+                }
+            });
+
+            shortcut.ShortcutId = savedId;
+            return shortcut;
+        }
+
+        public async Task DeleteShortcutAsync(long shortcutId)
+        {
+            await InitializeAsync();
+            if (shortcutId <= 0) return;
+
+            await Db.ExecuteAsync(@"DELETE FROM Shortcut WHERE ShortcutId = ?;", shortcutId);
+        }
+
+        public async Task DeleteShortcutGroupAsync(long shortcutGroupId)
+        {
+            await InitializeAsync();
+            if (shortcutGroupId <= 0) return;
+
+            // FK ON DELETE CASCADE will remove associated shortcuts
+            await Db.ExecuteAsync(@"DELETE FROM ShortcutGroup WHERE ShortcutGroupId = ?;", shortcutGroupId);
+        }
+
+        #endregion
+
+        #region Color helpers (keep local + deterministic)
+
+        private static Color ParseColor(string? hex)
+        {
+            // Expect #AARRGGBB or #RRGGBB; normalize and parse.
+            var norm = NormalizeArgbHex(hex);
+            return Color.FromArgb(norm);
+        }
+
+        private static string ToHexArgb(Color c)
+        {
+            // MAUI Color gives 0..1 floats
+            byte a = (byte)Math.Round(c.Alpha * 255);
+            byte r = (byte)Math.Round(c.Red * 255);
+            byte g = (byte)Math.Round(c.Green * 255);
+            byte b = (byte)Math.Round(c.Blue * 255);
+            return $"#{a:X2}{r:X2}{g:X2}{b:X2}";
+        }
+
+        private static string NormalizeArgbHex(string? hex)
+        {
+            if (string.IsNullOrWhiteSpace(hex))
+                return "#FF000000";
+
+            hex = hex.Trim();
+            if (!hex.StartsWith("#"))
+                hex = "#" + hex;
+
+            // #RRGGBB -> #FFRRGGBB
+            if (hex.Length == 7)
+                return "#FF" + hex.Substring(1);
+
+            // #AARRGGBB
+            if (hex.Length == 9)
+                return hex;
+
+            // Fallback
+            return "#FF000000";
+        }
+
+        #endregion
+
+        #endregion
     }
 }

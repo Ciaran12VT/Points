@@ -30,10 +30,22 @@ namespace Points.ViewModels
         #region Commands
         public Command<IActiveCardModel> LongPressActivateCommand { get; }
         public Command<IActiveCardModel> ActivateCardCommand { get; }
+
+        public ICommand ShortcutClickedCommand => new Command<ShortcutModel>(OnShortcutClicked);
+        private void OnShortcutClicked(ShortcutModel? shortcut)
+        {
+            if (shortcut == null) return;
+
+            ScrollToAnyCardByIdRequested?.Invoke(shortcut.TargetCardId);
+        }
+
         public Command AddCardCommand { get; }
         public Command ScrollToActiveCardCommand { get; }
         public Command FilterByTagCommand { get; }
+
         public Action<IActiveCardModel>? ScrollToCardRequested;
+
+        public Action<long>? ScrollToAnyCardByIdRequested;
         public Command FilterPositiveCommand { get; }
         public Command FilterNegativeCommand { get; }
         public Command ClearFiltersCommand { get; }
@@ -195,8 +207,9 @@ namespace Points.ViewModels
 
                 SetSelectedPageIcon();
 
-                if (Pages[value].Name == "Planners")
-                    _ = ReloadPlannersAsync();
+                if (Pages[value].Name == "Planners") _ = ReloadPlannersAsync();
+
+                if (Pages[value].IsDashboard) _ = ReloadDashboardAsync();
             }
         }
 
@@ -455,16 +468,20 @@ namespace Points.ViewModels
             var seed = await _db.GetHomeSeedDataAsync(new TimeScopeRange(TimeScope.Daily, now).Start, new TimeScopeRange(TimeScope.Monthly, now).End);
             var allPlannerModels = await _db.GetPlannerModelsDataAsync();
             var openActivity = await _db.GetCurrentActiveActivityAsync();
+            var shortcuts = await _db.GetDashboardShortcutsAsync();
 
             // Make sure we touch ObservableCollection on UI thread
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
+                var dashboard = Pages.First(p => p.Name == "Dashboard");
                 var mainQuest = Pages.First(p => p.Name == "Main Quest");
                 var mission = Pages.First(p => p.Name == "Mission");
                 var budgets = Pages.First(p => p.Name == "Budgets");
                 var achievements = Pages.First(p => p.Name == "Challenges & Pinned Achievements");
                 var trackers = Pages.First(p => p.Name == "Arcs");
                 var planners = Pages.First(p => p.Name == "Planners");
+
+                RebuildDashboardCells(dashboard, shortcuts);
 
                 // Activate the card that was active when the app last closed (DB-authoritative)
                 if (openActivity != null)
@@ -653,6 +670,63 @@ namespace Points.ViewModels
             });
         }
 
+        private async Task ReloadDashboardAsync()
+        {
+            var dashboard = Pages.First(p => p.IsDashboard);
+            var shortcuts = await _db.GetDashboardShortcutsAsync();
+            RebuildDashboardCells(dashboard, shortcuts);
+        }
+
+        private void RebuildDashboardCells(HomePageModel dashboardPage, List<ShortcutModel> shortcuts)
+        {
+            // Expected: each ShortcutModel has:
+            // - ShortcutOrder
+            // - TargetCardId
+            // - IconChar
+            // - Group (ShortcutGroupModel?) with GroupOrder + Color
+            // If your model differs, adapt here.
+
+            dashboardPage.DashboardCells.Clear();
+
+            var orderedGroups = shortcuts
+                .Where(s => s.Group != null)
+                .GroupBy(s => s.Group!.ShortcutGroupId) // or GroupId
+                .Select(g => new
+                {
+                    Group = g.First().Group!, // same group object
+                    Items = g.OrderBy(s => s.ShortcutOrder).ToList()
+                })
+                .OrderBy(x => x.Group.ShortcutGroupOrder) // group order
+                .ToList();
+
+            foreach (var grp in orderedGroups)
+            {
+                // Add the group's items
+                foreach (var s in grp.Items)
+                {
+                    dashboardPage.DashboardCells.Add(new DashboardCellModel
+                    {
+                        IsPlaceholder = false,
+                        Shortcut = s
+                    });
+                }
+
+                // Rule #3: pad to next row boundary (multiple of 4)
+                int rem = dashboardPage.DashboardCells.Count % 4;
+                if (rem != 0)
+                {
+                    int pad = 4 - rem;
+                    for (int i = 0; i < pad; i++)
+                    {
+                        dashboardPage.DashboardCells.Add(new DashboardCellModel
+                        {
+                            IsPlaceholder = true,
+                            Shortcut = null
+                        });
+                    }
+                }
+            }
+        }
 
         #region Single-route add/commit pipeline
 
@@ -662,6 +736,14 @@ namespace Points.ViewModels
         /// </summary>
         private async Task AddCardAsync()
         {
+            var page = CurrentPage;
+
+            if (page.Name == "Dashboard")
+            {
+                await AddDashboardShortcutAsync();
+                return;
+            }
+
             await AddCardFlowAsync(model: null, targetPage: CurrentPage, openDetails: true);
         }
 
@@ -857,6 +939,168 @@ namespace Points.ViewModels
                 .ToList();
         }
 
+        private async Task AddDashboardShortcutAsync()
+        {
+            // 1) Build card options for the details page
+            var optionsByType = BuildShortcutOptionsByType();
+
+            // Pick a sensible default target (MainQuest if possible, else first available)
+            CardOption? defaultTarget =
+                (optionsByType.TryGetValue(TargetCardType.MainQuest, out var mq) ? mq.FirstOrDefault() : null)
+                ?? optionsByType.SelectMany(kvp => kvp.Value).FirstOrDefault();
+
+            if (defaultTarget == null || defaultTarget.CardId <= 0)
+            {
+                await Shell.Current.DisplayAlert(
+                    "No targets",
+                    "No valid cards are loaded to target. Create a card first, then add a shortcut.",
+                    "OK");
+                return;
+            }
+
+            // 2) Load groups + shortcuts (for picker + default ordering)
+            var groups = await _db.GetShortcutGroupsAsync();
+            var shortcuts = await _db.GetDashboardShortcutsAsync();
+
+            var existingGroupNames = groups
+                .Where(g => !string.IsNullOrWhiteSpace(g.Name))
+                .OrderBy(g => g.ShortcutGroupOrder)
+                .ThenBy(g => g.Name)
+                .Select(g => g.Name.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var nextShortcutOrder = shortcuts.Count == 0 ? 1 : shortcuts.Max(s => s.ShortcutOrder) + 1;
+
+            // 3) New shortcut model defaults
+            var model = new ShortcutModel
+            {
+                ShortcutId = 0,
+                IconChar = "★",
+                TargetCardId = defaultTarget.CardId,
+                ShortcutOrder = nextShortcutOrder,
+                ShortcutGroupId = 0,   // will be set after group upsert
+                Group = new ShortcutGroupModel
+                {
+                    ShortcutGroupId = 0,
+                    Name = "",
+                    Color = Colors.Black,
+                    ShortcutGroupOrder = 0
+                }
+            };
+
+            // 4) Dashboard reload helper
+            async Task ReloadDashboardAsync()
+            {
+                var updated = await _db.GetDashboardShortcutsAsync();
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    var dashboard = Pages.First(p => p.Name == "Dashboard");
+                    RebuildDashboardCells(dashboard, updated);
+                });
+            }
+
+            // 5) Save callback (Action<ShortcutModel>), uses your DB methods
+            Action<ShortcutModel> onSaved = saved =>
+            {
+                _ = Task.Run(async () =>
+                {
+                    // Upsert group from the edited model.Group (name/order/color)
+                    if (saved.Group == null || string.IsNullOrWhiteSpace(saved.Group.Name))
+                        throw new InvalidOperationException("Shortcut must have a Group with a Name before saving.");
+
+                    var persistedGroup = await _db.UpsertShortcutGroupAsync(saved.Group);
+
+                    // Ensure FK is set
+                    saved.ShortcutGroupId = persistedGroup.ShortcutGroupId;
+                    saved.Group = persistedGroup;
+
+                    // Save shortcut row
+                    await _db.SaveShortcutAsync(saved);
+
+                    // Refresh dashboard UI
+                    await ReloadDashboardAsync();
+                });
+            };
+
+            // 6) Delete callback
+            Action<ShortcutModel> onDelete = deleted =>
+            {
+                _ = Task.Run(async () =>
+                {
+                    if (deleted.ShortcutId > 0)
+                        await _db.DeleteShortcutAsync(deleted.ShortcutId);
+
+                    await ReloadDashboardAsync();
+                });
+            };
+
+            // 7) Navigate (page constructs VM internally)
+            await Shell.Current.Navigation.PushAsync(
+                new ShortcutDetailsPage(
+                    model: model,
+                    optionsByType: optionsByType,
+                    existingGroupNames: existingGroupNames,
+                    onSaved: onSaved,
+                    onDelete: onDelete,
+                    defaultType: TargetCardType.MainQuest
+                )
+            );
+        }
+
+        /// <summary>
+        /// Builds dropdown options for ShortcutDetails based on what is currently loaded into Pages.
+        /// Excludes header-only pseudo-cards.
+        /// </summary>
+        private Dictionary<TargetCardType, List<CardOption>> BuildShortcutOptionsByType()
+        {
+            static bool IsHeaderCard(ICardModel c) =>
+                c is DateHeaderCardModel ||
+                c is TimeScopeHeaderCardModel; // if you have this type in your project
+
+            List<CardOption> ToOptions(IEnumerable<ICardModel> cards) =>
+                cards.Where(c => c != null && c.CardID > 0)
+                     .Where(c => !IsHeaderCard(c))
+                     .Select(c => new CardOption { CardId = c.CardID, Title = c.Title ?? "" })
+                     .Where(o => !string.IsNullOrWhiteSpace(o.Title))
+                     .OrderBy(o => o.Title)
+                     .ToList();
+
+            var dict = new Dictionary<TargetCardType, List<CardOption>>();
+
+            var mainQuestPage = Pages.FirstOrDefault(p => p.Name == "Main Quest");
+            var missionPage = Pages.FirstOrDefault(p => p.Name == "Mission");
+            var budgetsPage = Pages.FirstOrDefault(p => p.Name == "Budgets");
+            var achPage = Pages.FirstOrDefault(p => p.Name == "Challenges & Pinned Achievements");
+            var arcsPage = Pages.FirstOrDefault(p => p.Name == "Arcs");
+            var plannersPage = Pages.FirstOrDefault(p => p.Name == "Planners");
+
+            if (mainQuestPage != null)
+                dict[TargetCardType.MainQuest] = ToOptions(mainQuestPage.AllCards);
+
+            if (missionPage != null)
+                dict[TargetCardType.Mission] = ToOptions(missionPage.AllCards);
+
+            if (budgetsPage != null)
+                dict[TargetCardType.Budget] = ToOptions(budgetsPage.AllCards);
+
+            if (achPage != null)
+                dict[TargetCardType.Achievement] = ToOptions(achPage.AllCards);
+
+            if (arcsPage != null)
+                dict[TargetCardType.Arc] = ToOptions(arcsPage.AllCards);
+
+            if (plannersPage != null)
+                dict[TargetCardType.Planner] = ToOptions(plannersPage.AllCards);
+
+            // Ensure all enum values exist (so pickers don’t explode if a page is empty)
+            foreach (TargetCardType t in Enum.GetValues(typeof(TargetCardType)))
+                if (!dict.ContainsKey(t))
+                    dict[t] = new List<CardOption>();
+
+            return dict;
+        }
+
         /// <summary>
         /// The ONE AND ONLY way a card gets added to a page.
         /// All callers (mock seeding + UI save callbacks) must use this.
@@ -1000,12 +1244,14 @@ namespace Points.ViewModels
         {
             Pages.Clear();
 
+            Pages.Add(new HomePageModel("Dashboard", Enumerable.Empty<ICardModel>(), '#'));
             Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<IActiveCardModel>(), '♻'));
             Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>(), '⚑'));
             Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>(), '◷'));
             Pages.Add(new HomePageModel("Challenges & Pinned Achievements", Enumerable.Empty<ICardModel>(), '★'));
             Pages.Add(new HomePageModel("Arcs", Enumerable.Empty<ICardModel>(), '∿'));
             Pages.Add(new HomePageModel("Planners", Enumerable.Empty<ICardModel>(), '☰'));
+       
         }
 
         #endregion
@@ -1541,7 +1787,14 @@ namespace Points.ViewModels
         public string Name { get; }
         public ObservableCollection<ICardModel> AllCards { get; } = new();
         public ObservableCollection<ICardModel> VisibleCards { get; } = new();
-        
+
+
+        // ✅ NEW: only used by the Dashboard template
+        public ObservableCollection<DashboardCellModel> DashboardCells { get; } = new();
+
+        public bool IsDashboard => Name == "Dashboard";
+
+
         public HomePageModel(string name, IEnumerable<ICardModel> cards, char icon)
         {
             Name = name;
@@ -1628,5 +1881,16 @@ namespace Points.ViewModels
 
 
         #endregion
+    }
+
+    public sealed class DashboardCellModel : ObservableObject
+    {
+        public bool IsPlaceholder { get; set; }
+
+        public ShortcutModel? Shortcut { get; set; }
+
+        // Convenience bindings
+        public string IconChar => Shortcut?.IconChar ?? "";
+        public Color BackColor => Shortcut?.Group?.Color ?? Colors.Black;
     }
 }

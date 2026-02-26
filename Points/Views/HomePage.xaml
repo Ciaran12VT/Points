@@ -171,19 +171,20 @@
         <CarouselView Grid.Row="2" x:Name="MainCarousel"
                       ItemsSource="{Binding Pages}"
                       Position="{Binding Position, Mode=TwoWay}"
+                      ItemTemplate="{StaticResource HomePaneTemplateSelector}"
                       IsSwipeEnabled="True"
                       PositionChanged="Carousel_PositionChanged">
 
-            <CarouselView.ItemTemplate>
+            <!--<CarouselView.ItemTemplate>
                 <DataTemplate>
                     <Grid RowDefinitions="Auto,*" Padding="12,8">
-                         <!--Pane title--> 
+                         Pane title 
                         <Label Grid.Row="0"
                            Text="{Binding Name}"
                            FontSize="18"
                            Margin="0,0,0,8" />
 
-                         <!--Cards list-->
+                         Cards list
                         <CollectionView 
                             x:Name="CardsList"
                             Grid.Row="1" 
@@ -194,7 +195,7 @@
                         </CollectionView>
                     </Grid>
                 </DataTemplate>
-            </CarouselView.ItemTemplate>
+            </CarouselView.ItemTemplate>-->
 
 
         </CarouselView>
@@ -406,6 +407,75 @@
             </cards:CardTemplateSelector>
 
             <converters:GlobalValueColorConverter x:Key="GlobalValueColorConverter" />
+            
+            <cards:HomePaneTemplateSelector x:Key="HomePaneTemplateSelector">
+
+                <cards:HomePaneTemplateSelector.DefaultPaneTemplate>
+                    <DataTemplate>
+                        <Grid RowDefinitions="Auto,*" Padding="12,8">
+                            <Label Grid.Row="0"
+                                   Text="{Binding Name}"
+                                   FontSize="18"
+                                   Margin="0,0,0,8" />
+
+                            <CollectionView x:Name="CardsList"
+                                            Grid.Row="1"
+                                            ItemsSource="{Binding VisibleCards}"
+                                            ItemTemplate="{StaticResource CardTemplateSelector}"
+                                            Scrolled="Cards_Scrolled" />
+                        </Grid>
+                    </DataTemplate>
+                </cards:HomePaneTemplateSelector.DefaultPaneTemplate>
+
+                <cards:HomePaneTemplateSelector.DashboardPaneTemplate>
+                    <DataTemplate>
+                        <Grid RowDefinitions="Auto,*" Padding="12,8">
+
+                            <Label Grid.Row="0"
+                                   Text="{Binding Name}"
+                                   FontSize="18"
+                                   Margin="0,0,0,8" />
+
+                            <CollectionView Grid.Row="1"
+                                            ItemsSource="{Binding DashboardCells}"
+                                            SelectionMode="None">
+
+                                <CollectionView.ItemsLayout>
+                                    <GridItemsLayout Orientation="Vertical" Span="4" VerticalItemSpacing="12" />
+                                </CollectionView.ItemsLayout>
+
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Padding="4">
+                                            <Button Text="{Binding IconChar}"
+                                                    BackgroundColor="{Binding BackColor}"
+                                                    TextColor="White"
+                                                    FontSize="35"
+                                                    CornerRadius="18"
+                                                    HeightRequest="74"
+                                                    WidthRequest="74"
+                                                    Padding="0"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ShortcutClickedCommand}"
+                                                    CommandParameter="{Binding Shortcut}">
+                                                <Button.Triggers>
+                                                    <DataTrigger TargetType="Button"
+                                                                 Binding="{Binding IsPlaceholder}"
+                                                                 Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                        <Setter Property="IsEnabled" Value="False" />
+                                                    </DataTrigger>
+                                                </Button.Triggers>
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+
+                            </CollectionView>
+                        </Grid>
+                    </DataTemplate>
+                </cards:HomePaneTemplateSelector.DashboardPaneTemplate>
+
+            </cards:HomePaneTemplateSelector>
             
         </ResourceDictionary>
     </ContentPage.Resources>

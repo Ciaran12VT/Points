@@ -9,6 +9,8 @@ namespace Points.Models
 {
     public class BudgetCardModel : ObservableObject, ICardModel
     {
+        public long CardID { get; set; }
+
         private string _title = "Daily Calories";
         public string Title { get => _title; set => SetProperty(ref _title, value); }
 

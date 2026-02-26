@@ -23,8 +23,7 @@ namespace Points.ViewModels
             get => _searchText;
             set
             {
-                if (SetProperty(ref _searchText, value))
-                    ApplyFilter();
+                if (SetProperty(ref _searchText, value)) ApplyFilter();
             }
         }
 
@@ -40,13 +39,7 @@ namespace Points.ViewModels
         public Command<string> AddCommand { get; }
         public Command ClearCommand { get; }
 
-        public MultiSelectPickerViewModel(
-            string title,
-            IEnumerable<string> items,
-            IEnumerable<string>? initial,
-            TaskCompletionSource<IReadOnlyList<string>?> tcs,
-            bool isReadOnly,
-            bool isSingleTag)
+        public MultiSelectPickerViewModel(string title, IEnumerable<string> items, IEnumerable<string>? initial, TaskCompletionSource<IReadOnlyList<string>?> tcs, bool isReadOnly, bool isSingleTag)
         {
             TitleText = title;
             _allItems = items.OrderBy(x => x).ToList();
@@ -92,8 +85,7 @@ namespace Points.ViewModels
             RefreshText();
         }
 
-        private void RefreshText()
-            => SelectedText = string.Join(", ", _selected.OrderBy(x => x));
+        private void RefreshText() => SelectedText = string.Join(", ", _selected.OrderBy(x => x));
 
         // Called by the page when editable and the user types in the SelectedText box.
         public void SetSelectedFromText(string? text)
@@ -113,7 +105,11 @@ namespace Points.ViewModels
             RefreshText();
         }
 
-        public void Commit()
-            => _tcs.TrySetResult(_selected.ToList());
+        public void Commit() => _tcs.TrySetResult(_selected.ToList());
+
+        internal bool HasMultipleValues()
+        {
+            return SelectedText.Contains(' ');
+        }
     }
 }

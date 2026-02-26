@@ -11,7 +11,6 @@ namespace Points.Models
 {
     public interface IActiveCardModel : ICardModel
     {
-        long CardID { get; set; }
         bool IsActive { get; set; }
         List<ActivityModel> Activity { get; }
         double ValuePerMinute { get; }

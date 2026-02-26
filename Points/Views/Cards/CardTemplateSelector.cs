@@ -36,4 +36,21 @@ namespace Points.Views.Cards
             };
         }
     }
+
+    public class HomePaneTemplateSelector : DataTemplateSelector
+    {
+        public DataTemplate? DefaultPaneTemplate { get; set; }
+        public DataTemplate? DashboardPaneTemplate { get; set; }
+
+        protected override DataTemplate OnSelectTemplate(object item, BindableObject container)
+        {
+            if (item is HomePageModel page)
+            {
+                if (page.IsDashboard)
+                    return DashboardPaneTemplate ?? DefaultPaneTemplate!;
+            }
+
+            return DefaultPaneTemplate!;
+        }
+    }
 }
