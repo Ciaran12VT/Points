@@ -9,7 +9,7 @@ namespace Points.Models
     public sealed class ReportModel
     {
         public int Id { get; set; }
-        public string Title { get; init; } = "";
+        public string Title { get; set; } = "";
         public string SQLQuery { get; set; } = "";
         public DateTime? LastRunOn { get; set; }
         public bool EligibleForAchievment { get; set; }

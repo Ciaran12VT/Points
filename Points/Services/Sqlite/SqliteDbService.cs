@@ -4715,5 +4715,132 @@ namespace Points.Services.Sqlite
         #endregion
 
         #endregion
+
+        #region Reports Implementation
+
+        private static string? ToDbDateTime(DateTime? dt)  => dt?.ToString("o"); // ISO 8601 round-trip
+
+        private static DateTime? FromDbDateTime(string? s) => string.IsNullOrWhiteSpace(s) ? null : DateTime.Parse(s, null, System.Globalization.DateTimeStyles.RoundtripKind);
+
+
+        public async Task UpsertReportAsync(ReportModel report)
+        {
+            await InitializeAsync();
+
+            if (report == null) throw new ArgumentNullException(nameof(report));
+            if (string.IsNullOrWhiteSpace(report.Title))
+                throw new ArgumentException("Report.Title is required.", nameof(report));
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                var lastRunOn = ToDbDateTime(report.LastRunOn);
+                var eligible = report.EligibleForAchievment ? 1 : 0;
+                var sql = report.SQLQuery ?? string.Empty;
+
+                if (report.Id > 0)
+                {
+                    const string updateSql = @"
+                    UPDATE Report
+                    SET Title = ?,
+                        SQLQuery = ?,
+                        LastRunOn = ?,
+                        EligibleForAchievment = ?
+                    WHERE Id = ?;";
+
+                    conn.Execute(updateSql, report.Title, sql, lastRunOn, eligible, report.Id);
+                    return;
+                }
+
+                // Insert or update-by-title (requires UX_Report_Title)
+                const string upsertByTitleSql = @"
+                    INSERT INTO Report (Title, SQLQuery, LastRunOn, EligibleForAchievment)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(Title) DO UPDATE SET
+                        SQLQuery = excluded.SQLQuery,
+                        LastRunOn = excluded.LastRunOn,
+                        EligibleForAchievment = excluded.EligibleForAchievment;";
+
+                conn.Execute(upsertByTitleSql, report.Title, sql, lastRunOn, eligible);
+
+                // Ensure report.Id is set:
+                // If it was an insert, last_insert_rowid() works.
+                // If it was an update (conflict), last_insert_rowid() may not change, so fetch by Title.
+                var idRow = conn.Query<IdRow>(
+                    "SELECT Id FROM Report WHERE Title = ? LIMIT 1;",
+                    report.Title).FirstOrDefault();
+
+                if (idRow != null)
+                    report.Id = idRow.Id;
+            });
+        }
+
+        private sealed class IdRow
+        {
+            public int Id { get; set; }
+        }
+
+        public async Task DeleteReportAsync(int reportId)
+        {
+            await InitializeAsync();
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                conn.Execute("DELETE FROM Report WHERE Id = ?;", reportId);
+            });
+        }
+
+
+        private sealed class ReportRow
+        {
+            public int Id { get; set; }
+            public string Title { get; set; } = "";
+            public string SQLQuery { get; set; } = "";
+            public string? LastRunOn { get; set; }
+            public int EligibleForAchievment { get; set; }
+        }
+
+        private static ReportModel MapReportRow(ReportRow row)
+        {
+            return new ReportModel
+            {
+                Id = row.Id,
+                Title = row.Title,
+                SQLQuery = row.SQLQuery,
+                LastRunOn = string.IsNullOrWhiteSpace(row.LastRunOn)
+                    ? null
+                    : DateTime.Parse(row.LastRunOn, null, System.Globalization.DateTimeStyles.RoundtripKind),
+                EligibleForAchievment = row.EligibleForAchievment == 1
+            };
+        }
+
+        public async Task<IReadOnlyList<ReportModel>> GetReportsAsync()
+        {
+            await InitializeAsync();
+
+            const string sql = @"
+                SELECT
+                    r.Id                    AS Id,
+                    r.Title                 AS Title,
+                    r.SQLQuery              AS SQLQuery,
+                    r.LastRunOn             AS LastRunOn,
+                    r.EligibleForAchievment AS EligibleForAchievment
+                FROM Report r
+                ORDER BY r.Title;";
+
+            var rows = await Db.QueryAsync<ReportRow>(sql);
+
+            return rows.Select(r => new ReportModel
+            {
+                Id = r.Id,
+                Title = r.Title,
+                SQLQuery = r.SQLQuery,
+                LastRunOn = string.IsNullOrWhiteSpace(r.LastRunOn)
+                    ? null
+                    : DateTime.Parse(r.LastRunOn, null, System.Globalization.DateTimeStyles.RoundtripKind),
+                EligibleForAchievment = r.EligibleForAchievment == 1
+            }).ToList();
+        }
+
+        #endregion
     }
 }

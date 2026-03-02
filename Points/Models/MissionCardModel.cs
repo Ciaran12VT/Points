@@ -24,10 +24,10 @@ namespace Points.Models
 
         public event Action<IActiveCardModel>? LongPressRequested;
 
-        public ICommand LongPressCommand => new Command(() =>
+        public void FireLongPressRequested(IActiveCardModel card)
         {
-            LongPressRequested?.Invoke(this);
-        });
+            LongPressRequested?.Invoke(card);
+        }
 
         public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
 

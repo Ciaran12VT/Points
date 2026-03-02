@@ -24,5 +24,6 @@ namespace Points.Models
         List<LockModel> Locks { get; set; }
 
         event Action<IActiveCardModel>? LongPressRequested;
+        void FireLongPressRequested(IActiveCardModel card);
     }
 }

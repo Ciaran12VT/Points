@@ -80,6 +80,14 @@ namespace Points.ViewModels
             var eventDate = _model.EventDate ?? DateTime.Today;
             EventDateValue = eventDate.Date;                // just the date
             EventTimeValue = eventDate.TimeOfDay;          // time part (00:00 if none)
+
+            //Resources
+            ViewResourcesCommand = new Command(async () => await OnViewResourcesAsync());
+            ClearResourcesCommand = new Command(async () => await OnClearResourcesAsync());
+
+            // initial count from disk
+            RefreshResourceCount();
+
         }
 
         // Editable
@@ -175,6 +183,179 @@ namespace Points.ViewModels
             set => SetProperty(ref _hasEventDate, value);
         }
 
+        #region Resources
+
+        public ObservableCollection<string> ResourcesToAdd { get; } = new();
+
+        private int _resourceCount;
+        public int ResourceCount
+        {
+            get => _resourceCount;
+            private set => SetProperty(ref _resourceCount, value);
+        }
+
+        public Command ViewResourcesCommand { get; }
+        public Command ClearResourcesCommand { get; }
+
+        private string GetResourceFolder()
+        {
+            // Ensures the folder exists
+            return AppPaths.GetMissionResourcesPath(_model.Id);
+        }
+
+        private void RefreshResourceCount()
+        {
+            try
+            {
+                var folder = GetResourceFolder();
+                ResourceCount = Directory.Exists(folder)
+                    ? Directory.EnumerateFiles(folder).Count()
+                    : 0;
+            }
+            catch
+            {
+                ResourceCount = 0;
+            }
+        }
+
+        private List<string> GetSavedResourceFiles()
+        {
+            var folder = GetResourceFolder();
+            if (!Directory.Exists(folder)) return new List<string>();
+
+            return Directory.EnumerateFiles(folder)
+                .Where(File.Exists)
+                .ToList();
+        }
+
+        private async Task SaveResourcesToDiskAsync()
+        {
+            if (ResourcesToAdd.Count == 0) return;
+
+            var targetFolder = GetResourceFolder(); // ensures exists
+
+            // De-dupe by source path, ignore empties
+            var sources = ResourcesToAdd
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList();
+
+            foreach (var src in sources)
+            {
+                try
+                {
+                    if (!File.Exists(src)) continue;
+
+                    var originalName = Path.GetFileName(src);
+
+                    // Avoid collisions: GUID prefix
+                    var destName = $"{Guid.NewGuid():N}_{originalName}";
+                    var destPath = Path.Combine(targetFolder, destName);
+
+                    // Stream copy (better than ReadAllBytes for large files)
+                    await using var inStream = File.OpenRead(src);
+                    await using var outStream = File.Create(destPath);
+                    await inStream.CopyToAsync(outStream);
+                }
+                catch (Exception ex)
+                {
+                    // Non-fatal: skip this file and continue
+                    await Shell.Current.DisplayAlert("Resource Save Failed",
+                        $"Could not save:\n{Path.GetFileName(src)}\n\n{ex.Message}",
+                        "OK");
+                }
+            }
+
+            // Clear pending so Save is idempotent
+            ResourcesToAdd.Clear();
+        }
+
+        private async Task OnViewResourcesAsync()
+        {
+            var files = GetSavedResourceFiles();
+
+            if (files.Count == 0)
+            {
+                await Shell.Current.DisplayAlert("Resources", "No resources saved.", "OK");
+                return;
+            }
+
+            // DisplayActionSheet returns the selected label string
+            // We list by filename, but map back to full paths.
+            var names = files.Select(Path.GetFileName).ToArray();
+
+            var selectedName = await Shell.Current.DisplayActionSheet(
+                "Resources",
+                "Close",
+                null,
+                names);
+
+            if (string.IsNullOrWhiteSpace(selectedName) || selectedName == "Close")
+                return;
+
+            var selectedPath = files.FirstOrDefault(f => Path.GetFileName(f) == selectedName);
+            if (selectedPath == null || !File.Exists(selectedPath))
+            {
+                await Shell.Current.DisplayAlert("Open Failed", "That file no longer exists.", "OK");
+                RefreshResourceCount();
+                return;
+            }
+
+            try
+            {
+                await Launcher.Default.OpenAsync(new OpenFileRequest
+                {
+                    File = new ReadOnlyFile(selectedPath)
+                });
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Open Failed", ex.Message, "OK");
+            }
+        }
+
+        private async Task OnClearResourcesAsync()
+        {
+            var files = GetSavedResourceFiles();
+
+            if (files.Count == 0 && ResourcesToAdd.Count == 0)
+            {
+                await Shell.Current.DisplayAlert("Resources", "No resources to clear.", "OK");
+                return;
+            }
+
+            var confirm = await Shell.Current.DisplayAlert(
+                "Clear Resources",
+                "This will permanently delete all saved resources for this mission. Continue?",
+                "Delete",
+                "Cancel");
+
+            if (!confirm) return;
+
+            try
+            {
+                // Clear pending picks too
+                ResourcesToAdd.Clear();
+
+                foreach (var f in files)
+                {
+                    try { File.Delete(f); }
+                    catch { /* keep going */ }
+                }
+
+                RefreshResourceCount();
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Clear Failed", ex.Message, "OK");
+            }
+        }
+
+
+
+        #endregion
+
+
         private async Task SaveAsync()
         {
             // Compose DateTime values
@@ -237,6 +418,10 @@ namespace Points.ViewModels
             {
                 _model.EventDate = null;
             }
+
+
+            await SaveResourcesToDiskAsync();
+            RefreshResourceCount();
 
 
             // CreatedDate stays as originally set (auto)

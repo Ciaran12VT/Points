@@ -103,10 +103,60 @@ public partial class TatCardView : ContentView
     // Your existing handler can now just call UpdateToggleColor()
     private void OnActivityToggleButtonClicked(object sender, EventArgs e)
     {
+        if (_longPressFired)
+            return;
+
         UpdateToggleColor();
     }
 
     #endregion
+
+
+    private CancellationTokenSource? _longPressCts;
+    private bool _longPressFired;
+    private const int LongPressMs = 600;
+
+    private void ActivityToggleButton_Pressed(object sender, EventArgs e)
+    {
+        // New press => cancel any previous pending
+        _longPressCts?.Cancel();
+        _longPressCts?.Dispose();
+
+        _longPressCts = new CancellationTokenSource();
+        _longPressFired = false;
+
+        var token = _longPressCts.Token;
+
+        // IMPORTANT: capture the sender, not the view's BindingContext.
+        // In recycled cells, sender.BindingContext is the truth at press-time.
+        if (sender is not Button btn) return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(LongPressMs, token);
+                if (token.IsCancellationRequested) return;
+
+                _longPressFired = true;
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    if (btn.BindingContext is IActiveCardModel card)
+                    {
+                        card.FireLongPressRequested(card);
+                    }
+                });
+            }
+            catch (TaskCanceledException) { }
+        }, token);
+    }
+
+    private void ActivityToggleButton_Released(object sender, EventArgs e)
+    {
+        // Release cancels pending long-press (if not fired)
+        _longPressCts?.Cancel();
+    }
 
 
 }

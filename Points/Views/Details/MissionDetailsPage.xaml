@@ -215,7 +215,67 @@
                             VerticalOptions="Center"
                             Clicked="OnEditActiveTimeClicked"/>
                 </Grid>
-                
+
+                <!-- Resources -->
+                <Label Text="Resources" FontAttributes="Bold"/>
+
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+
+                    <!-- Add Images -->
+                    <Button Text="🖼"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="Black"
+                            Clicked="OnAddResourceImagesClicked" />
+
+                    <!-- Add Files -->
+                    <Button Grid.Column="1"
+                            Text="📎"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="Black"
+                            Clicked="OnAddResourceFilesClicked" />
+
+                    <!-- Count -->
+                    <Label Grid.Column="2"
+                           Text="{Binding ResourceCount, StringFormat='Available: {0}'}"
+                           VerticalTextAlignment="Center"
+                           TextColor="Gray"/>
+
+                    <!-- View -->
+                    <Button Grid.Column="3"
+                            Text="👁"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            BackgroundColor="Black"
+                            Command="{Binding ViewResourcesCommand}" />
+
+                    <!-- Clear -->
+                    <Button Grid.Column="4"
+                            Text="✕"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="DarkRed"
+                            Command="{Binding ClearResourcesCommand}" />
+
+                </Grid>
+
+
                 <!-- Description (UNCHANGED: stays label then editor) -->
                 <Label Text="Description" FontAttributes="Bold" />
                 <Editor AutoSize="TextChanges"

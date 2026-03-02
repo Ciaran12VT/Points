@@ -12,6 +12,7 @@ public partial class HomePage : ContentPage
     private TaskCompletionSource<int>? _posTcs;
     readonly IAudioFeedback _audio;
     int _lastPos = -1;
+    private readonly Dictionary<HomePageModel, CollectionView> _cardsListsByPage = new();
 
     public HomePage(HomeViewModel vm, IAudioFeedback audio)
 	{
@@ -23,51 +24,22 @@ public partial class HomePage : ContentPage
         vm.ScrollToAnyCardByIdRequested = ScrollToCardById;
     }
 
-    //private async void ScrollToCard(IActiveCardModel card)
-    //{
-    //    if (BindingContext is not HomeViewModel vm) return;
+    private void CardsList_Loaded(object sender, EventArgs e)
+    {
+        if (sender is not CollectionView cv) return;
+        if (cv.BindingContext is not HomePageModel page) return;
 
-    //    // This should set vm.Position to the correct page index (via your VM logic)
-    //    vm.ScrollCardPageIntoView(card);
+        _cardsListsByPage[page] = cv;
+    }
 
-    //    // Wait until the Carousel has actually switched to that position
-    //    var targetPos = vm.Position;
+    private void CardsList_Unloaded(object sender, EventArgs e)
+    {
+        if (sender is not CollectionView cv) return;
+        if (cv.BindingContext is not HomePageModel page) return;
 
-    //    if (MainCarousel.Position != targetPos)
-    //    {
-    //        _posTcs = new TaskCompletionSource<int>();
-
-    //        // If Position is bound TwoWay, setting it here is fine too (optional safety):
-    //        MainCarousel.Position = targetPos;
-
-    //        while (true)
-    //        {
-    //            var pos = await _posTcs.Task;       // completed by Carousel_PositionChanged
-    //            if (pos == targetPos) break;
-    //            _posTcs = new TaskCompletionSource<int>();
-    //        }
-    //    }
-    //    else
-    //    {
-    //        // Even when already at the right position, yield a frame so the template is ready.
-    //        await Task.Yield();
-    //    }
-
-    //    // Now get the CollectionView for the CURRENT visible carousel page (not the first one in the tree)
-    //    var currentPageVm = vm.Pages[targetPos];
-
-    //    var currentPageView =
-    //        MainCarousel.FindDescendants<VisualElement>()
-    //                    .FirstOrDefault(v => v.BindingContext == currentPageVm);
-
-    //    var collectionView = currentPageView?.FindByName<CollectionView>("CardsList");
-    //    if (collectionView == null) return;
-
-    //    if (!collectionView.ItemsSource.Cast<object>().Contains(card))
-    //        vm.ClearFiltersCommand.Execute(null);
-
-    //    collectionView.ScrollTo(card, position: ScrollToPosition.Center, animate: true);
-    //}
+        if (_cardsListsByPage.TryGetValue(page, out var existing) && ReferenceEquals(existing, cv))
+            _cardsListsByPage.Remove(page);
+    }
 
     private async void ScrollToCard(IActiveCardModel card)
     {
@@ -93,59 +65,33 @@ public partial class HomePage : ContentPage
 
     private async Task ScrollToCardInternal(HomeViewModel vm, ICardModel card)
     {
-        // 1) Switch carousel page (VM sets Position)
-        vm.ScrollCardPageIntoView(card);
+        var targetPos = vm.GetCardPageIndex(card);
+        if (targetPos == -1) return;
 
-        var targetPos = vm.Position;
-
-        // 2) Wait for carousel to actually reach that position
-        if (MainCarousel.Position != targetPos)
+        // Step one page at a time
+        while (MainCarousel.Position != targetPos)
         {
-            _posTcs = new TaskCompletionSource<int>();
-
-            // optional safety (since Position is TwoWay)
-            MainCarousel.Position = targetPos;
-
-            while (true)
-            {
-                var pos = await _posTcs.Task; // completed in Carousel_PositionChanged
-                if (pos == targetPos) break;
-
-                _posTcs = new TaskCompletionSource<int>();
-            }
-        }
-        else
-        {
-            await Task.Yield();
+            MainCarousel.Position += MainCarousel.Position < targetPos ? 1 : -1;
+            await Task.Delay(500);
         }
 
-        // 3) Find the CURRENT visible pane view for vm.Pages[targetPos]
-        var currentPageVm = vm.Pages[targetPos];
+        // Find CardsList in the now-visible pane
+        var collectionView = MainCarousel.VisibleViews
+            .OfType<VisualElement>()
+            .Select(v => v.FindByName<CollectionView>("CardsList"))
+            .FirstOrDefault(cv => cv != null);
 
-        var currentPageView =
-            MainCarousel.FindDescendants<VisualElement>()
-                        .FirstOrDefault(v => v.BindingContext == currentPageVm);
+        if (collectionView == null) return;
 
-        // IMPORTANT: Dashboard pane won't have "CardsList".
-        // Shortcuts target *other* panes, so this should normally exist.
-        var collectionView = currentPageView?.FindByName<CollectionView>("CardsList");
-        if (collectionView == null)
-            return;
-
-        // 4) Ensure item is visible (filters may hide it)
-        var items = collectionView.ItemsSource?.Cast<object>()?.ToList() ?? new List<object>();
-
+        var items = collectionView.ItemsSource?.Cast<object>()?.ToList() ?? new();
         if (!items.Contains(card))
         {
             vm.ClearFiltersCommand.Execute(null);
-
-            // Re-evaluate items after filters cleared
-            items = collectionView.ItemsSource?.Cast<object>()?.ToList() ?? new List<object>();
-            if (!items.Contains(card))
-                return; // still not present (wrong page / not loaded / etc.)
+            await Task.Delay(50);
+            items = collectionView.ItemsSource?.Cast<object>()?.ToList() ?? new();
+            if (!items.Contains(card)) return;
         }
 
-        // 5) Scroll
         collectionView.ScrollTo(card, position: ScrollToPosition.Center, animate: true);
     }
 

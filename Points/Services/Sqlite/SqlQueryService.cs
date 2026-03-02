@@ -401,6 +401,18 @@ namespace Points.Services.Sqlite
                     GoalValence          INTEGER NOT NULL DEFAULT 0  -- 0=MustBeGreaterThan, 1=MustBeLessThan
                 );
 
+
+                -- =========================
+                -- Reports
+                -- =========================
+                CREATE TABLE IF NOT EXISTS Report (
+                    Id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Title                TEXT    NOT NULL,
+                    SQLQuery             TEXT    NOT NULL,
+                    LastRunOn            TEXT    NULL,     -- store as ISO-8601 string
+                    EligibleForAchievment INTEGER NOT NULL DEFAULT 0
+                );
+
                 -- =========================
                 -- Helpful indexes
                 -- =========================
@@ -503,6 +515,8 @@ namespace Points.Services.Sqlite
 
                 -- Optional: quicker reverse lookup / diagnostics
                 CREATE INDEX IF NOT EXISTS IX_Shortcut_TargetCardId ON Shortcut(TargetCardId);
+
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_Report_Title ON Report(Title);
 
                 ";
         }

@@ -181,7 +181,7 @@ public partial class MissionDetailsPage : ContentPage
         }
     }
 
-    private async void OnAddPhotoClicked(object sender, EventArgs e)
+    private async void OnAddResourceImagesClicked(object sender, EventArgs e)
     {
         if (BindingContext is not MissionDetailsViewModel vm) return;
 
@@ -189,48 +189,41 @@ public partial class MissionDetailsPage : ContentPage
         {
             var results = await FilePicker.Default.PickMultipleAsync(new PickOptions
             {
-                PickerTitle = "Pick photos",
+                PickerTitle = "Pick images (resources)",
                 FileTypes = FilePickerFileType.Images
             });
 
             foreach (var r in results ?? Enumerable.Empty<FileResult>())
             {
-                //vm.Model.Photos.Add(r.FileName);
+                if (!string.IsNullOrWhiteSpace(r.FullPath))
+                    vm.ResourcesToAdd.Add(r.FullPath);
             }
-
-
         }
-        catch (TaskCanceledException)
-        {
-            // user cancelled
-        }
+        catch (TaskCanceledException) { }
     }
 
-    private async void OnAddFileClicked(object sender, EventArgs e)
+    private async void OnAddResourceFilesClicked(object sender, EventArgs e)
     {
         if (BindingContext is not MissionDetailsViewModel vm) return;
 
         try
         {
-
             var results = await FilePicker.Default.PickMultipleAsync(new PickOptions
             {
-                PickerTitle = "Pick files"
+                PickerTitle = "Pick files (resources)"
                 // no FileTypes => any
             });
 
             foreach (var r in results ?? Enumerable.Empty<FileResult>())
             {
-                //vm.Model.Files.Add(r.FileName);
+                if (!string.IsNullOrWhiteSpace(r.FullPath))
+                    vm.ResourcesToAdd.Add(r.FullPath);
             }
-
-
         }
-        catch (TaskCanceledException)
-        {
-            // user cancelled
-        }
+        catch (TaskCanceledException) { }
     }
+
+
 
     protected override void OnDisappearing()
     {

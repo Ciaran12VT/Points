@@ -28,7 +28,6 @@ namespace Points.ViewModels
         private IAlarmScheduler _alarmScheduler;
 
         #region Commands
-        public Command<IActiveCardModel> LongPressActivateCommand { get; }
         public Command<IActiveCardModel> ActivateCardCommand { get; }
 
         public ICommand ShortcutClickedCommand => new Command<ShortcutModel>(OnShortcutClicked);
@@ -356,26 +355,6 @@ namespace Points.ViewModels
                 }
 
                 
-            });
-
-            LongPressActivateCommand = new Command<IActiveCardModel>(card =>
-            {
-                if (card is null) return;
-
-                MainThread.BeginInvokeOnMainThread(async () =>
-                {
-                    try
-                    {
-                        var page = Shell.Current?.CurrentPage;
-                        if (page is null) return;
-
-                        await page.ShowPopupAsync(new Points.Views.Popups.SimpleTestPopup($"Long-pressed: {card.Title}"));
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"ShowPopupAsync failed: {ex}");
-                    }
-                });
             });
 
             // Pages + mock data moved out of constructor logic
@@ -1634,11 +1613,6 @@ namespace Points.ViewModels
             }
         }
 
-        public void ScrollMainQuestIntoView()
-        {
-            Position = 0;
-        }
-
         public void ScrollCardPageIntoView(ICardModel card)
         {
             var pg = Pages.FirstOrDefault(x => x.AllCards.Contains(card));
@@ -1646,6 +1620,12 @@ namespace Points.ViewModels
             if (pos == -1) return;
 
             Position = pos;
+        }
+
+        public int GetCardPageIndex(ICardModel card)
+        {
+            var pg = Pages.FirstOrDefault(x => x.AllCards.Contains(card));
+            return Pages.IndexOf(pg); // returns -1 if not found
         }
 
         private async Task OpenAchievementsAsync()
@@ -1755,8 +1735,7 @@ namespace Points.ViewModels
             }
         }
 
-        private void OnPropertyChanged([CallerMemberName] string? name = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
         internal async Task IncrementFirstStep(ScCardModel model)
         {

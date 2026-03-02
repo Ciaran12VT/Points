@@ -12,32 +12,67 @@ namespace Points.ViewModels
 
         public ObservableCollection<ReportsPageModel> Pages { get; } = new();
 
+        public Command AddReportCommand { get; set; }
+
+        public Task? Initialization { get; private set; }
+
         public ReportsViewModel(IDbService db)
         {
             _db = db;
 
-            // Mock seed (replace later with SQLite fetch)
-            var reports = new ObservableCollection<ReportModel>
-            {
-                new ReportModel
-                {
-                    Title = "Activity",
-                    SQLQuery = "SELECT * FROM Activity;"
-                }
-            };
+            // Create empty page immediately so UI binds safely
+            Pages.Add(new ReportsPageModel("Reports", new ObservableCollection<ReportModel>()));
 
-            Pages.Add(new ReportsPageModel("Reports", reports));
+            AddReportCommand = new Command(async () => await AddReportAsync());
+
+            Initialization = LoadAsync();
         }
+
+        private async Task AddReportAsync()
+        {
+            await OpenReportAsync(new ReportModel());
+        }
+
+        public async Task LoadAsync()
+        {
+            var page = Pages.First();
+
+            var reports = await _db.GetReportsAsync();
+
+            page.Cards.Clear();
+
+            foreach (var report in reports)
+                page.Cards.Add(report);
+        }
+
 
         [RelayCommand]
         private async Task OpenReportAsync(ReportModel? report)
         {
             if (report == null) return;
 
-            // Simple navigation approach: push a page and hand it the model.
-            // (No Shell routes required.)
-            var page = new Points.Views.Details.ReportDetailsPage(new ReportDetailsViewModel(report, _db));
+            // Assuming single page for now:
+            var cards = Pages[0].Cards;
 
+            var vm = new ReportDetailsViewModel(
+                report,
+                _db,
+                onSaved: r =>
+                {
+                    // If later you allow editing Title and you sort/group, do it here.
+                    // For now, the ReportModel reference is shared, so no-op is OK.
+                    return Task.CompletedTask;
+                },
+                onDeleted: r =>
+                {
+                    // This updates the Reports view immediately
+                    if (cards.Contains(r))
+                        cards.Remove(r);
+
+                    return Task.CompletedTask;
+                });
+
+            var page = new Points.Views.Details.ReportDetailsPage(vm);
             await Application.Current!.MainPage!.Navigation.PushAsync(page);
         }
     }

@@ -24,10 +24,12 @@ namespace Points.Models
 
         public event Action<IActiveCardModel>? LongPressRequested;
 
-        public ICommand LongPressCommand => new Command(() =>
+        public void FireLongPressRequested(IActiveCardModel card)
         {
-            LongPressRequested?.Invoke(this);
-        });
+            LongPressRequested?.Invoke(card);
+        }
+
+        public ICommand LongPressCommand { get; }
 
         public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
 
@@ -102,6 +104,10 @@ namespace Points.Models
 
         public TatCardModel()
         {
+            LongPressCommand = new Command(
+                () => 
+                    LongPressRequested?.Invoke(this)
+                );
         }
 
         public TimeSpan GetActiveTime(DateTime start, DateTime end)
@@ -164,5 +170,7 @@ namespace Points.Models
 
             return Activity.Select(x => x.EndDate.HasValue ? x.EndDate.Value : DateTime.MinValue).Max();
         }
+
+
     }
 }

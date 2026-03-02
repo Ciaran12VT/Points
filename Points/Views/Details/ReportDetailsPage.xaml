@@ -4,16 +4,17 @@
              x:Class="Points.Views.Details.ReportDetailsPage"
              Title="Report">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto"
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto"
           Padding="12"
           RowSpacing="10">
 
         <!-- Title -->
-        <Label Grid.Row="0"
-               Text="{Binding Title}"
-               x:Name="TitleEntry"
+        <Entry Grid.Row="0"
+               Text="{Binding TitleText, Mode=TwoWay}"
+               Placeholder="Report name"
                FontSize="20"
                FontAttributes="Bold" />
+
 
         <!-- SQL editor -->
         <Editor Grid.Row="1"
@@ -62,6 +63,31 @@
                 AutoSize="TextChanges"
                 FontSize="12"
                 BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#1E1E1E}" />
+
+        <!-- Action buttons -->
+        <Grid Grid.Row="5"
+              ColumnDefinitions="*,*"
+              ColumnSpacing="10">
+
+            <Button Grid.Column="0"
+            Text="Save"
+            Command="{Binding SaveCommand}"
+            BackgroundColor="Green"
+            TextColor="White"
+            HorizontalOptions="Fill"
+            VerticalOptions="Fill" />
+
+            <Button Grid.Column="1"
+            Text="Delete"
+            Command="{Binding DeleteCommand}"
+            BackgroundColor="#B00020"
+            TextColor="White"
+            HorizontalOptions="Fill"
+            VerticalOptions="Fill" />
+
+        </Grid>
+
+
 
     </Grid>
 </ContentPage>

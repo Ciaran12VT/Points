@@ -23,6 +23,18 @@ namespace Points.Global
             return Ensure(folderName);
         }
 
+        public static string GetMissionResourcesPath(int missionId)
+        {
+            string folderName = $"resources/MissionID_{missionId}";
+            return Ensure(folderName);
+        }
+        public static IEnumerable<string> EnumerateMissionResourceFiles(int missionId)
+        {
+            var folder = GetMissionResourcesPath(missionId); // ensures it exists
+            return Directory.EnumerateFiles(folder);
+        }
+
+
         private static string Ensure(string folder)
         {
             var path = Path.Combine(Root, folder);

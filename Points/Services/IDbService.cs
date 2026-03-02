@@ -138,6 +138,10 @@ namespace Points.Services
         Task<ShortcutModel> SaveShortcutAsync(ShortcutModel shortcut);
         Task DeleteShortcutAsync(long shortcutId);
         Task DeleteShortcutGroupAsync(long shortcutGroupId);
+
+        Task UpsertReportAsync(ReportModel report);
+        Task DeleteReportAsync(int reportId);
+        Task<IReadOnlyList<ReportModel>> GetReportsAsync();
     }
 
     public sealed class HomeSeedData

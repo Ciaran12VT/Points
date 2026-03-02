@@ -422,7 +422,9 @@
                                             Grid.Row="1"
                                             ItemsSource="{Binding VisibleCards}"
                                             ItemTemplate="{StaticResource CardTemplateSelector}"
-                                            Scrolled="Cards_Scrolled" />
+                                            Scrolled="Cards_Scrolled"
+                                            Loaded="CardsList_Loaded"
+                                            Unloaded="CardsList_Unloaded" />
                         </Grid>
                     </DataTemplate>
                 </cards:HomePaneTemplateSelector.DefaultPaneTemplate>

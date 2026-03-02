@@ -3,14 +3,26 @@ using CommunityToolkit.Mvvm.Input;
 using Points.Models;
 using Points.Services;
 using System.Collections.ObjectModel;
+using System.Windows.Input;
 
 namespace Points.ViewModels
 {
     public sealed partial class ReportDetailsViewModel : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
     {
+        public ICommand SaveCommand { get; }
+        public ICommand DeleteCommand { get; }
+
+
+        private readonly Func<ReportModel, Task> _onSaved;
+        private readonly Func<ReportModel, Task> _onDeleted;
+
         public ReportModel Report { get; }
 
         public string Title => Report.Title;
+
+        [ObservableProperty]
+        private string titleText = "";
+
 
         [ObservableProperty]
         private string sqlText = "";
@@ -29,12 +41,77 @@ namespace Points.ViewModels
         // 🔹 Fire this when the results set is ready
         public event Action? ResultsUpdated;
 
-        public ReportDetailsViewModel(ReportModel report, IDbService db)
+        public ReportDetailsViewModel(ReportModel report, IDbService db, Func<ReportModel, Task>? onSaved = null, Func<ReportModel, Task>? onDeleted = null)
         {
             Report = report;
+            TitleText = report.Title;
             SqlText = report.SQLQuery;
             _db = db;
+
+
+            _onSaved = onSaved ?? (_ => Task.CompletedTask);
+            _onDeleted = onDeleted ?? (_ => Task.CompletedTask);
+
+            SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
+            DeleteCommand = new AsyncRelayCommand(DeleteAsync, () => !IsBusy);
         }
+
+        private async Task SaveAsync()
+        {
+            if (IsBusy) return;
+            IsBusy = true;
+
+            try
+            {
+                // Persist edits back into the shared model
+                Report.Title = TitleText.Trim();
+                Report.SQLQuery = SqlText;
+                Report.LastRunOn = DateTime.UtcNow;
+
+                // DB persistence (to implement later)
+                await _db.UpsertReportAsync(Report);
+
+                // Notify parent list (for resorting/requery/etc.)
+                await _onSaved(Report);
+
+                ResultsMessage = "Saved.";
+            }
+            catch (Exception ex)
+            {
+                ResultsMessage = $"ERROR (Save): {ex.Message}";
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private async Task DeleteAsync()
+        {
+            if (IsBusy) return;
+            IsBusy = true;
+
+            try
+            {
+                // DB delete (to implement later)
+                await _db.DeleteReportAsync(Report.Id);
+
+                // Update parent list
+                await _onDeleted(Report);
+
+                // Close details page
+                await Application.Current!.MainPage!.Navigation.PopAsync();
+            }
+            catch (Exception ex)
+            {
+                ResultsMessage = $"ERROR (Delete): {ex.Message}";
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
 
         [RelayCommand]
         private async Task ExecuteAsync()
