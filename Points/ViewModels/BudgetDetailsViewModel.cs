@@ -18,6 +18,8 @@ namespace Points.ViewModels
 
         public List<string> AvailableTagList { get; }
         public Command CancelCommand { get; }
+        public Command OpenTransactionLogCommand { get; }
+
 
         public ObservableCollection<BudgetTopUpEditItem> TopUps { get; } = new();
 
@@ -50,6 +52,8 @@ namespace Points.ViewModels
             RemoveTopUpCommand = new Command<BudgetTopUpEditItem>(RemoveTopUp);
             SaveCommand = new Command(async () => await SaveAsync());
             CancelCommand = new Command(async () => await OnCancelAsync());
+            OpenTransactionLogCommand = new Command(async () => await OpenTransactionLogAsync());
+
 
             // Editable fields from model
             Title = _model.Title;
@@ -226,5 +230,38 @@ namespace Points.ViewModels
                 await Shell.Current.Navigation.PopAsync();
             }
         }
+
+        private async Task OpenTransactionLogAsync()
+        {
+            // Clone current transactions so the log page can edit/delete without mutating
+            // until Save is pressed (same pattern as EditActiveTimePage).
+            var working = _model.Transactions
+                .Select(t => new BudgetTransaction
+                {
+                    Id = t.Id,
+                    Timestamp = t.Timestamp,
+                    Type = t.Type,
+                    CurrencyAmount = t.CurrencyAmount,
+                    GlobalValueAmount = t.GlobalValueAmount
+                })
+                .ToList();
+
+            var tcs = new TaskCompletionSource<List<BudgetTransaction>>();
+
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Details.BudgetTransactionLogPage(
+                transactions: working,
+                tcs: tcs,
+                exchangeRate: _model.ExchangeRate
+            ));
+
+            var edited = await tcs.Task;
+            if (edited is null) return;
+
+            // Apply back to model (replace)
+            _model.Transactions.Clear();
+            foreach (var t in edited.OrderByDescending(x => x.Timestamp))
+                _model.Transactions.Add(t);
+        }
+
     }
 }

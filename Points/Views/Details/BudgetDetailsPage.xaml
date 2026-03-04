@@ -104,6 +104,12 @@
                         BackgroundColor="Green"
                         Margin="0,8,0,0"/>
 
+                <Button Text="Transaction Log"
+                        Command="{Binding OpenTransactionLogCommand}"
+                        TextColor="White"
+                        BackgroundColor="DodgerBlue"
+                        Margin="0,8,0,0"/>
+
                 <!-- Start Date/Time -->
                 <Label Text="Start Date" FontAttributes="Bold"/>
                 <DatePicker Date="{Binding StartDate}" />
