@@ -11,6 +11,8 @@ namespace Points.Views.Popups
     {
         private readonly Label _activationTypeLabel;
         private readonly Label _selectedTimeLabel;
+        private readonly Label _relativeTimeLabel;
+
         private readonly Slider _slider;
 
         public EditActiveTimePopup(
@@ -40,6 +42,17 @@ namespace Points.Views.Popups
                 VerticalOptions = LayoutOptions.Center
             };
 
+            _relativeTimeLabel = new Label
+            {
+                Text = "",
+                FontSize = 14,
+                HorizontalTextAlignment = TextAlignment.End,
+                VerticalOptions = LayoutOptions.Center,
+                TextColor = Colors.Gray
+            };
+
+            _relativeTimeLabel.Text = FormatRelativeTime(selectedTime);
+
             _slider = new Slider
             {
                 Minimum = 0,
@@ -51,6 +64,7 @@ namespace Points.Views.Popups
             {
                 var dt = minTime.AddMinutes(_slider.Value);
                 _selectedTimeLabel.Text = dt.ToString("MMM-dd HH:mm");
+                _relativeTimeLabel.Text = FormatRelativeTime(dt);
             };
 
             var minusOne = new Button { Text = "−1m", CornerRadius = 12 };
@@ -91,11 +105,11 @@ namespace Points.Views.Popups
             var rootGrid = new Grid
             {
                 RowDefinitions =
-            {
-                new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Auto)
-            },
+                {
+                    new RowDefinition(GridLength.Auto),
+                    new RowDefinition(GridLength.Auto),
+                    new RowDefinition(GridLength.Auto)
+                },
                 RowSpacing = 14
             };
 
@@ -103,25 +117,29 @@ namespace Points.Views.Popups
             var headerGrid = new Grid
             {
                 ColumnDefinitions =
-            {
-                new ColumnDefinition(GridLength.Star),
-                new ColumnDefinition(GridLength.Star)
-            },
+                {
+                    new ColumnDefinition(GridLength.Star),
+                    new ColumnDefinition(GridLength.Auto),
+                    new ColumnDefinition(GridLength.Auto)
+                },
                 ColumnSpacing = 12
             };
 
+
             headerGrid.Add(_activationTypeLabel, 0, 0);
             headerGrid.Add(_selectedTimeLabel, 1, 0);
+            headerGrid.Add(_relativeTimeLabel, 2, 0);
+
 
             // Row 2
             var buttonRow = new Grid
             {
                 ColumnDefinitions =
-            {
-                new ColumnDefinition(GridLength.Star),
-                new ColumnDefinition(GridLength.Star),
-                new ColumnDefinition(GridLength.Star)
-            },
+                {
+                    new ColumnDefinition(GridLength.Star),
+                    new ColumnDefinition(GridLength.Star),
+                    new ColumnDefinition(GridLength.Star)
+                },
                 ColumnSpacing = 10
             };
 
@@ -133,10 +151,10 @@ namespace Points.Views.Popups
             {
                 Spacing = 10,
                 Children =
-            {
-                _slider,
-                buttonRow
-            }
+                {
+                    _slider,
+                    buttonRow
+                }
             };
 
             // Add rows to root
@@ -152,5 +170,20 @@ namespace Points.Views.Popups
                 Content = rootGrid
             };
         }
+
+        private static string FormatRelativeTime(DateTime selected)
+        {
+            var diff = selected - DateTime.Now;
+            var minutes = diff.TotalMinutes;
+
+            if (Math.Abs(minutes) < 60)
+            {
+                return $"{minutes:0.0} mins";
+            }
+
+            var hours = minutes / 60.0;
+            return $"{hours:0.0} hrs";
+        }
+
     }
 }
