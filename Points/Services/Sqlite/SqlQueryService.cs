@@ -414,6 +414,29 @@ namespace Points.Services.Sqlite
                 );
 
                 -- =========================
+                -- Dashboard Shortcuts
+                -- =========================
+                CREATE TABLE IF NOT EXISTS ShortcutGroup (
+                    ShortcutGroupId     INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Name                TEXT    NOT NULL,
+                    Color               TEXT    NOT NULL DEFAULT '#FF000000', -- store as #AARRGGBB
+                    ShortcutGroupOrder  INTEGER NOT NULL DEFAULT 0
+                );
+
+                -- Optional but strongly recommended: prevent duplicate group names
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_ShortcutGroup_Name
+                ON ShortcutGroup(Name);
+
+                CREATE TABLE IF NOT EXISTS Shortcut (
+                    ShortcutId        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    IconChar          TEXT    NOT NULL DEFAULT '',
+                    TargetCardId      INTEGER NOT NULL,
+                    ShortcutGroupId   INTEGER NOT NULL,
+                    ShortcutOrder     INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (ShortcutGroupId) REFERENCES ShortcutGroup(ShortcutGroupId) ON DELETE CASCADE
+                );
+
+                -- =========================
                 -- Helpful indexes
                 -- =========================
                 CREATE INDEX IF NOT EXISTS IX_TatCard_CardID              ON TatCard(CardID);
@@ -437,32 +460,7 @@ namespace Points.Services.Sqlite
 
                 CREATE INDEX IF NOT EXISTS IX_Activity_CardID             ON Activity(CardID);
                 -- At most ONE open activity in the whole DB
-                CREATE UNIQUE INDEX IF NOT EXISTS UX_Activity_OneOpen
-                ON Activity(1)
-                WHERE ""End"" IS NULL;
-
-                -- =========================
-                -- Dashboard Shortcuts
-                -- =========================
-                CREATE TABLE IF NOT EXISTS ShortcutGroup (
-                    ShortcutGroupId     INTEGER PRIMARY KEY AUTOINCREMENT,
-                    Name                TEXT    NOT NULL,
-                    Color               TEXT    NOT NULL DEFAULT '#FF000000', -- store as #AARRGGBB
-                    ShortcutGroupOrder  INTEGER NOT NULL DEFAULT 0
-                );
-
-                -- Optional but strongly recommended: prevent duplicate group names
-                CREATE UNIQUE INDEX IF NOT EXISTS UX_ShortcutGroup_Name
-                ON ShortcutGroup(Name);
-
-                CREATE TABLE IF NOT EXISTS Shortcut (
-                    ShortcutId        INTEGER PRIMARY KEY AUTOINCREMENT,
-                    IconChar          TEXT    NOT NULL DEFAULT '',
-                    TargetCardId      INTEGER NOT NULL,
-                    ShortcutGroupId   INTEGER NOT NULL,
-                    ShortcutOrder     INTEGER NOT NULL DEFAULT 0,
-                    FOREIGN KEY (ShortcutGroupId) REFERENCES ShortcutGroup(ShortcutGroupId) ON DELETE CASCADE
-                );
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_Activity_OneOpen ON Activity(1) WHERE ""End"" IS NULL;
 
                 -- Helpful for overlap queries
                 CREATE INDEX IF NOT EXISTS IX_Activity_StartEnd
