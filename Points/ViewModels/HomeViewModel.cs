@@ -56,6 +56,8 @@ namespace Points.ViewModels
         public Command OpenSettingsCommand { get; }
         public Command OpenReportsCommand { get; }
 
+        public Command<ShortcutModel> OpenShortcutDetailsCommand { get; }
+
         public ICommand AddTrackerValueCommand { get; }
 
         #endregion
@@ -326,6 +328,8 @@ namespace Points.ViewModels
             OpenPlannerViewCommand = new Command(async () => await OpenPlannerViewAsync());
             OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
             OpenReportsCommand = new Command(async () => await OpenReportsAsync());
+            OpenShortcutDetailsCommand = new Command<ShortcutModel>(async shortcut => await OpenShortcutDetailsAsync(shortcut));
+
 
             AddTrackerValueCommand = new Command<TrackerCardModel>(async (card) =>
             {
@@ -1654,6 +1658,144 @@ namespace Points.ViewModels
         {
             await Shell.Current.Navigation.PushAsync(new Points.Views.Reports.ReportPage(_db));
         }
+
+        private async Task OpenShortcutDetailsAsync(ShortcutModel? shortcut)
+        {
+            if (shortcut is null)
+                return;
+
+            // 1) Build card options for the details page
+            var optionsByType = BuildShortcutOptionsByType();
+
+            // Work out the current/default target type from the shortcut's target card
+            TargetCardType defaultType = TargetCardType.MainQuest;
+
+            var matchingType = optionsByType
+                .FirstOrDefault(kvp => kvp.Value.Any(o => o.CardId == shortcut.TargetCardId));
+
+            if (!matchingType.Equals(default(KeyValuePair<TargetCardType, List<CardOption>>)))
+                defaultType = matchingType.Key;
+
+            // If the current target no longer exists, fall back to a sensible default
+            var targetStillExists = optionsByType
+                .SelectMany(kvp => kvp.Value)
+                .Any(o => o.CardId == shortcut.TargetCardId);
+
+            CardOption? fallbackTarget =
+                (optionsByType.TryGetValue(TargetCardType.MainQuest, out var mq) ? mq.FirstOrDefault() : null)
+                ?? optionsByType.SelectMany(kvp => kvp.Value).FirstOrDefault();
+
+            if (!targetStillExists)
+            {
+                if (fallbackTarget == null || fallbackTarget.CardId <= 0)
+                {
+                    await Shell.Current.DisplayAlert(
+                        "No targets",
+                        "No valid cards are loaded to target. Create a card first, then edit the shortcut.",
+                        "OK");
+                    return;
+                }
+
+                shortcut.TargetCardId = fallbackTarget.CardId;
+                defaultType = optionsByType
+                    .FirstOrDefault(kvp => kvp.Value.Any(o => o.CardId == fallbackTarget.CardId))
+                    .Key;
+            }
+
+            // 2) Load groups + shortcuts (for picker + validation / existing names)
+            var groups = await _db.GetShortcutGroupsAsync();
+            var shortcuts = await _db.GetDashboardShortcutsAsync();
+
+            var existingGroupNames = groups
+                .Where(g => !string.IsNullOrWhiteSpace(g.Name))
+                .OrderBy(g => g.ShortcutGroupOrder)
+                .ThenBy(g => g.Name)
+                .Select(g => g.Name.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // 3) Clone the model so cancel/editing does not mutate live dashboard state immediately
+            var model = new ShortcutModel
+            {
+                ShortcutId = shortcut.ShortcutId,
+                IconChar = shortcut.IconChar,
+                TargetCardId = shortcut.TargetCardId,
+                ShortcutOrder = shortcut.ShortcutOrder,
+                ShortcutGroupId = shortcut.ShortcutGroupId,
+                Group = shortcut.Group == null
+                    ? new ShortcutGroupModel
+                    {
+                        ShortcutGroupId = 0,
+                        Name = "",
+                        Color = Colors.Black,
+                        ShortcutGroupOrder = 0
+                    }
+                    : new ShortcutGroupModel
+                    {
+                        ShortcutGroupId = shortcut.Group.ShortcutGroupId,
+                        Name = shortcut.Group.Name,
+                        Color = shortcut.Group.Color,
+                        ShortcutGroupOrder = shortcut.Group.ShortcutGroupOrder
+                    }
+            };
+
+            // 4) Dashboard reload helper
+            async Task ReloadDashboardAsync()
+            {
+                var updated = await _db.GetDashboardShortcutsAsync();
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    var dashboard = Pages.First(p => p.Name == "Dashboard");
+                    RebuildDashboardCells(dashboard, updated);
+                });
+            }
+
+            // 5) Save callback
+            Action<ShortcutModel> onSaved = saved =>
+            {
+                _ = Task.Run(async () =>
+                {
+                    if (saved.Group == null || string.IsNullOrWhiteSpace(saved.Group.Name))
+                        throw new InvalidOperationException("Shortcut must have a Group with a Name before saving.");
+
+                    var persistedGroup = await _db.UpsertShortcutGroupAsync(saved.Group);
+
+                    saved.ShortcutGroupId = persistedGroup.ShortcutGroupId;
+                    saved.Group = persistedGroup;
+
+                    await _db.SaveShortcutAsync(saved);
+
+                    await ReloadDashboardAsync();
+                });
+            };
+
+            // 6) Delete callback
+            Action<ShortcutModel> onDelete = deleted =>
+            {
+                _ = Task.Run(async () =>
+                {
+                    if (deleted.ShortcutId > 0)
+                        await _db.DeleteShortcutAsync(deleted.ShortcutId);
+
+                    await ReloadDashboardAsync();
+                });
+            };
+
+            // 7) Navigate
+            await Shell.Current.Navigation.PushAsync(
+                new ShortcutDetailsPage(
+                    model: model,
+                    optionsByType: optionsByType,
+                    existingGroupNames: existingGroupNames,
+                    onSaved: onSaved,
+                    onDelete: onDelete,
+                    defaultType: defaultType
+                )
+            );
+        }
+
+
+
 
         public void FailMission(MissionCardModel model)
         {

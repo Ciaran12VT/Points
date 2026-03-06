@@ -104,10 +104,7 @@ namespace Points.Models
 
         public TatCardModel()
         {
-            LongPressCommand = new Command(
-                () => 
-                    LongPressRequested?.Invoke(this)
-                );
+            LongPressCommand = new Command(() => LongPressRequested?.Invoke(this));
         }
 
         public TimeSpan GetActiveTime(DateTime start, DateTime end)

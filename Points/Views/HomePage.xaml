@@ -457,8 +457,10 @@
                                                     HeightRequest="74"
                                                     WidthRequest="74"
                                                     Padding="0"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ShortcutClickedCommand}"
-                                                    CommandParameter="{Binding Shortcut}">
+                                                    Clicked="DashboardShortcutButton_Clicked"
+                                                    Pressed="DashboardShortcutButton_Pressed"
+                                                    Released="DashboardShortcutButton_Released"
+                                                    Unfocused="DashboardShortcutButton_Released">
                                                 <Button.Triggers>
                                                     <DataTrigger TargetType="Button"
                                                                  Binding="{Binding IsPlaceholder}"

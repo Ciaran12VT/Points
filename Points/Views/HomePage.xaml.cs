@@ -14,6 +14,12 @@ public partial class HomePage : ContentPage
     int _lastPos = -1;
     private readonly Dictionary<HomePageModel, CollectionView> _cardsListsByPage = new();
 
+
+    private CancellationTokenSource? _dashboardLongPressCts;
+    private bool _dashboardLongPressFired;
+    private const int DashboardLongPressMs = 600;
+
+
     public HomePage(HomeViewModel vm, IAudioFeedback audio)
 	{
 		InitializeComponent();
@@ -185,4 +191,81 @@ public partial class HomePage : ContentPage
             vm.DebugBeep();
         }
     }
+
+    private void DashboardShortcutButton_Pressed(object sender, EventArgs e)
+    {
+        _dashboardLongPressCts?.Cancel();
+        _dashboardLongPressCts?.Dispose();
+
+        _dashboardLongPressCts = new CancellationTokenSource();
+        _dashboardLongPressFired = false;
+
+        var token = _dashboardLongPressCts.Token;
+
+        if (sender is not Button btn)
+            return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(DashboardLongPressMs, token);
+                if (token.IsCancellationRequested) return;
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    if (BindingContext is not HomeViewModel vm)
+                        return;
+
+                    if (btn.BindingContext is not DashboardCellModel cell)
+                        return;
+
+                    if (cell.IsPlaceholder || cell.Shortcut is null)
+                        return;
+
+                    if (vm.OpenShortcutDetailsCommand?.CanExecute(cell.Shortcut) == true)
+                    {
+                        _dashboardLongPressFired = true;
+                        vm.OpenShortcutDetailsCommand.Execute(cell.Shortcut);
+                    }
+                });
+            }
+            catch (TaskCanceledException)
+            {
+            }
+        }, token);
+    }
+
+    private void DashboardShortcutButton_Released(object sender, EventArgs e)
+    {
+        _dashboardLongPressCts?.Cancel();
+    }
+
+    private void DashboardShortcutButton_Clicked(object sender, EventArgs e)
+    {
+        if (_dashboardLongPressFired)
+        {
+            _dashboardLongPressFired = false;
+            return;
+        }
+
+        if (BindingContext is not HomeViewModel vm)
+            return;
+
+        if (sender is not Button btn)
+            return;
+
+        if (btn.BindingContext is not DashboardCellModel cell)
+            return;
+
+        if (cell.IsPlaceholder || cell.Shortcut is null)
+            return;
+
+        if (vm.ShortcutClickedCommand?.CanExecute(cell.Shortcut) == true)
+            vm.ShortcutClickedCommand.Execute(cell.Shortcut);
+
+        _dashboardLongPressFired = false;
+    }
+
+
 }
