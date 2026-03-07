@@ -56,6 +56,8 @@ namespace Points.ViewModels
         public Command OpenSettingsCommand { get; }
         public Command OpenReportsCommand { get; }
 
+        public Command ScrollToDashboardCommand { get; }
+
         public Command<ShortcutModel> OpenShortcutDetailsCommand { get; }
 
         public ICommand AddTrackerValueCommand { get; }
@@ -63,6 +65,25 @@ namespace Points.ViewModels
         #endregion
 
         #region Fields
+
+
+        private bool _isTopToolbarVisible = false;
+        public bool IsTopToolbarVisible
+        {
+            get => _isTopToolbarVisible;
+            set
+            {
+                if (_isTopToolbarVisible == value)
+                    return;
+
+                _isTopToolbarVisible = value;
+                OnPropertyChanged(nameof(IsTopToolbarVisible));
+            }
+        }
+
+        public Command ToggleTopToolbarCommand { get; }
+
+
 
         //Used to check if there is an card currenty active
         public bool HasActiveCard => _activeCard is not null;
@@ -329,6 +350,11 @@ namespace Points.ViewModels
             OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
             OpenReportsCommand = new Command(async () => await OpenReportsAsync());
             OpenShortcutDetailsCommand = new Command<ShortcutModel>(async shortcut => await OpenShortcutDetailsAsync(shortcut));
+            ScrollToDashboardCommand = new Command(() => Position = Pages.IndexOf(Pages.First(p => p.IsDashboard)));
+            ToggleTopToolbarCommand = new Command(() =>
+            {
+                IsTopToolbarVisible = !IsTopToolbarVisible;
+            });
 
 
             AddTrackerValueCommand = new Command<TrackerCardModel>(async (card) =>
@@ -1227,13 +1253,13 @@ namespace Points.ViewModels
         {
             Pages.Clear();
 
-            Pages.Add(new HomePageModel("Dashboard", Enumerable.Empty<ICardModel>(), '#'));
-            Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<IActiveCardModel>(), '♻'));
-            Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>(), '⚑'));
-            Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>(), '◷'));
-            Pages.Add(new HomePageModel("Challenges & Pinned Achievements", Enumerable.Empty<ICardModel>(), '★'));
-            Pages.Add(new HomePageModel("Arcs", Enumerable.Empty<ICardModel>(), '∿'));
-            Pages.Add(new HomePageModel("Planners", Enumerable.Empty<ICardModel>(), '☰'));
+            Pages.Add(new HomePageModel("Dashboard", Enumerable.Empty<ICardModel>(), "𓃑", 7));
+            Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<IActiveCardModel>(), "♻", 12));
+            Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>(), "⚑", 12));
+            Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>(), "◷", 12));
+            Pages.Add(new HomePageModel("Challenges & Pinned Achievements", Enumerable.Empty<ICardModel>(), "★", 12));
+            Pages.Add(new HomePageModel("Arcs", Enumerable.Empty<ICardModel>(), "∿", 12));
+            Pages.Add(new HomePageModel("Planners", Enumerable.Empty<ICardModel>(), "☰", 12));
        
         }
 
@@ -1902,8 +1928,10 @@ namespace Points.ViewModels
 
     public class HomePageModel : ObservableObject
     {
-        public char IconChar { get; set; }
+        public string IconChar { get; set; }
         public Color BackColor { get; set; } = Colors.Black;
+
+        public int FontSize { get; set; } = 14;
 
         public string Name { get; }
         public ObservableCollection<ICardModel> AllCards { get; } = new();
@@ -1916,9 +1944,10 @@ namespace Points.ViewModels
         public bool IsDashboard => Name == "Dashboard";
 
 
-        public HomePageModel(string name, IEnumerable<ICardModel> cards, char icon)
+        public HomePageModel(string name, IEnumerable<ICardModel> cards, string icon, int fontSize)
         {
             Name = name;
+            FontSize = fontSize;
             foreach (var c in cards)
             {
                 AllCards.Add(c);

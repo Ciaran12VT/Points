@@ -27,7 +27,7 @@
                              VerticalOptions="Center">
 
                 <Label Text="{Binding HeaderDate}"
-                   FontSize="22"
+                   FontSize="20"
                    VerticalOptions="Center"
                    HorizontalOptions="Start"/>
 
@@ -50,8 +50,8 @@
             <!-- Top-right value -->
             <Label Grid.Column="3"
                Text="{Binding TopRightValue, StringFormat='{0:F2}'}"
-               FontSize="26"
-               VerticalOptions="Center"
+               FontSize="30"
+               VerticalOptions="End"
                HorizontalOptions="End"
                TextColor="{Binding TopRightValue, Converter={StaticResource GlobalValueColorConverter}}" />
         </Grid>
@@ -66,6 +66,8 @@
         <Grid Grid.Row="0"
               ColumnDefinitions="*,Auto"
               Padding="12"
+              Margin="0,8,0,0"
+              IsVisible="{Binding IsTopToolbarVisible}"
               BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
 
             <!-- Left-hand button group -->
@@ -139,18 +141,21 @@
 
         <!-- NEW: DYNAMIC (IN-PAGE) TOOLBAR -->
         <Grid Grid.Row="1"
-              Padding="12,0,12,12"
+              ColumnDefinitions="*,Auto"
+              Padding="12,8,12,12"
               BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
 
-            <!-- Horizontal scrolling button row -->
-            <CollectionView ItemsSource="{Binding Pages}"
+            <!-- Left: Horizontal scrolling button row -->
+            <CollectionView Grid.Column="0"
+                    ItemsSource="{Binding Pages}"
                     ItemsLayout="HorizontalList"
                     HorizontalScrollBarVisibility="Never"
                     VerticalScrollBarVisibility="Never">
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <Button Text="{Binding IconChar}"
+                        <Button 
+                        Text="{Binding IconChar}"
                         WidthRequest="20"
                         HeightRequest="20"
                         CornerRadius="18"
@@ -159,13 +164,27 @@
                         TextColor="White"
                         BackgroundColor="{Binding BackColor}"
                         VerticalOptions="Center"
+                        FontSize="{Binding FontSize}"
                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=NavigationItemClickedCommand}"
-                        CommandParameter="{Binding .}"/>
+                        CommandParameter="{Binding .}" />
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
-
             </CollectionView>
+
+            <!-- Right: show/hide top toolbar -->
+            <Button Grid.Column="1"
+                    Text="⋯"  
+                    Command="{Binding ToggleTopToolbarCommand}"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="8,0,0,0"
+                    TextColor="White"
+                    BackgroundColor="Transparent"
+                    VerticalOptions="Center" />
         </Grid>
+
 
         <!-- Carousel -->
         <CarouselView Grid.Row="2" x:Name="MainCarousel"
@@ -203,7 +222,7 @@
 
         <!-- BOTTOM TOOLBAR -->
         <Grid Grid.Row="3"
-                  ColumnDefinitions="*,Auto"
+                  ColumnDefinitions="*,Auto, Auto"
                   Padding="12"
                   BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
 
@@ -225,7 +244,7 @@
                     HorizontalOptions="End"
                     VerticalOptions="Center"/>-->
 
-                <Button Text="*"
+                <!--<Button Text="*"
                 Command="{Binding ClearFiltersCommand}"
                 WidthRequest="36"
                 HeightRequest="36"
@@ -235,38 +254,35 @@
                 TextColor="White"
                 BackgroundColor="Black"
                 HorizontalOptions="End"
-                VerticalOptions="Center"/>
+                VerticalOptions="Center"/>-->
 
-                <Button Text="A"
+                <Button Text="●"
                     Command="{Binding ScrollToActiveCardCommand}"
                     WidthRequest="36"
                     HeightRequest="36"
                     CornerRadius="18"
                     Padding="0"
                     Margin="0"
-                    BackgroundColor="Black"
-                    VerticalOptions="Center">
-
+                    BackgroundColor="Grey"
+                    VerticalOptions="Center"
+                    TextColor="White">
+                    
                     <Button.Triggers>
                         <!-- No active card -->
-                        <DataTrigger TargetType="Button"
-                     Binding="{Binding HasActiveCard}"
-                     Value="False">
-                            <Setter Property="TextColor" Value="Gray" />
+                        <DataTrigger TargetType="Button" Binding="{Binding HasActiveCard}"  Value="False">
+                            <Setter Property="BackgroundColor" Value="Gray" />
                         </DataTrigger>
 
                         <!-- Active card exists -->
-                        <DataTrigger TargetType="Button"
-                     Binding="{Binding HasActiveCard}"
-                     Value="True">
-                            <Setter Property="TextColor" Value="DodgerBlue" />
+                        <DataTrigger TargetType="Button" Binding="{Binding HasActiveCard}" Value="True">
+                            <Setter Property="BackgroundColor" Value="Green" />
                         </DataTrigger>
                     </Button.Triggers>
 
                 </Button>
 
 
-                <Button Text="🕑"
+                <!--<Button Text="🕑"
                 Command="{Binding SortByLastActiveCommand}"
                 WidthRequest="36"
                 HeightRequest="36"
@@ -276,9 +292,9 @@
                 TextColor="White"
                 BackgroundColor="Black"
                 HorizontalOptions="End"
-                VerticalOptions="Center"/>
+                VerticalOptions="Center"/>-->
 
-                <Button Text="-"
+                <!--<Button Text="-"
                 Command="{Binding FilterNegativeCommand}"
                 WidthRequest="36"
                 HeightRequest="36"
@@ -300,9 +316,9 @@
                 TextColor="White"
                 BackgroundColor="Black"
                 HorizontalOptions="End"
-                VerticalOptions="Center"/>
+                VerticalOptions="Center"/>-->
 
-                <Button Text="#"
+                <!--<Button Text="#"
                 Command="{Binding FilterByTagCommand}"
                 WidthRequest="36"
                 HeightRequest="36"
@@ -312,7 +328,7 @@
                 TextColor="White"
                 BackgroundColor="Black"
                 HorizontalOptions="End"
-                VerticalOptions="Center"/>
+                VerticalOptions="Center"/>-->
 
                 <Button Text="🔎"
                 Clicked="OnTextSearchClicked"
@@ -328,13 +344,28 @@
 
             </HorizontalStackLayout>
 
-            <!-- Right-hand Add button -->
+            <!-- Right-hand Dashbord button -->
             <Button Grid.Column="1"
-            Text="Add"
-            Command="{Binding AddCardCommand}"
-            VerticalOptions="Center"
-            TextColor="White"
-            BackgroundColor="Green"/>
+                    Text="𓃑"
+                    FontSize="12"
+                    Command="{Binding ScrollToDashboardCommand}"
+                    VerticalOptions="Center"
+                    HorizontalOptions="Center"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0,0,25,0"/>
+
+            <!-- Right-hand Add button -->
+            <Button Grid.Column="2"
+                    Text="Add"
+                    Command="{Binding AddCardCommand}"
+                    VerticalOptions="Center"
+                    TextColor="White"
+                    BackgroundColor="Green"/>
 
         </Grid>
 

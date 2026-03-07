@@ -97,6 +97,7 @@
             <!-- Row 1: Status (left, grey) -->
             <Label Grid.Row="1" Grid.Column="0"
                    FontSize="13"
+                   IsVisible="{Binding ShowStatusLabel}"
                    TextColor="Gray">
                 <Label.Text>
                     <MultiBinding Converter="{StaticResource LockStatusTextConverter}">

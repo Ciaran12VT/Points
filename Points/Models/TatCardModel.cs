@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui.Views;
+using Points.Converters;
 using Points.Evaluators;
 using System;
 using System.Collections.Generic;
@@ -74,6 +75,8 @@ namespace Points.Models
             set => SetProperty(ref _isActive, value);
 
         }
+
+        public bool ShowStatusLabel = true;
 
         private string _status = "In-Progress";
         public string Status

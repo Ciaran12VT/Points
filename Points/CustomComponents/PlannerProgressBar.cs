@@ -276,7 +276,7 @@ namespace Points.CustomComponents
                     x = MathF.Max(dirtyRect.X, MathF.Min(dirtyRect.Right - w, x));
 
                     // Default Y: above the bar
-                    var y = barRect.Y - _b.LabelOffset - h;
+                    var y = a.Kind == "current" ? barRect.Y + _b.LabelOffset + h : barRect.Y - _b.LabelOffset - h;
 
                     placed.Add(new PlacedLabel(a, new RectF(x, y, w, h), textSize));
                 }
