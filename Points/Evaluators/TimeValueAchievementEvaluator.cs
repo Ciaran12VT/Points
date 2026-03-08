@@ -22,25 +22,25 @@ namespace Points.Evaluators
                 double prog = 0;
 
                 double valueToIncrement = 0;
-                if (eval.AchievemenCard.GoalType == AchievementGoalType.ActiveTime) valueToIncrement = additionalTime;
-                else if(eval.AchievemenCard.GoalType == AchievementGoalType.Value) valueToIncrement = additionalValue;
+                if (eval.AchievementCard.GoalType == AchievementGoalType.ActiveTime) valueToIncrement = additionalTime;
+                else if(eval.AchievementCard.GoalType == AchievementGoalType.Value) valueToIncrement = additionalValue;
 
                 prog = eval.IncrementAndGetValue(valueToIncrement);
 
                 if(prog > 0)
                 {
-                    if (eval.AchievemenCard.GoalType == AchievementGoalType.ActiveTime)
+                    if (eval.AchievementCard.GoalType == AchievementGoalType.ActiveTime)
                     {
-                        prog = prog / eval.AchievemenCard.GetTargetSecondsSpent();
+                        prog = prog / eval.AchievementCard.GetTargetSecondsSpent();
                     }
-                    else if (eval.AchievemenCard.GoalType == AchievementGoalType.Value)
+                    else if (eval.AchievementCard.GoalType == AchievementGoalType.Value)
                     {
-                        prog = prog / eval.AchievemenCard.TargetValue;
+                        prog = prog / eval.AchievementCard.TargetValue;
                     }
 
-                    if (prog >= 1 && !eval.AchievemenCard.IsLockedThisRange)
+                    if (prog >= 1 && !eval.AchievementCard.IsLockedThisRange)
                     {
-                        earnedAchievements.Add(eval.AchievemenCard);
+                        earnedAchievements.Add(eval.AchievementCard);
                         eval.CurrentValue = 0;
                     }
                 }
@@ -52,7 +52,7 @@ namespace Points.Evaluators
 
     public class TimeValueAchievementEvaluation
     {
-        public AchievementCardModel AchievemenCard {  get; set; } 
+        public AchievementCardModel AchievementCard {  get; set; } 
 
         public double CurrentValue { get; set; }
 

@@ -33,11 +33,11 @@ namespace Points.Evaluators
             {
                 AchievementGoalType.ActiveTime => new TimeValueAchievementEvaluation
                 {
-                    AchievemenCard = card,
+                    AchievementCard = card,
                 },
                 AchievementGoalType.Value => new TimeValueAchievementEvaluation
                 {
-                    AchievemenCard = card
+                    AchievementCard = card
                 },
                 _ => throw new NotSupportedException(
                     $"Unsupported GoalType '{card.GoalType}' for AchievementCard '{card}'.")

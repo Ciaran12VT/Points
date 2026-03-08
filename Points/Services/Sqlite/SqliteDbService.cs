@@ -506,8 +506,8 @@ namespace Points.Services.Sqlite
 
                 // Achievements we need to recompute (distinct by Id to be safe)
                 var achievementIds = evaluator.Evaluations
-                    .Where(e => e?.AchievemenCard != null)
-                    .Select(e => e!.AchievemenCard.Id)
+                    .Where(e => e?.AchievementCard != null)
+                    .Select(e => e!.AchievementCard.Id)
                     .Distinct()
                     .ToList();
 
@@ -629,12 +629,12 @@ namespace Points.Services.Sqlite
             {
                 AchievementGoalType.ActiveTime => new TimeValueAchievementEvaluation
                 {
-                    AchievemenCard = card,
+                    AchievementCard = card,
                     CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentTotalActiveTimeInSeconds
                 },
                 AchievementGoalType.Value => new TimeValueAchievementEvaluation
                 {
-                    AchievemenCard = card,
+                    AchievementCard = card,
                     CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentValue
                 },
                 _ => throw new NotSupportedException(
