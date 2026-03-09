@@ -47,6 +47,8 @@ namespace Points.ViewModels
         {
             var page = CurrentPage;
 
+            var now = DateTime.Now;
+
             var model = new AchievementCardModel
             {
                 Title = "New Achievement",
@@ -57,7 +59,9 @@ namespace Points.ViewModels
                 CompletionType = AchievementCompletionType.Range,
                 RangeUnit = AchievementRangeUnit.Days,
                 RangeAmount = 7,
-                Deadline = DateTime.Now,
+                CreatedDate = now,
+                DeadlineStart = now,
+                Deadline = now,
                 IsPinned = true,
             };
 
@@ -107,6 +111,9 @@ namespace Points.ViewModels
 
         public Task? Initialization { get; private set; }
 
+        private readonly SemaphoreSlim _deadlineRefreshGate = new(1, 1);
+        private readonly IDispatcherTimer _deadlineRefreshTimer;
+
         public AchievementsViewModel(List<string> availableTagsList, Services.IDbService db)
         {
             _db = db;
@@ -116,10 +123,20 @@ namespace Points.ViewModels
 
             AvailableTagsList = availableTagsList;
 
-            Initialization = LoadAsync();
-
             AddAchievementCommand = new Command(async () => await AddAchievementAsync());
             OpenTrophyRoomCommand = new Command(async () => await OpenTrophyRoomAsync());
+
+            _deadlineRefreshTimer = Application.Current.Dispatcher.CreateTimer();
+            _deadlineRefreshTimer.Interval = TimeSpan.FromSeconds(1);
+            _deadlineRefreshTimer.Tick += async (_, __) => await RefreshDeadlineAchievementsAsync();
+            _deadlineRefreshTimer.Start();
+
+            Initialization = LoadAsync();
+        }
+
+        public void StopTimer()
+        {
+            _deadlineRefreshTimer?.Stop();
         }
 
         private async Task LoadAsync()
@@ -141,6 +158,99 @@ namespace Points.ViewModels
             });
         }
 
+        private async Task RefreshDeadlineAchievementsAsync()
+        {
+            if (!await _deadlineRefreshGate.WaitAsync(0))
+                return;
+
+            try
+            {
+                var allCards = Pages
+                    .SelectMany(p => p.Cards)
+                    .ToList();
+
+                if (allCards.Count == 0)
+                    return;
+
+                foreach (var card in allCards)
+                {
+                    // We only care about deadline achievements here.
+                    if (card.CompletionType != AchievementCompletionType.Deadline)
+                        continue;
+
+                    // Finalized deadline achievements remain visible but inert.
+                    if (IsFinalizedDeadlineAchievement(card))
+                    {
+                        if (card.FrozenCurrentValue.HasValue)
+                            card.CurrentValue = card.FrozenCurrentValue.Value;
+
+                        card.NotifyTimeChanged();
+                        continue;
+                    }
+
+                    var refreshed = await _db.ReevaluateDeadlineAchievementAsync(card);
+
+                    if (refreshed != null)
+                    {
+                        ApplyAchievementRuntimeState(card, refreshed);
+                    }
+                }
+            }
+            finally
+            {
+                _deadlineRefreshGate.Release();
+            }
+        }
+
+        private static bool IsFinalizedDeadlineAchievement(AchievementCardModel card)
+        {
+            return card != null
+                && card.CompletionType == AchievementCompletionType.Deadline
+                && card.FinalizedAt.HasValue;
+        }
+
+        private static void ApplyAchievementRuntimeState(AchievementCardModel target, AchievementCardModel source)
+        {
+            if (target == null || source == null)
+                return;
+
+            target.Status = source.Status;
+            target.LastEarnedAt = source.LastEarnedAt;
+            target.FinalizedAt = source.FinalizedAt;
+            target.FrozenCurrentValue = source.FrozenCurrentValue;
+
+            target.CreatedDate = source.CreatedDate;
+            target.DeadlineStart = source.DeadlineStart;
+            target.Deadline = source.Deadline;
+
+            SyncTrophies(target, source);
+
+            if (source.CompletionType == AchievementCompletionType.Deadline &&
+                source.FinalizedAt.HasValue)
+            {
+                target.CurrentValue = source.FrozenCurrentValue ?? source.CurrentValue;
+            }
+            else
+            {
+                target.CurrentValue = source.CurrentValue;
+            }
+
+            target.NotifyTimeChanged();
+        }
+
+        private static void SyncTrophies(AchievementCardModel target, AchievementCardModel source)
+        {
+            if (target == null || source == null)
+                return;
+
+            target.Trophies.Clear();
+
+            foreach (var trophy in source.Trophies)
+            {
+                target.Trophies.Add(trophy);
+            }
+        }
+
         /// <summary>
         /// The ONE AND ONLY way a card gets added to a page.
         /// All callers (mock seeding + UI save callbacks) must use this.
@@ -156,7 +266,11 @@ namespace Points.ViewModels
                 page.AddCard(card);
             }
 
-            if (!noDb) CommitCardToDb(card);
+            if (!noDb)
+            {
+                CommitCardToDb(card);
+                _ = RefreshSingleDeadlineAchievementAsync(card);
+            }
         }
 
         private void CommitCardToDb(ICardModel card)
@@ -183,36 +297,30 @@ namespace Points.ViewModels
             page.RemoveCard(card);
         }
 
+        private async Task RefreshSingleDeadlineAchievementAsync(AchievementCardModel card)
+        {
+            if (card == null)
+                return;
+
+            if (card.CompletionType != AchievementCompletionType.Deadline)
+                return;
+
+            var refreshed = await _db.ReevaluateDeadlineAchievementAsync(card);
+            if (refreshed != null)
+            {
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    ApplyAchievementRuntimeState(card, refreshed);
+                });
+            }
+        }
+
         private AchievementsPageModel CreateAchievementsPage()
         {
             return new AchievementsPageModel(
                 "Achievements",
                 new ObservableCollection<AchievementCardModel>
                 {
-                    //new AchievementCardModel
-                    //{
-                    //    Title = "Super Nerd",
-                    //    Status = "In-Progress",
-                    //    Tags = "#Study, #Consistency",
-                    //    GoalType = AchievementGoalType.ActiveTime,
-                    //    Target = 600, // minutes
-                    //    CurrentValue = 245
-                    //},
-                    //new AchievementCardModel
-                    //{
-                    //    Title = "Gym Rat",
-                    //    Status = "Completed",
-                    //    Tags = "#Fitness",
-                    //    GoalType = AchievementGoalType.Value,
-                    //    Target = 1000,
-                    //    CurrentValue = 1000,
-                    //    CompletedAt = DateTime.Now.AddDays(-2),
-                    //    CompletionType = AchievementCompletionType.Range,
-                    //    RangeAmount = 6,
-                    //    RangeUnit  = AchievementRangeUnit.Months,
-                    //    LastEarnedAt = DateTime.Now.AddDays(-2),
-                    //    ActiveTimeTargetText = "200:00:00"
-                    //}
                 });
         }
 
@@ -222,15 +330,6 @@ namespace Points.ViewModels
                 "Meta-Achievements",
                 new ObservableCollection<AchievementCardModel>
                 {
-                    //new AchievementCardModel
-                    //{
-                    //    Title = "Achievement Hunter",
-                    //    Status = "In-Progress",
-                    //    Tags = "#Meta",
-                    //    GoalType = AchievementGoalType.Steps,
-                    //    Target = 10,
-                    //    CurrentValue = 3
-                    //}
                 });
         }
 

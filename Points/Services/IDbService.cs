@@ -142,6 +142,8 @@ namespace Points.Services
         Task UpsertReportAsync(ReportModel report);
         Task DeleteReportAsync(int reportId);
         Task<IReadOnlyList<ReportModel>> GetReportsAsync();
+
+        Task<AchievementCardModel> ReevaluateDeadlineAchievementAsync(AchievementCardModel card);
     }
 
     public sealed class HomeSeedData

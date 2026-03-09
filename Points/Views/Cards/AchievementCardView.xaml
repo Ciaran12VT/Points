@@ -7,7 +7,8 @@
            Padding="12"
            CornerRadius="12"
            HasShadow="True"
-           BackgroundColor="{Binding CardBackgroundColor}">
+           BackgroundColor="{Binding CardBackgroundColor}"
+           Opacity="{Binding CardOpacity}">
 
         <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
               ColumnDefinitions="*,Auto, Auto"
@@ -27,6 +28,22 @@
                         VerticalOptions="Center"
                         HorizontalOptions="Start"
                         Margin="0,0,0,0" />
+            
+            <Label Grid.Row="0" Grid.Column="1"
+                       Text="✓"
+                       IsVisible="{Binding IsCompleted}"
+                       VerticalOptions="Center"
+                       HorizontalOptions="Start"
+                       Margin="0,0,0,0"
+                       TextColor="LightGreen" />
+            
+            <Label Grid.Row="0" Grid.Column="1"
+                       Text="✕"
+                       IsVisible="{Binding IsFailed}"
+                       VerticalOptions="Center"
+                       HorizontalOptions="Start"
+                       Margin="0,0,0,0"
+                       TextColor="IndianRed" />
 
             <Border
                     Grid.Row="0" Grid.Column="2" 
@@ -56,7 +73,7 @@
                    TextColor="Gray" />
 
             <Label Grid.Row="1" Grid.Column="2"
-                   Text="{Binding Tags, StringFormat='Tag: {0}'}"
+                   Text="{Binding SecondaryDescriptorText}"
                    FontSize="13"
                    TextColor="Gray"
                    HorizontalTextAlignment="End" />
@@ -94,7 +111,7 @@
                    HorizontalTextAlignment="End" />
 
             <!-- Row 6: Completion Time -->
-            <Label Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+            <Label Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3"
                    Text="{Binding CompletionTimeText}"
                    FontSize="13"
                    TextColor="Gray" />

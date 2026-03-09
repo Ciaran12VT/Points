@@ -30,18 +30,29 @@
                             BackgroundColor="DarkRed" 
                             Command="{Binding CancelCommand}"
                             VerticalOptions="Center"/>
-                        
-                        <CheckBox IsChecked="{Binding IsPinned}" />
+
+                        <CheckBox IsChecked="{Binding IsPinned}" IsEnabled="{Binding CanEdit}"/>
                       <Label Text="Pinned" VerticalOptions="Center" FontSize="12"/>
                     </HorizontalStackLayout>
                 </Grid>
 
-                <Entry Text="{Binding Title}" Placeholder="Enter title" x:Name="TitleEntry"/>
+                <Entry Text="{Binding Title}" Placeholder="Enter title" x:Name="TitleEntry" IsEnabled="{Binding CanEdit}"/>
 
 
                 <!-- Status (read-only) -->
                 <Label Text="Status" FontAttributes="Bold"/>
-                <Label Text="{Binding Status}" TextColor="Gray"/>
+                <Label Text="{Binding StatusDisplay}" TextColor="Gray"/>
+
+                <!-- Read-only / finalized message -->
+                <Label Text="{Binding ReadOnlyMessage}"
+                       TextColor="DarkRed"
+                       FontAttributes="Bold"
+                       IsVisible="{Binding IsDeadlineReadOnlyStatusVisible}" />
+
+                <!-- Validation -->
+                <Label Text="{Binding ValidationMessage}"
+                       TextColor="DarkRed"
+                       IsVisible="{Binding HasValidationMessage}" />
 
                 <!-- Tags -->
                 <Label Text="Tags" FontAttributes="Bold"/>
@@ -52,6 +63,7 @@
                     <Entry x:Name="TagsEntry"
                        Text="{Binding Tags}"
                        IsReadOnly="True"
+                       IsEnabled="{Binding CanEdit}"
                        Placeholder="Tap edit to select tags"
                        VerticalOptions="Center"/>
 
@@ -66,7 +78,8 @@
                         TextColor="White"
                         BackgroundColor="Black"
                         Clicked="OnEditTagsClicked"
-                        VerticalOptions="Center"/>
+                        VerticalOptions="Center"
+                        IsEnabled="{Binding CanEdit}"/>
 
                     <!-- Clear -->
                     <Button Grid.Column="2"
@@ -79,7 +92,8 @@
                         TextColor="White"
                         BackgroundColor="DarkRed"
                         Clicked="OnClearTagsClicked"
-                        VerticalOptions="Center"/>
+                        VerticalOptions="Center"
+                        IsEnabled="{Binding CanEdit}"/>
 
                 </Grid>
 
@@ -89,22 +103,25 @@
                 <Picker x:Name="GoalTypePicker"
                     Title="Select goal type"
                     ItemsSource="{Binding GoalTypeOptions}"
-                    SelectedItem="{Binding GoalType}" />
+                    SelectedItem="{Binding GoalType}" 
+                    IsEnabled="{Binding CanEdit}"/>
 
                 <!-- Difficulty Level -->
                 <Label Text="Difficulty Level" FontAttributes="Bold"/>
                 <Picker x:Name="DifficultyLevelPicker"
                     Title="Select goal type"
                     ItemsSource="{Binding DifficultyLevelOptions}"
-                    SelectedItem="{Binding DifficultyLevel}" />
+                    SelectedItem="{Binding DifficultyLevel}"
+                    IsEnabled="{Binding CanEdit}"/>
 
                 <!-- Target for VALUE -->
                 <VerticalStackLayout IsVisible="{Binding IsValueTargetVisible}">
                     <Label Text="Target Value" FontAttributes="Bold"/>
                     <Entry Text="{Binding TargetValueText}"
                        Keyboard="Numeric"
-                       Placeholder="e.g. 100" />
-                            </VerticalStackLayout>
+                       Placeholder="e.g. 100" 
+                       IsEnabled="{Binding CanEdit}"/>
+                </VerticalStackLayout>
 
                 <!-- Target for ACTIVE TIME -->
                 <VerticalStackLayout IsVisible="{Binding IsActiveTimeTargetVisible}">
@@ -117,7 +134,8 @@
                            Text="{Binding ActiveTimeTargetText}"
                            IsReadOnly="True"
                            Placeholder="hh:mm:ss"
-                           VerticalOptions="Center"/>
+                           VerticalOptions="Center"
+                           IsEnabled="{Binding CanEdit}"/>
 
                         <!-- Edit button -->
                         <Button Grid.Column="1"
@@ -130,7 +148,8 @@
                             TextColor="White"
                             BackgroundColor="Black"
                             Clicked="OnEditActiveTimeTargetClicked"
-                            VerticalOptions="Center"/>
+                            VerticalOptions="Center"
+                            IsEnabled="{Binding CanEdit}"/>
                     </Grid>
 
 
@@ -139,17 +158,18 @@
                 <!-- Target for Steps -->
                 <VerticalStackLayout IsVisible="{Binding IsStepTargetVisible}">
                     <Label Text="Step" FontAttributes="Bold"/>
-                    <Picker x:Name="StepPicker" Title="Select step" SelectedItem="{Binding StepName}" />
+                    <Picker x:Name="StepPicker" Title="Select step" SelectedItem="{Binding StepName}" IsEnabled="{Binding CanEdit}"/>
                     <Label Text="Target" FontAttributes="Bold"/>
                     <Entry Text="{Binding TargetValueText}"
                            Keyboard="Numeric"
-                           Placeholder="e.g. 50" />
+                           Placeholder="e.g. 50" 
+                           IsEnabled="{Binding CanEdit}"/>
                 </VerticalStackLayout>
                 
                 <!-- Target for Custom (Reports) -->
                 <VerticalStackLayout IsVisible="{Binding IsCustomReportTargetVisible}">
                     <Label Text="Report" FontAttributes="Bold"/>
-                    <Picker x:Name="CustomReportPicker" Title="Select report" SelectedItem="{Binding ReportName}" />
+                    <Picker x:Name="CustomReportPicker" Title="Select report" SelectedItem="{Binding ReportName}" IsEnabled="{Binding CanEdit}"/>
                 </VerticalStackLayout>
 
                 <!-- Target for Achievements -->
@@ -162,7 +182,8 @@
                                Text="{Binding AchievementTitle}"
                                IsReadOnly="True"
                                Placeholder="Tap edit to select"
-                               VerticalOptions="Center"/>
+                               VerticalOptions="Center"
+                               IsEnabled="{Binding CanEdit}"/>
 
                         <!-- Edit -->
                         <Button Grid.Column="1"
@@ -175,7 +196,8 @@
                                 TextColor="White"
                                 BackgroundColor="Black"
                                 Clicked="OnEditAchievementsClicked"
-                                VerticalOptions="Center"/>
+                                VerticalOptions="Center"
+                                IsEnabled="{Binding CanEdit}"/>
 
                         <!-- Clear -->
                         <Button Grid.Column="2"
@@ -188,7 +210,8 @@
                                 TextColor="White"
                                 BackgroundColor="DarkRed"
                                 Clicked="OnClearAchievementsClicked"
-                                VerticalOptions="Center"/>
+                                VerticalOptions="Center"
+                                IsEnabled="{Binding CanEdit}"/>
                     </Grid>
                 </VerticalStackLayout>
 
@@ -197,7 +220,8 @@
                 <Label Text="Completion Type" FontAttributes="Bold"/>
                 <Picker x:Name="CompletionTypePicker"
                     Title="Select completion type"
-                    SelectedItem="{Binding CompletionType}" />
+                    SelectedItem="{Binding CompletionType}" 
+                    IsEnabled="{Binding CanEdit}"/>
 
 
                 <!-- Range -->
@@ -208,7 +232,8 @@
                         <Picker Grid.Column="0"
                             x:Name="RangeUnitPicker"
                             Title="Unit"
-                            SelectedItem="{Binding RangeUnit}" />
+                            SelectedItem="{Binding RangeUnit}" 
+                            IsEnabled="{Binding CanEdit}"/>
 
 
                         <Entry Grid.Column="1"
@@ -216,15 +241,22 @@
                                Text="{Binding RangeAmountText}"
                                Keyboard="Numeric"
                                HorizontalTextAlignment="End"
-                               Placeholder="7" />
+                               Placeholder="7" 
+                               IsEnabled="{Binding CanEdit}"/>
                     </Grid>
                 </VerticalStackLayout>
 
                 <!-- Deadline -->
-                <VerticalStackLayout IsVisible="{Binding IsDeadlineVisible}">
-                    <Label Text="Deadline" FontAttributes="Bold"/>
-                    <DatePicker Date="{Binding DeadlineDate}" />
-                    <TimePicker Time="{Binding DeadlineTime}" />
+                <VerticalStackLayout IsVisible="{Binding IsDeadlineVisible}" Spacing="8">
+
+                    <Label Text="Deadline Start" FontAttributes="Bold"/>
+                    <DatePicker Date="{Binding DeadlineStartDate}" IsEnabled="{Binding CanEdit}" />
+                    <TimePicker Time="{Binding DeadlineStartTime}" IsEnabled="{Binding CanEdit}" />
+
+                    <Label Text="Deadline End" FontAttributes="Bold"/>
+                    <DatePicker Date="{Binding DeadlineDate}" IsEnabled="{Binding CanEdit}" />
+                    <TimePicker Time="{Binding DeadlineTime}" IsEnabled="{Binding CanEdit}" />
+
                 </VerticalStackLayout>
 
                 <!-- Trophies -->
@@ -240,7 +272,8 @@
                         Margin="0"
                         TextColor="White"
                         BackgroundColor="Black"
-                        Clicked="OnAddTrophyPhotoClicked"/>
+                        Clicked="OnAddTrophyPhotoClicked"
+                        IsEnabled="{Binding CanEdit}"/>
 
                     <!-- Add File -->
                     <Button Grid.Column="1"
@@ -252,7 +285,8 @@
                         Margin="0"
                         TextColor="White"
                         BackgroundColor="Black"
-                        Clicked="OnAddTrophyFileClicked"/>
+                        Clicked="OnAddTrophyFileClicked"
+                        IsEnabled="{Binding CanEdit}"/>
 
                     <!-- Count -->
                     <Label 
@@ -285,7 +319,8 @@
                         Margin="0"
                         TextColor="White"
                         BackgroundColor="DarkRed"
-                        Clicked="OnClearTrophiesClicked"/>
+                        Clicked="OnClearTrophiesClicked"
+                        IsEnabled="{Binding CanEdit}"/>
                     
                 </Grid>
 
@@ -301,6 +336,7 @@
                 FontAttributes="Bold"
                 FontSize="21"
                 Command="{Binding SaveCommand}"
-                HeightRequest="48"/>
+                HeightRequest="48"
+                IsEnabled="{Binding CanEdit}"/>
     </Grid>
 </ContentPage>

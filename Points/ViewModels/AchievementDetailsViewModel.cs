@@ -29,6 +29,68 @@ namespace Points.ViewModels
 
         public List<string> TrophiesToAdd { get; set; } = new List<string>();
 
+        public bool IsReadOnly => _model.IsDeadlineAchievement && _model.IsFinalizedDeadline;
+
+        public bool CanEdit => !IsReadOnly;
+
+        public bool CanSave => !IsReadOnly && string.IsNullOrWhiteSpace(ValidationMessage);
+
+        private string _validationMessage = "";
+        public string ValidationMessage
+        {
+            get => _validationMessage;
+            set
+            {
+                if (SetProperty(ref _validationMessage, value))
+                {
+                    RaisePropertyChanged(nameof(HasValidationMessage));
+                    RaisePropertyChanged(nameof(CanSave));
+                }
+            }
+        }
+
+        public bool HasValidationMessage => !string.IsNullOrWhiteSpace(ValidationMessage);
+
+        public bool CanDelete => !IsReadOnly;
+
+        public bool IsFinalizedDeadline => _model.IsDeadlineAchievement && _model.IsFinalizedDeadline;
+
+        public bool IsPending => _model.IsPending;
+
+        public bool IsInProgress => _model.IsInProgress;
+
+        public bool IsCompleted => _model.IsCompleted;
+
+        public bool IsFailed => _model.IsFailed;
+
+        public string StatusDisplay => _model.StatusDisplay;
+
+        private DateTime _deadlineStartDate = DateTime.Now.Date;
+        public DateTime DeadlineStartDate
+        {
+            get => _deadlineStartDate;
+            set
+            {
+                if (SetProperty(ref _deadlineStartDate, value))
+                {
+                    Validate();
+                }
+            }
+        }
+
+        private TimeSpan _deadlineStartTime = DateTime.Now.TimeOfDay;
+        public TimeSpan DeadlineStartTime
+        {
+            get => _deadlineStartTime;
+            set
+            {
+                if (SetProperty(ref _deadlineStartTime, value))
+                {
+                    Validate();
+                }
+            }
+        }
+
         public AchievementDetailsViewModel(AchievementCardModel model, Action<AchievementCardModel> onSaved, Action<AchievementCardModel> onDelete)
         {
             _model = model;
@@ -70,8 +132,28 @@ namespace Points.ViewModels
             RangeUnit = _model.RangeUnit;
             RangeAmountText = _model.RangeAmount.ToString(CultureInfo.InvariantCulture);
 
-            DeadlineDate = (_model.Deadline ?? DateTime.MinValue).Date;
-            DeadlineTime = (_model.Deadline ?? DateTime.MinValue).TimeOfDay;
+            var deadlineStart = _model.DeadlineStart ?? _model.CreatedDate;
+            DeadlineStartDate = deadlineStart.Date;
+            DeadlineStartTime = deadlineStart.TimeOfDay;
+
+            var deadline = _model.Deadline ?? DateTime.Now;
+            DeadlineDate = deadline.Date;
+            DeadlineTime = deadline.TimeOfDay;
+
+            Validate();
+
+            RaiseEditorStateChanged();
+        }
+
+        public string DeadlineWindowSummary
+        {
+            get
+            {
+                var start = DeadlineStartDate.Date + DeadlineStartTime;
+                var end = DeadlineDate.Date + DeadlineTime;
+
+                return $"Window: {start:yyyy-MM-dd HH:mm} → {end:yyyy-MM-dd HH:mm}";
+            }
         }
 
         private TimeSpan? _activeTimeTarget;
@@ -85,7 +167,13 @@ namespace Points.ViewModels
         public string ActiveTimeTargetText
         {
             get => _activeTimeTargetText;
-            set => SetProperty(ref _activeTimeTargetText, value);
+            set
+            {
+                if (SetProperty(ref _activeTimeTargetText, value))
+                {
+                    Validate();
+                }
+            }
         }
 
 
@@ -106,12 +194,13 @@ namespace Points.ViewModels
             {
                 if (!SetProperty(ref _goalType, value)) return;
 
-                // Tell the UI that all dependent visibility properties changed
                 RaisePropertyChanged(nameof(IsActiveTimeTargetVisible));
                 RaisePropertyChanged(nameof(IsValueTargetVisible));
                 RaisePropertyChanged(nameof(IsStepTargetVisible));
                 RaisePropertyChanged(nameof(IsAchievementTargetVisible));
                 RaisePropertyChanged(nameof(IsCustomReportTargetVisible));
+
+                Validate();
             }
         }
 
@@ -129,7 +218,17 @@ namespace Points.ViewModels
         }
 
         private string _targetValueText = "0";
-        public string TargetValueText { get => _targetValueText; set => SetProperty(ref _targetValueText, value); }
+        public string TargetValueText
+        {
+            get => _targetValueText;
+            set
+            {
+                if (SetProperty(ref _targetValueText, value))
+                {
+                    Validate();
+                }
+            }
+        }
 
         private string _stepName = "";
         public string StepName { get => _stepName; set => SetProperty(ref _stepName, value); }
@@ -147,8 +246,10 @@ namespace Points.ViewModels
             set
             {
                 if (!SetProperty(ref _completionType, value)) return;
+
                 RaisePropertyChanged(nameof(IsRangeVisible));
                 RaisePropertyChanged(nameof(IsDeadlineVisible));
+                Validate();
             }
         }
 
@@ -167,14 +268,113 @@ namespace Points.ViewModels
         public AchievementRangeUnit RangeUnit { get => _rangeUnit; set => SetProperty(ref _rangeUnit, value); }
 
         private string _rangeAmountText = "7";
-        public string RangeAmountText { get => _rangeAmountText; set => SetProperty(ref _rangeAmountText, value); }
+        public string RangeAmountText
+        {
+            get => _rangeAmountText;
+            set
+            {
+                if (SetProperty(ref _rangeAmountText, value))
+                {
+                    Validate();
+                }
+            }
+        }
 
         private DateTime _deadlineDate = DateTime.Now.Date;
-        public DateTime DeadlineDate { get => _deadlineDate; set => SetProperty(ref _deadlineDate, value); }
+        public DateTime DeadlineDate
+        {
+            get => _deadlineDate;
+            set
+            {
+                if (SetProperty(ref _deadlineDate, value))
+                {
+                    Validate();
+                }
+            }
+        }
 
         private TimeSpan _deadlineTime = DateTime.Now.TimeOfDay;
-        public TimeSpan DeadlineTime { get => _deadlineTime; set => SetProperty(ref _deadlineTime, value); }
+        public TimeSpan DeadlineTime
+        {
+            get => _deadlineTime;
+            set
+            {
+                if (SetProperty(ref _deadlineTime, value))
+                {
+                    Validate();
+                }
+            }
+        }
 
+        public bool IsDeadlineStartVisible => CompletionType == AchievementCompletionType.Deadline;
+
+        public bool IsDeadlineReadOnlyStatusVisible => IsReadOnly && _model.IsDeadlineAchievement;
+
+        public string ReadOnlyMessage
+        {
+            get
+            {
+                if (!IsReadOnly) return "";
+
+                if (IsCompleted)
+                    return "This achievement has been completed and is now read-only.";
+
+                if (IsFailed)
+                    return "This achievement has failed and is now read-only.";
+
+                return "This achievement is read-only.";
+            }
+        }
+
+        private void Validate()
+        {
+            if (IsReadOnly)
+            {
+                ValidationMessage = "";
+                return;
+            }
+
+            if (CompletionType == AchievementCompletionType.Deadline)
+            {
+                var deadlineStart = DeadlineStartDate.Date + DeadlineStartTime;
+                var deadline = DeadlineDate.Date + DeadlineTime;
+
+                if (deadline == default)
+                {
+                    ValidationMessage = "A deadline is required.";
+                    return;
+                }
+
+                if (deadlineStart > deadline)
+                {
+                    ValidationMessage = "Deadline start cannot be later than the deadline.";
+                    return;
+                }
+            }
+
+            if (CompletionType == AchievementCompletionType.Range)
+            {
+                if (!int.TryParse(RangeAmountText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var rangeAmt) || rangeAmt <= 0)
+                {
+                    ValidationMessage = "Range amount must be a whole number greater than 0.";
+                    return;
+                }
+            }
+
+            if (GoalType == AchievementGoalType.Value ||
+                GoalType == AchievementGoalType.Steps ||
+                GoalType == AchievementGoalType.Achievements ||
+                GoalType == AchievementGoalType.Custom)
+            {
+                if (!double.TryParse(TargetValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var targetVal) || targetVal <= 0)
+                {
+                    ValidationMessage = "Target value must be greater than 0.";
+                    return;
+                }
+            }
+
+            ValidationMessage = "";
+        }
 
         // ===== Goal-type-specific target visibility =====
 
@@ -205,6 +405,12 @@ namespace Points.ViewModels
 
         private async Task OnCancelAsync()
         {
+            if (IsReadOnly)
+            {
+                await Shell.Current.Navigation.PopAsync();
+                return;
+            }
+
             var choice = await Shell.Current.DisplayActionSheet(
                 _model.Title,
                 "Cancel",
@@ -223,18 +429,26 @@ namespace Points.ViewModels
 
         private async Task SaveAsync()
         {
-            // Parse numeric target
+            if (IsReadOnly)
+                return;
+
+            Validate();
+
+            if (HasValidationMessage)
+            {
+                await Shell.Current.DisplayAlert("Invalid Achievement", ValidationMessage, "OK");
+                return;
+            }
+
             if (!double.TryParse(TargetValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var targetVal))
                 targetVal = 0;
 
-            // Parse range amount
             if (!int.TryParse(RangeAmountText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var rangeAmt))
                 rangeAmt = 0;
 
-            // Compose deadline
+            var deadlineStart = DeadlineStartDate.Date + DeadlineStartTime;
             var deadline = DeadlineDate.Date + DeadlineTime;
 
-            // Commit
             _model.Title = Title;
             _model.IsPinned = IsPinned;
             _model.Tags = Tags;
@@ -249,7 +463,17 @@ namespace Points.ViewModels
             _model.CompletionType = CompletionType;
             _model.RangeUnit = RangeUnit;
             _model.RangeAmount = rangeAmt;
-            _model.Deadline = deadline;
+
+            if (CompletionType == AchievementCompletionType.Deadline)
+            {
+                _model.DeadlineStart = deadlineStart;
+                _model.Deadline = deadline;
+            }
+            else
+            {
+                _model.DeadlineStart = null;
+                _model.Deadline = null;
+            }
 
             SaveTrophiesToDisk();
 
@@ -319,6 +543,22 @@ namespace Points.ViewModels
             // {
             //     await Application.Current.MainPage.DisplayAlert("Selected trophy", selected, "OK");
             // }
+        }
+
+        private void RaiseEditorStateChanged()
+        {
+            RaisePropertyChanged(nameof(IsReadOnly));
+            RaisePropertyChanged(nameof(CanEdit));
+            RaisePropertyChanged(nameof(CanSave));
+            RaisePropertyChanged(nameof(CanDelete));
+            RaisePropertyChanged(nameof(IsFinalizedDeadline));
+            RaisePropertyChanged(nameof(IsPending));
+            RaisePropertyChanged(nameof(IsInProgress));
+            RaisePropertyChanged(nameof(IsCompleted));
+            RaisePropertyChanged(nameof(IsFailed));
+            RaisePropertyChanged(nameof(StatusDisplay));
+            RaisePropertyChanged(nameof(IsDeadlineReadOnlyStatusVisible));
+            RaisePropertyChanged(nameof(ReadOnlyMessage));
         }
     }
 }

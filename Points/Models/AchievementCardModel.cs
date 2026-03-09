@@ -20,11 +20,12 @@ namespace Points.Models
     {
         public AchievementCardModel()
         {
+            _createdDate = DateTime.Now;
             Trophies.CollectionChanged += (_, __) => RaisePropertyChanged(nameof(TrophyCount));
         }
 
         public long CardID { get; set; }
-
+        
         private string _title = "New Achievement";
         public string Title { get => _title; set => SetProperty(ref _title, value); }
 
@@ -51,6 +52,258 @@ namespace Points.Models
                 }
             }
         }
+
+
+        private DateTime _createdDate;
+        public DateTime CreatedDate
+        {
+            get => _createdDate;
+            set
+            {
+                if (SetProperty(ref _createdDate, value))
+                {
+                    RaisePropertyChanged(nameof(HasStarted));
+                    RaisePropertyChanged(nameof(IsPending));
+                    RaisePropertyChanged(nameof(IsInProgress));
+                    RaisePropertyChanged(nameof(StatusDisplay));
+                    RaisePropertyChanged(nameof(CompletionTimeText));
+                }
+            }
+        }
+
+        private DateTime? _deadlineStart;
+        public DateTime? DeadlineStart
+        {
+            get => _deadlineStart;
+            set
+            {
+                if (SetProperty(ref _deadlineStart, value))
+                {
+                    RaisePropertyChanged(nameof(HasStarted));
+                    RaisePropertyChanged(nameof(IsPending));
+                    RaisePropertyChanged(nameof(IsInProgress));
+                    RaisePropertyChanged(nameof(StatusDisplay));
+                    RaisePropertyChanged(nameof(CompletionTimeText));
+                }
+            }
+        }
+
+        private DateTime? _finalizedAt;
+        public DateTime? FinalizedAt
+        {
+            get => _finalizedAt;
+            set
+            {
+                if (SetProperty(ref _finalizedAt, value))
+                {
+                    RaisePropertyChanged(nameof(IsFinalizedDeadline));
+                    RaisePropertyChanged(nameof(IsPending));
+                    RaisePropertyChanged(nameof(IsInProgress));
+                    RaisePropertyChanged(nameof(IsCompleted));
+                    RaisePropertyChanged(nameof(IsFailed));
+                    RaisePropertyChanged(nameof(IsEditable));
+                    RaisePropertyChanged(nameof(IsInert));
+                    RaisePropertyChanged(nameof(ShouldUseFrozenCurrentValue));
+                    RaisePropertyChanged(nameof(StatusDisplay));
+                    RaisePropertyChanged(nameof(Progress));
+                    RaisePropertyChanged(nameof(CurrentValueText));
+                    RaisePropertyChanged(nameof(CompletionTimeText));
+                }
+            }
+        }
+
+        private double? _frozenCurrentValue;
+        public double? FrozenCurrentValue
+        {
+            get => _frozenCurrentValue;
+            set
+            {
+                if (SetProperty(ref _frozenCurrentValue, value))
+                {
+                    RaisePropertyChanged(nameof(ShouldUseFrozenCurrentValue));
+                    RaisePropertyChanged(nameof(CurrentValueText));
+                    RaisePropertyChanged(nameof(Progress));
+                    RaisePropertyChanged(nameof(ActiveTimeText));
+                }
+            }
+        }
+
+        public bool IsDeadlineAchievement => CompletionType == AchievementCompletionType.Deadline;
+
+        public bool HasStarted
+        {
+            get
+            {
+                if (!IsDeadlineAchievement)
+                    return true;
+
+                var now = DateTime.Now;
+                return GetDeadlineWindowStart() <= now;
+            }
+        }
+
+        public bool HasEnded
+        {
+            get
+            {
+                if (!IsDeadlineAchievement)
+                    return false;
+
+                if (!Deadline.HasValue)
+                    return false;
+
+                return DateTime.Now > Deadline.Value;
+            }
+        }
+
+        public bool IsFinalizedDeadline
+        {
+            get
+            {
+                return IsDeadlineAchievement && FinalizedAt.HasValue;
+            }
+        }
+
+        public bool IsPending
+        {
+            get
+            {
+                if (!IsDeadlineAchievement || IsFinalizedDeadline)
+                    return false;
+
+                var now = DateTime.Now;
+                return GetDeadlineWindowStart() > now;
+            }
+        }
+
+        public bool IsCompleted
+        {
+            get
+            {
+                if (!IsDeadlineAchievement)
+                    return string.Equals(Status, "Completed", StringComparison.OrdinalIgnoreCase);
+
+                return IsFinalizedDeadline &&
+                       string.Equals(Status, "Completed", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        public bool IsFailed
+        {
+            get
+            {
+                if (!IsDeadlineAchievement)
+                    return string.Equals(Status, "Failed", StringComparison.OrdinalIgnoreCase);
+
+                return IsFinalizedDeadline &&
+                       string.Equals(Status, "Failed", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        public bool IsInProgress
+        {
+            get
+            {
+                if (!IsDeadlineAchievement || IsFinalizedDeadline)
+                    return false;
+
+                var now = DateTime.Now;
+                var start = GetDeadlineWindowStart();
+
+                if (!Deadline.HasValue)
+                    return false;
+
+                return start <= now && now <= Deadline.Value;
+            }
+        }
+
+        public bool IsEditable
+        {
+            get
+            {
+                if (IsDeadlineAchievement && IsFinalizedDeadline)
+                    return false;
+
+                return true;
+            }
+        }
+
+        public bool IsInert
+        {
+            get
+            {
+                if (IsDeadlineAchievement && IsFinalizedDeadline)
+                    return true;
+
+                return false;
+            }
+        }
+
+        public bool ShouldUseFrozenCurrentValue
+        {
+            get
+            {
+                return IsDeadlineAchievement && IsFinalizedDeadline && FrozenCurrentValue.HasValue;
+            }
+        }
+
+        public DateTime GetDeadlineWindowStart()
+        {
+            return DeadlineStart ?? CreatedDate;
+        }
+
+        public DateTime GetDeadlineWindowEnd(DateTime now)
+        {
+            if (!Deadline.HasValue)
+                return now;
+
+            return now <= Deadline.Value ? now : Deadline.Value;
+        }
+
+        public bool TryGetEvaluationWindow(DateTime now, out DateTime start, out DateTime end)
+        {
+            if (CompletionType == AchievementCompletionType.Deadline)
+            {
+                start = GetDeadlineWindowStart();
+                end = GetDeadlineWindowEnd(now);
+
+                // invalid if start is in the future relative to the effective end
+                if (start > end)
+                    return false;
+
+                // invalid if deadline exists and start is after it
+                if (Deadline.HasValue && start > Deadline.Value)
+                    return false;
+
+                return true;
+            }
+
+            start = GetRangeWindowStart(now);
+            end = now;
+
+            if (start > end)
+                return false;
+
+            return true;
+        }
+
+        public string SecondaryDescriptorText
+        {
+            get
+            {
+                return GoalType switch
+                {
+                    AchievementGoalType.Value => string.IsNullOrWhiteSpace(Tags) ? "" : $"Tag: {Tags}",
+                    AchievementGoalType.ActiveTime => string.IsNullOrWhiteSpace(Tags) ? "" : $"Tag: {Tags}",
+                    AchievementGoalType.Steps => string.IsNullOrWhiteSpace(StepName) ? "" : $"Step: {StepName}",
+                    AchievementGoalType.Achievements => string.IsNullOrWhiteSpace(AchievementTitle) ? "" : $"Achievement: {AchievementTitle}",
+                    AchievementGoalType.Custom => "Report: " + (string.IsNullOrWhiteSpace("Report") ? "(none)" : "Report"),
+                    _ => string.IsNullOrWhiteSpace(Tags) ? "" : $"Tag: {Tags}"
+                };
+            }
+        }
+
+        public double CardOpacity => IsInert ? 0.85 : 1.0;
 
         private double _targetValue = 1;
         public double TargetValue
@@ -163,16 +416,34 @@ namespace Points.Models
         {
             get
             {
+                if (IsDeadlineAchievement)
+                {
+                    if (IsCompleted)
+                        return "Completed";
+
+                    if (IsFailed)
+                        return "Failed";
+
+                    if (IsPending)
+                        return "Pending";
+
+                    if (IsInProgress)
+                        return "In-Progress";
+
+                    // Fallback for malformed/in-between states
+                    return Status;
+                }
+
                 if (IsLockedThisRange)
                 {
-                    if(LastEarnedAt.HasValue)
+                    if (LastEarnedAt.HasValue)
                     {
                         return $"Locked: {GetAvailableIn(LastEarnedAt.Value)}";
                     }
-                    
+
                     return "Locked";
                 }
-                    
+
                 return Status;
             }
         }
@@ -266,9 +537,20 @@ namespace Points.Models
             {
                 if (SetProperty(ref _completionType, value))
                 {
+                    RaisePropertyChanged(nameof(IsDeadlineAchievement));
                     RaisePropertyChanged(nameof(IsLockedThisRange));
+                    RaisePropertyChanged(nameof(IsFinalizedDeadline));
+                    RaisePropertyChanged(nameof(IsPending));
+                    RaisePropertyChanged(nameof(IsInProgress));
+                    RaisePropertyChanged(nameof(IsCompleted));
+                    RaisePropertyChanged(nameof(IsFailed));
+                    RaisePropertyChanged(nameof(IsEditable));
+                    RaisePropertyChanged(nameof(IsInert));
+                    RaisePropertyChanged(nameof(ShouldUseFrozenCurrentValue));
                     RaisePropertyChanged(nameof(StatusDisplay));
                     RaisePropertyChanged(nameof(CardBackgroundColor));
+                    RaisePropertyChanged(nameof(CompletionTimeText));
+                    RaisePropertyChanged(nameof(Progress));
                 }
             }
         }
@@ -304,9 +586,21 @@ namespace Points.Models
             }
         }
 
-        // For now, store a deadline (even if Range); you’ll refine this when you build the details form.
         private DateTime? _deadline;
-        public DateTime? Deadline { get => _deadline; set => SetProperty(ref _deadline, value); }
+        public DateTime? Deadline
+        {
+            get => _deadline;
+            set
+            {
+                if (SetProperty(ref _deadline, value))
+                {
+                    RaisePropertyChanged(nameof(HasEnded));
+                    RaisePropertyChanged(nameof(IsInProgress));
+                    RaisePropertyChanged(nameof(StatusDisplay));
+                    RaisePropertyChanged(nameof(CompletionTimeText));
+                }
+            }
+        }
 
         // ---- Progress tracking (minimal for now) ----
         // We’ll keep a “current value” number you can update later from real sources
@@ -319,11 +613,24 @@ namespace Points.Models
             {
                 if (SetProperty(ref _currentValue, value))
                 {
+                    RaisePropertyChanged(nameof(EffectiveCurrentValue));
                     RaisePropertyChanged(nameof(Progress));
                     RaisePropertyChanged(nameof(CurrentValueText));
+                    RaisePropertyChanged(nameof(ActiveTimeText));
                     RaisePropertyChanged(nameof(TargetText));
                     RaisePropertyChanged(nameof(CompletionTimeText));
                 }
+            }
+        }
+
+        public double EffectiveCurrentValue
+        {
+            get
+            {
+                if (ShouldUseFrozenCurrentValue)
+                    return FrozenCurrentValue ?? 0;
+
+                return CurrentValue;
             }
         }
 
@@ -332,8 +639,20 @@ namespace Points.Models
         {
             get
             {
-                if (TargetValue <= 0) return 0;
-                var p = CurrentValue / TargetValue;
+                double target = GoalType switch
+                {
+                    AchievementGoalType.ActiveTime => GetTargetSecondsSpent(),
+                    AchievementGoalType.Value => TargetValue,
+                    AchievementGoalType.Steps => TargetValue,
+                    AchievementGoalType.Achievements => TargetValue,
+                    AchievementGoalType.Custom => TargetValue,
+                    _ => TargetValue
+                };
+
+                if (target <= 0) return 0;
+
+                var p = EffectiveCurrentValue / target;
+
                 if (p < 0) return 0;
                 if (p > 1) return 1;
                 return p;
@@ -377,13 +696,11 @@ namespace Points.Models
         {
             get
             {
-                // For now only meaningful when GoalType == ActiveTime.
-                // You’ll replace this with real active-time logic later.
-                if (GoalType != AchievementGoalType.ActiveTime) return "Active: --:--:--";
+                if (GoalType != AchievementGoalType.ActiveTime)
+                    return "Active: --:--:--";
 
-                var minutes = CurrentValue;
-                var ts = TimeSpan.FromMinutes(minutes);
-                return $"Active: {ts:hh\\:mm\\:ss}";
+                var hours = EffectiveCurrentValue / 3600.0;
+                return $"Current Hrs: {hours:0.##}";
             }
         }
 
@@ -397,7 +714,22 @@ namespace Points.Models
             _ => "Goal: ?"
         };
 
-        public string CurrentValueText => $"Current: {CurrentValue.ToString("0.##", CultureInfo.InvariantCulture)}";
+        public string CurrentValueText
+        {
+            get
+            {
+                var v = EffectiveCurrentValue.ToString("0.##", CultureInfo.InvariantCulture);
+
+                return GoalType switch
+                {
+                    AchievementGoalType.Value => $"Current Pts: {v}",
+                    AchievementGoalType.Steps => $"Current Reps: {v}",
+                    AchievementGoalType.Achievements => $"Current: {v}",
+                    AchievementGoalType.Custom => $"Current: {v}",
+                    _ => $"Current: {v}"
+                };
+            }
+        }
 
         public bool IsCurrentValueTextVisible => GoalType == AchievementGoalType.Value;
 
@@ -406,11 +738,12 @@ namespace Points.Models
             get
             {
                 var v = TargetValue.ToString("0.##", CultureInfo.InvariantCulture);
+
                 return GoalType switch
                 {
-                    AchievementGoalType.ActiveTime => $"Target: {ActiveTimeTargetText}",
-                    AchievementGoalType.Value => $"Target: {v}",
-                    AchievementGoalType.Steps => $"Target: {v}",
+                    AchievementGoalType.ActiveTime => $"Target Hrs: {ActiveTimeTargetText}",
+                    AchievementGoalType.Value => $"Target Pts: {v}",
+                    AchievementGoalType.Steps => $"Target Reps: {v}",
                     _ => $"Target: {v}"
                 };
             }
@@ -422,12 +755,21 @@ namespace Points.Models
             {
                 if (CompletionType == AchievementCompletionType.Deadline)
                 {
-                    if (Deadline is null) return "Completion: (no deadline)";
-                    return $"Completion: {Deadline.Value:G}";
+                    if (Deadline is null)
+                        return "Completion: by (no deadline)";
+
+                    var start = GetDeadlineWindowStart();
+                    var now = DateTime.Now;
+                    var remaining = Deadline.Value - now;
+
+                    string remainingText = remaining.TotalSeconds >= 0
+                        ? $"in {Math.Round(remaining.TotalDays, 2)} days"
+                        : $"{Math.Round(Math.Abs(remaining.TotalDays), 2)} days ago";
+
+                    return $"Completion: {start:yyyy-MM-dd} to {Deadline.Value:yyyy-MM-dd} [{remainingText}]";
                 }
 
-                // Range mode placeholder until you add real “minutes/hours/days/weeks/months” fields
-                return $"Completion: Over the last {RangeAmount} {RangeUnit.ToString()} [{GetRangeWindowStart(DateTime.Now).ToString("MMM-dd")}]";
+                return $"Completion: Over the last {RangeAmount} {RangeUnit} [{GetRangeWindowStart(DateTime.Now):MMM-dd}]";
             }
         }
 
@@ -447,12 +789,22 @@ namespace Points.Models
         // Call this when something time-based changes (later)
         public void NotifyTimeChanged()
         {
-            // Minimal: just cause bindings to refresh if you’re updating CurrentValue elsewhere.
+            RaisePropertyChanged(nameof(HasStarted));
+            RaisePropertyChanged(nameof(HasEnded));
+            RaisePropertyChanged(nameof(IsPending));
+            RaisePropertyChanged(nameof(IsInProgress));
+            RaisePropertyChanged(nameof(IsCompleted));
+            RaisePropertyChanged(nameof(IsFailed));
+            RaisePropertyChanged(nameof(IsEditable));
+            RaisePropertyChanged(nameof(IsInert));
+            RaisePropertyChanged(nameof(ShouldUseFrozenCurrentValue));
+            RaisePropertyChanged(nameof(EffectiveCurrentValue));
             RaisePropertyChanged(nameof(ActiveTimeText));
             RaisePropertyChanged(nameof(GoalTypeText));
             RaisePropertyChanged(nameof(CurrentValueText));
             RaisePropertyChanged(nameof(TargetText));
             RaisePropertyChanged(nameof(CompletionTimeText));
+            RaisePropertyChanged(nameof(StatusDisplay));
             RaisePropertyChanged(nameof(Progress));
             RaisePropertyChanged(nameof(LockProgress));
         }
@@ -486,27 +838,99 @@ namespace Points.Models
 
         public void UpdatePerTick(IEnumerable<Evaluators.TimeValueAchievementEvaluation> evaluations)
         {
+            // Finalized deadline achievements are inert/frozen.
+            if (IsFinalizedDeadline)
+            {
+                if (FrozenCurrentValue.HasValue)
+                    CurrentValue = FrozenCurrentValue.Value;
+
+                RaisePropertyChanged(nameof(EffectiveCurrentValue));
+                RaisePropertyChanged(nameof(CurrentValueText));
+                RaisePropertyChanged(nameof(ActiveTimeText));
+                RaisePropertyChanged(nameof(CompletionTimeText));
+                RaisePropertyChanged(nameof(StatusDisplay));
+                RaisePropertyChanged(nameof(LockProgress));
+                RaisePropertyChanged(nameof(Progress));
+                return;
+            }
+
+            var relevantEvaluations = evaluations?
+                .Where(x => x?.AchievementCard != null && x.AchievementCard.Id == Id)
+                .ToList()
+                ?? new List<Evaluators.TimeValueAchievementEvaluation>();
+
             switch (GoalType)
             {
                 case AchievementGoalType.ActiveTime:
+                    CurrentValue = relevantEvaluations.Sum(x => x.CurrentValue);
                     break;
+
                 case AchievementGoalType.Value:
-                    CurrentValue = evaluations.Sum(x => x.CurrentValue);
+                    CurrentValue = relevantEvaluations.Sum(x => x.CurrentValue);
                     break;
+
                 case AchievementGoalType.Steps:
                     break;
+
                 case AchievementGoalType.Achievements:
                     break;
+
                 case AchievementGoalType.Custom:
                     break;
+
                 default:
                     break;
             }
 
+            RaisePropertyChanged(nameof(EffectiveCurrentValue));
+            RaisePropertyChanged(nameof(ActiveTimeText));
             RaisePropertyChanged(nameof(CurrentValueText));
             RaisePropertyChanged(nameof(CompletionTimeText));
             RaisePropertyChanged(nameof(StatusDisplay));
             RaisePropertyChanged(nameof(LockProgress));
+            RaisePropertyChanged(nameof(Progress));
+        }
+
+        public bool ShouldCompleteNow(double currentValue, DateTime now)
+        {
+            if (!IsDeadlineAchievement || IsFinalizedDeadline)
+                return false;
+
+            if (!TryGetEvaluationWindow(now, out var start, out var end))
+                return false;
+
+            if (start > now)
+                return false;
+
+            return TargetValue > 0 && currentValue >= TargetValue;
+        }
+
+        public bool ShouldFailNow(double currentValue, DateTime now)
+        {
+            if (!IsDeadlineAchievement || IsFinalizedDeadline)
+                return false;
+
+            if (!Deadline.HasValue)
+                return false;
+
+            if (TargetValue > 0 && currentValue >= TargetValue)
+                return false;
+
+            return now > Deadline.Value;
+        }
+
+        public bool ShouldStillBeShownToday(DateTime now)
+        {
+            if (!IsDeadlineAchievement)
+                return true;
+
+            if (!FinalizedAt.HasValue)
+                return true;
+
+            var todayStart = now.Date;
+            var tomorrowStart = todayStart.AddDays(1);
+
+            return FinalizedAt.Value >= todayStart && FinalizedAt.Value < tomorrowStart;
         }
     }
 }

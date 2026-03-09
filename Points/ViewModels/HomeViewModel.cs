@@ -16,6 +16,7 @@ using Points.Views.Shared;
 using Points.Services.Locks;
 using CommunityToolkit.Maui.Views;
 using Points.Views.Popups;
+using Points.Evaluators;
 
 namespace Points.ViewModels
 {
@@ -26,6 +27,8 @@ namespace Points.ViewModels
         private readonly IActiveCardNotificationService _activeCardNotificationService;
         private IDbService _db;
         private IAlarmScheduler _alarmScheduler;
+
+        private readonly SemaphoreSlim _achievementTickGate = new(1, 1);
 
         #region Commands
         public Command<IActiveCardModel> ActivateCardCommand { get; }
@@ -1865,7 +1868,7 @@ namespace Points.ViewModels
                     card.NotifyTimeChanged();
 
             SortMissionCards();
-            UpdateAchievementsPerTick();
+            _ = UpdateAchievementsPerTickAsync();
 
             double total = 0;
             foreach (var page in Pages)
@@ -1879,27 +1882,133 @@ namespace Points.ViewModels
             TickHappened?.Invoke();
         }
 
-        private void UpdateAchievementsPerTick()
+        private async Task UpdateAchievementsPerTickAsync()
         {
-            var achievementsPage = Pages[Position];
-            if (achievementsPage == null) return;
+            if (!await _achievementTickGate.WaitAsync(0))
+                return;
 
-            if (achievementsPage.Name != "Challenges & Pinned Achievements") return;
-
-            var achievementCards = achievementsPage.AllCards.OfType<AchievementCardModel>().ToList();
-            if (achievementCards.Count == 0) return;
-
-            var activeCards = Pages.SelectMany(x => x.AllCards.Where(y => y is IActiveCardModel)).Cast<IActiveCardModel>();
-
-            foreach (var card in achievementCards)
+            try
             {
-                var cardsForThisAchievement = activeCards.Where(x => x.Tags.Split(',').Select(x => x.Trim()).Contains(card.Tags.Trim()));
+                var achievementsPage = Pages[Position];
+                if (achievementsPage == null) return;
 
-                var evaluators = cardsForThisAchievement.SelectMany(x => x.TimeValueAchievementEvaluators);
+                if (achievementsPage.Name != "Challenges & Pinned Achievements") return;
 
-                var evaluations = evaluators.SelectMany(x => x.Evaluations);
+                var achievementCards = achievementsPage.AllCards.OfType<AchievementCardModel>().ToList();
+                if (achievementCards.Count == 0) return;
 
-                card.UpdatePerTick(evaluations);
+                var activeCards = Pages
+                    .SelectMany(x => x.AllCards.Where(y => y is IActiveCardModel))
+                    .Cast<IActiveCardModel>()
+                    .ToList();
+
+                foreach (var card in achievementCards)
+                {
+                    // Finalized deadline achievements are inert and frozen.
+                    if (IsFinalizedDeadlineAchievement(card))
+                    {
+                        if (card.FrozenCurrentValue.HasValue)
+                            card.CurrentValue = card.FrozenCurrentValue.Value;
+
+                        card.NotifyTimeChanged();
+                        continue;
+                    }
+
+                    var cardsForThisAchievement = activeCards
+                        .Where(x => CardMatchesAchievementByTag(x, card))
+                        .ToList();
+
+                    var evaluations = cardsForThisAchievement
+                        .SelectMany(x => x.TimeValueAchievementEvaluators ?? Enumerable.Empty<TimeValueAchievementEvaluator>())
+                        .SelectMany(x => x.Evaluations ?? Enumerable.Empty<TimeValueAchievementEvaluation>())
+                        .ToList();
+
+                    // Live achievements still update dynamically.
+                    card.UpdatePerTick(evaluations);
+
+                    // Deadline achievements may transition during a tick.
+                    if (card.CompletionType == AchievementCompletionType.Deadline)
+                    {
+                        var reevaluated = await _db.ReevaluateDeadlineAchievementAsync(card);
+
+                        if (reevaluated != null)
+                        {
+                            ApplyAchievementRuntimeState(card, reevaluated);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                _achievementTickGate.Release();
+            }
+        }
+
+        private static bool IsFinalizedDeadlineAchievement(AchievementCardModel card)
+        {
+            return card != null
+                && card.CompletionType == AchievementCompletionType.Deadline
+                && card.FinalizedAt.HasValue;
+        }
+
+        private static bool CardMatchesAchievementByTag(IActiveCardModel activeCard, AchievementCardModel achievement)
+        {
+            if (activeCard == null || achievement == null)
+                return false;
+
+            if (string.IsNullOrWhiteSpace(achievement.Tags))
+                return false;
+
+            var achievementTag = achievement.Tags.Trim();
+
+            return (activeCard.Tags ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Contains(achievementTag, StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static void ApplyAchievementRuntimeState(AchievementCardModel target, AchievementCardModel source)
+        {
+            if (target == null || source == null)
+                return;
+
+            // Core persisted fields that may change during runtime / finalization
+            target.Status = source.Status;
+            target.LastEarnedAt = source.LastEarnedAt;
+            target.FinalizedAt = source.FinalizedAt;
+            target.FrozenCurrentValue = source.FrozenCurrentValue;
+
+            // These should remain consistent too in case they were changed/reloaded
+            target.CreatedDate = source.CreatedDate;
+            target.DeadlineStart = source.DeadlineStart;
+            target.Deadline = source.Deadline;
+
+            // Keep trophies in sync in case completion awarded one
+            SyncTrophies(target, source);
+
+            // Finalized deadline achievements must freeze at their frozen value
+            if (source.CompletionType == AchievementCompletionType.Deadline &&
+                source.FinalizedAt.HasValue)
+            {
+                target.CurrentValue = source.FrozenCurrentValue ?? source.CurrentValue;
+            }
+            else
+            {
+                target.CurrentValue = source.CurrentValue;
+            }
+
+            target.NotifyTimeChanged();
+        }
+
+        private static void SyncTrophies(AchievementCardModel target, AchievementCardModel source)
+        {
+            if (target == null || source == null)
+                return;
+
+            target.Trophies.Clear();
+
+            foreach (var trophy in source.Trophies)
+            {
+                target.Trophies.Add(trophy);
             }
         }
 

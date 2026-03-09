@@ -13,6 +13,8 @@ namespace Points.Services.Sqlite
             return @"
                 PRAGMA foreign_keys = ON;
 
+                ALTER TABLE AchievementCard ADD COLUMN DeadlineStart TEXT NULL;
+
                 -- =========================
                 -- Core / base entity
                 -- =========================
@@ -166,7 +168,12 @@ namespace Points.Services.Sqlite
                     RangeAmount        INTEGER NULL,
 
                     --Only for CompletionType = Deadline
+                    DeadlineStart TEXT NULL
                     Deadline           TEXT    NULL,     -- ISO-8601 datetime
+
+                    -- Finalization state for one-shot achievements
+                    FinalizedAt            TEXT    NULL,     -- ISO-8601 datetime
+                    FrozenCurrentValue     REAL    NULL,
 
                     TrophyURLs         TEXT    NOT NULL DEFAULT '',
                     IsPinned           INTEGER     NOT NULL DEFAULT 0,

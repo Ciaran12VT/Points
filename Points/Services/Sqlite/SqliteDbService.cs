@@ -54,6 +54,8 @@ namespace Points.Services.Sqlite
                 foreach (var stmt in statements)
                     conn.Execute(stmt);
             });
+
+            await EnsureAchievementCardSchemaAsync();
         }
 
         #endregion
@@ -236,6 +238,33 @@ namespace Points.Services.Sqlite
             await _db.ExecuteAsync("PRAGMA foreign_keys = ON;");
         }
 
+        private async Task EnsureAchievementCardSchemaAsync()
+        {
+            await InitializeAsync();
+
+            var cols = await Db.QueryAsync<PragmaTableInfo>("PRAGMA table_info(AchievementCard);");
+            var existing = cols
+                .Select(c => c.name)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var alterStatements = new List<string>();
+
+            if (!existing.Contains("DeadlineStart"))
+                alterStatements.Add("ALTER TABLE AchievementCard ADD COLUMN DeadlineStart TEXT NULL;");
+
+            if (!existing.Contains("FinalizedAt"))
+                alterStatements.Add("ALTER TABLE AchievementCard ADD COLUMN FinalizedAt TEXT NULL;");
+
+            if (!existing.Contains("FrozenCurrentValue"))
+                alterStatements.Add("ALTER TABLE AchievementCard ADD COLUMN FrozenCurrentValue REAL NULL;");
+
+            foreach (var sql in alterStatements)
+            {
+                await Db.ExecuteAsync(sql);
+            }
+        }
+
 
         #endregion
 
@@ -284,31 +313,35 @@ namespace Points.Services.Sqlite
 
             const string sql = @"
                 SELECT
-                    a.AchievementCardID       AS AchievementCardID,
-                    a.CardID                  AS CardID,
+                    a.AchievementCardID         AS AchievementCardID,
+                    a.CardID                    AS CardID,
 
-                    c.Title                   AS Title,
-                    c.Tags                    AS Tags,
+                    c.Title                     AS Title,
+                    c.Tags                      AS Tags,
 
-                    a.Status                  AS Status,
-                    a.Description             AS Description,
-                    a.GoalType                AS GoalType,
-                    a.DifficultyLevel         AS DifficultyLevel,
+                    a.Status                    AS Status,
+                    a.Description               AS Description,
+                    a.GoalType                  AS GoalType,
+                    a.DifficultyLevel           AS DifficultyLevel,
 
-                    a.CreatedDate             AS CreatedDate,
-                    a.LastEarnedAt            AS LastEarnedAt,
+                    a.CreatedDate               AS CreatedDate,
+                    a.LastEarnedAt              AS LastEarnedAt,
 
                     a.TargetActiveTimeInSeconds AS TargetActiveTimeInSeconds,
-                    a.TargetValue             AS TargetValue,
-                    a.ScCardStepID            AS ScCardStepID,
+                    a.TargetValue               AS TargetValue,
+                    a.ScCardStepID              AS ScCardStepID,
 
-                    a.CompletionType          AS CompletionType,
-                    a.RangeUnit               AS RangeUnit,
-                    a.RangeAmount             AS RangeAmount,
-                    a.Deadline                AS Deadline,
+                    a.CompletionType            AS CompletionType,
+                    a.RangeUnit                 AS RangeUnit,
+                    a.RangeAmount               AS RangeAmount,
+                    a.DeadlineStart             AS DeadlineStart,
+                    a.Deadline                  AS Deadline,
 
-                    a.TrophyURLs              AS TrophyURLs,
-                    a.IsPinned                AS IsPinned
+                    a.FinalizedAt               AS FinalizedAt,
+                    a.FrozenCurrentValue        AS FrozenCurrentValue,
+
+                    a.TrophyURLs                AS TrophyURLs,
+                    a.IsPinned                  AS IsPinned
                 FROM AchievementCard a
                 JOIN Card c ON c.CardID = a.CardID
                 WHERE a.AchievementCardID = ?
@@ -318,7 +351,10 @@ namespace Points.Services.Sqlite
             if (row == null)
                 throw new KeyNotFoundException($"AchievementCard not found. AchievementCardID={id}");
 
-            return MapAchievementRowToModel(row);
+            var model = MapAchievementRowToModel(row);
+            model = await FinalizeDeadlineAchievementIfNeededAsync(model);
+
+            return model;
         }
 
         public async Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null)
@@ -326,35 +362,39 @@ namespace Points.Services.Sqlite
             await InitializeAsync();
 
             var sql = @"
-                    SELECT
-                        a.AchievementCardID       AS AchievementCardID,
-                        a.CardID                  AS CardID,
+                SELECT
+                    a.AchievementCardID         AS AchievementCardID,
+                    a.CardID                    AS CardID,
 
-                        c.Title                   AS Title,
-                        c.Tags                    AS Tags,
+                    c.Title                     AS Title,
+                    c.Tags                      AS Tags,
 
-                        a.Status                  AS Status,
-                        a.Description             AS Description,
-                        a.GoalType                AS GoalType,
-                        a.DifficultyLevel         AS DifficultyLevel,
+                    a.Status                    AS Status,
+                    a.Description               AS Description,
+                    a.GoalType                  AS GoalType,
+                    a.DifficultyLevel           AS DifficultyLevel,
 
-                        a.CreatedDate             AS CreatedDate,
-                        a.LastEarnedAt            AS LastEarnedAt,
+                    a.CreatedDate               AS CreatedDate,
+                    a.LastEarnedAt              AS LastEarnedAt,
 
-                        a.TargetActiveTimeInSeconds AS TargetActiveTimeInSeconds,
-                        a.TargetValue             AS TargetValue,
-                        a.ScCardStepID            AS ScCardStepID,
+                    a.TargetActiveTimeInSeconds AS TargetActiveTimeInSeconds,
+                    a.TargetValue               AS TargetValue,
+                    a.ScCardStepID              AS ScCardStepID,
 
-                        a.CompletionType          AS CompletionType,
-                        a.RangeUnit               AS RangeUnit,
-                        a.RangeAmount             AS RangeAmount,
-                        a.Deadline                AS Deadline,
+                    a.CompletionType            AS CompletionType,
+                    a.RangeUnit                 AS RangeUnit,
+                    a.RangeAmount               AS RangeAmount,
+                    a.DeadlineStart             AS DeadlineStart,
+                    a.Deadline                  AS Deadline,
 
-                        a.TrophyURLs              AS TrophyURLs,
-                        a.IsPinned                AS IsPinned
-                    FROM AchievementCard a
-                    JOIN Card c ON c.CardID = a.CardID
-                ";
+                    a.FinalizedAt               AS FinalizedAt,
+                    a.FrozenCurrentValue        AS FrozenCurrentValue,
+
+                    a.TrophyURLs                AS TrophyURLs,
+                    a.IsPinned                  AS IsPinned
+                FROM AchievementCard a
+                JOIN Card c ON c.CardID = a.CardID
+            ";
 
             if (!string.IsNullOrWhiteSpace(whereClause))
             {
@@ -364,13 +404,28 @@ namespace Points.Services.Sqlite
                     : " WHERE " + wc;
             }
 
-            var cols = await Db.QueryAsync<PragmaTableInfo>("PRAGMA table_info(AchievementCard);");
-
             var rows = await Db.QueryAsync<AchievementCardJoinedRow>(sql);
             if (rows.Count == 0)
                 return new List<AchievementCardModel>();
 
-            return rows.Select(MapAchievementRowToModel).ToList();
+            var models = rows.Select(MapAchievementRowToModel).ToList();
+
+            // Allow load-time transitions such as:
+            // - instant completion if already over target
+            // - failure if deadline has elapsed without success
+            models = await FinalizeDeadlineAchievementsIfNeededAsync(models);
+
+            var now = DateTime.Now;
+
+            // Keep:
+            // - all non-deadline achievements
+            // - all non-finalized deadline achievements
+            // - deadline achievements finalized today
+            models = models
+                .Where(x => ShouldKeepLoadedAfterFinalization(x, now))
+                .ToList();
+
+            return models;
         }
 
         private AchievementCardModel MapAchievementRowToModel(AchievementCardJoinedRow row)
@@ -408,8 +463,14 @@ namespace Points.Services.Sqlite
                 CompletionType = completionType,
                 RangeUnit = rangeUnit,
 
+                CreatedDate = !string.IsNullOrWhiteSpace(row.CreatedDate)
+                    ? ParseIsoDateTime(row.CreatedDate)
+                    : DateTime.Now,
+
                 RangeAmount = row.RangeAmount ?? 0,
                 TargetValue = row.TargetValue ?? 0,
+
+                FrozenCurrentValue = row.FrozenCurrentValue,
 
                 IsPinned = row.IsPinned == 1
             };
@@ -424,12 +485,21 @@ namespace Points.Services.Sqlite
             }
 
             // Deadline
+            if (!string.IsNullOrWhiteSpace(row.CreatedDate))
+                model.CreatedDate = ParseIsoDateTime(row.CreatedDate);
+
+            if (!string.IsNullOrWhiteSpace(row.DeadlineStart))
+                model.DeadlineStart = ParseIsoDateTime(row.DeadlineStart);
+
             if (!string.IsNullOrWhiteSpace(row.Deadline))
                 model.Deadline = ParseIsoDateTime(row.Deadline);
 
             // Last earned
             if (!string.IsNullOrWhiteSpace(row.LastEarnedAt))
                 model.LastEarnedAt = ParseIsoDateTime(row.LastEarnedAt);
+
+            if (!string.IsNullOrWhiteSpace(row.FinalizedAt))
+                model.FinalizedAt = ParseIsoDateTime(row.FinalizedAt);
 
             // Trophies from newline-separated TrophyURLs
             if (!string.IsNullOrWhiteSpace(row.TrophyURLs))
@@ -470,7 +540,12 @@ namespace Points.Services.Sqlite
             public string? RangeUnit { get; set; }
             public int? RangeAmount { get; set; }
 
+            public string? DeadlineStart { get; set; }
             public string? Deadline { get; set; }
+
+            public string? FinalizedAt { get; set; }
+            public double? FrozenCurrentValue { get; set; }
+
             public string? TrophyURLs { get; set; }
             public int IsPinned { get; set; }
 
@@ -588,15 +663,26 @@ namespace Points.Services.Sqlite
             {
                 if (byTag.TryGetValue(ach.Tags, out TimeValueAchievementEvaluator evaltr))
                 {
+                    var relevantEvaluations = evaltr.Evaluations?
+                        .Where(x => x?.AchievementCard != null && x.AchievementCard.Id == ach.Id)
+                        .ToList()
+                        ?? new List<TimeValueAchievementEvaluation>();
+
                     if (ach.GoalType == AchievementGoalType.Value)
                     {
-                        ach.CurrentValue = evaltr.Evaluations.Sum(x => x.CurrentValue);
+                        ach.CurrentValue = relevantEvaluations.Sum(x => x.CurrentValue);
                     }
                     else if (ach.GoalType == AchievementGoalType.ActiveTime)
                     {
-                        //TODO: Work out how to populate this if the achievement is ActiveTime-based
+                        ach.CurrentValue = relevantEvaluations.Sum(x => x.CurrentValue);
                     }
                 }
+                else
+                {
+                    ach.CurrentValue = 0;
+                }
+
+                ach.NotifyTimeChanged();
             }
         }
 
@@ -622,20 +708,43 @@ namespace Points.Services.Sqlite
             return result;
         }
 
-
         private async Task<TimeValueAchievementEvaluation> CreateEvaluation(AchievementCardModel card)
         {
+            var now = DateTime.Now;
+
+            // Finalized deadline achievements are inert/frozen.
+            if (card.CompletionType == AchievementCompletionType.Deadline &&
+                card.FinalizedAt.HasValue)
+            {
+                return new TimeValueAchievementEvaluation
+                {
+                    AchievementCard = card,
+                    CurrentValue = card.FrozenCurrentValue ?? 0
+                };
+            }
+
+            if (!card.TryGetEvaluationWindow(now, out var windowStart, out var windowEnd))
+            {
+                return new TimeValueAchievementEvaluation
+                {
+                    AchievementCard = card,
+                    CurrentValue = 0
+                };
+            }
+
+            var summary = await GetTagValueSummaryAsync(card.Tags, windowStart, windowEnd);
+
             return card.GoalType switch
             {
                 AchievementGoalType.ActiveTime => new TimeValueAchievementEvaluation
                 {
                     AchievementCard = card,
-                    CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentTotalActiveTimeInSeconds
+                    CurrentValue = summary.CurrentTotalActiveTimeInSeconds
                 },
                 AchievementGoalType.Value => new TimeValueAchievementEvaluation
                 {
                     AchievementCard = card,
-                    CurrentValue = (await GetTagValueSummaryAsync(card.Tags, card.GetRangeWindowStart(DateTime.Now), DateTime.Now)).CurrentValue
+                    CurrentValue = summary.CurrentValue
                 },
                 _ => throw new NotSupportedException(
                     $"Unsupported GoalType '{card.GoalType}' for AchievementCard '{card}'.")
@@ -734,6 +843,13 @@ namespace Points.Services.Sqlite
             return row;
         }
 
+        public async Task<AchievementCardModel> ReevaluateDeadlineAchievementAsync(AchievementCardModel card)
+        {
+            if (card == null)
+                throw new ArgumentNullException(nameof(card));
+
+            return await FinalizeDeadlineAchievementIfNeededAsync(card);
+        }
 
         #endregion
 
@@ -2938,6 +3054,10 @@ namespace Points.Services.Sqlite
         {
             await InitializeAsync();
 
+            if(acm == null) throw new ArgumentNullException(nameof(acm));
+
+            ValidateAchievementForPersistence(acm);
+
             // --- Common values ---
             var now = DateTime.Now;
 
@@ -2975,7 +3095,11 @@ namespace Points.Services.Sqlite
             }
 
             // Deadline (only really meaningful in Deadline mode, but harmless to store when set)
+            var deadlineStartText = acm.DeadlineStart?.ToString("o");
             var deadlineText = acm.Deadline?.ToString("o");
+
+            var finalizedAtText = acm.FinalizedAt?.ToString("o");
+            double? frozenCurrentValue = acm.FrozenCurrentValue;
 
             // LastEarnedAt (nullable)
             var lastEarnedAtText = acm.LastEarnedAt?.ToString("o");
@@ -2987,6 +3111,7 @@ namespace Points.Services.Sqlite
                     acm.Trophies
                        .Where(t => !string.IsNullOrWhiteSpace(t))
                        .Select(t => t.Trim()));
+           
 
             if (acm.Id == 0)
             {
@@ -3006,17 +3131,20 @@ namespace Points.Services.Sqlite
                        CompletionType,
                        RangeUnit,
                        RangeAmount,
+                       DeadlineStart,
                        Deadline,
+                        FinalizedAt,
+                        FrozenCurrentValue,
                        TrophyURLs,
                        IsPinned)
                       VALUES
-                      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
                     cardId,
                     acm.Status ?? "",
                     acm.Description ?? "",
                     goalTypeText,
                     difficultyText,
-                    now.ToString("o"),          // CreatedDate – model doesn’t currently expose this
+                    (acm.CreatedDate == default ? now : acm.CreatedDate).ToString("o"),
                     lastEarnedAtText,
                     targetActiveTimeSeconds,
                     targetValue,
@@ -3024,7 +3152,10 @@ namespace Points.Services.Sqlite
                     completionTypeText,
                     rangeUnitText,
                     rangeAmount,
+                    deadlineStartText,
                     deadlineText,
+                    finalizedAtText,
+                    frozenCurrentValue,
                     trophyUrls,
                     acm.IsPinned ? 1 : 0
                 );
@@ -3047,7 +3178,10 @@ namespace Points.Services.Sqlite
                           CompletionType           = ?,
                           RangeUnit                = ?,
                           RangeAmount              = ?,
+                          DeadlineStart            = ?,   
                           Deadline                 = ?,
+                          FinalizedAt              = ?,
+                          FrozenCurrentValue       = ?,
                           TrophyURLs               = ?,
                           IsPinned                 = ?
                       WHERE CardID = ?;",
@@ -3062,7 +3196,10 @@ namespace Points.Services.Sqlite
                     completionTypeText,
                     rangeUnitText,
                     rangeAmount,
+                    deadlineStartText,
                     deadlineText,
+                    finalizedAtText,
+                    frozenCurrentValue,
                     trophyUrls,
                     acm.IsPinned ? 1 : 0,
                     cardId
@@ -3193,6 +3330,212 @@ namespace Points.Services.Sqlite
                 return true; // no prereq pattern found
 
             return earnedFiles.Contains(prerequisite);
+        }
+
+        private static void ValidateAchievementForPersistence(AchievementCardModel acm)
+        {
+            if (acm == null)
+                throw new ArgumentNullException(nameof(acm));
+
+            if (acm.CompletionType == AchievementCompletionType.Deadline)
+            {
+                if (!acm.Deadline.HasValue)
+                    throw new InvalidOperationException(
+                        "Deadline achievements must have a deadline.");
+
+                var effectiveStart = acm.DeadlineStart ?? acm.CreatedDate;
+
+                if (effectiveStart > acm.Deadline.Value)
+                    throw new InvalidOperationException(
+                        "DeadlineStart cannot be later than Deadline.");
+            }
+        }
+
+
+        private enum DeadlineTransitionResult
+        {
+            None = 0,
+            Complete = 1,
+            Fail = 2
+        }
+
+        private static DateTime StartOfTodayLocal() => DateTime.Now.Date;
+
+        private static DateTime EndOfTodayLocal() => DateTime.Now.Date.AddDays(1);
+
+        private static bool ShouldKeepLoadedAfterFinalization(AchievementCardModel card, DateTime now)
+        {
+            if (card == null)
+                return false;
+
+            if (card.CompletionType != AchievementCompletionType.Deadline)
+                return true;
+
+            if (!card.FinalizedAt.HasValue)
+                return true;
+
+            var todayStart = now.Date;
+            var tomorrowStart = todayStart.AddDays(1);
+
+            return card.FinalizedAt.Value >= todayStart && card.FinalizedAt.Value < tomorrowStart;
+        }
+
+        private static DeadlineTransitionResult GetDeadlineTransitionResult(AchievementCardModel card, double currentValue, DateTime now)
+        {
+            if (card == null)
+                throw new ArgumentNullException(nameof(card));
+
+            if (card.CompletionType != AchievementCompletionType.Deadline)
+                return DeadlineTransitionResult.None;
+
+            // Already finalized => inert
+            if (card.FinalizedAt.HasValue)
+                return DeadlineTransitionResult.None;
+
+            // If the evaluation window is not valid, do nothing here.
+            if (!card.TryGetEvaluationWindow(now, out var start, out var end))
+                return DeadlineTransitionResult.None;
+
+            // Pending: start is in the future
+            if (start > now)
+                return DeadlineTransitionResult.None;
+
+            // Completion always wins if we are at/over target within the effective window.
+            if (currentValue >= card.TargetValue && card.TargetValue > 0)
+                return DeadlineTransitionResult.Complete;
+
+            // If the real deadline has elapsed and target was not reached, fail.
+            if (card.Deadline.HasValue && now > card.Deadline.Value)
+                return DeadlineTransitionResult.Fail;
+
+            return DeadlineTransitionResult.None;
+        }
+
+        public async Task FinalizeDeadlineAchievementCompletedAsync(long achievementId, double frozenCurrentValue, DateTime finalizedAtLocal)
+        {
+            await InitializeAsync();
+
+            var finalizedIso = finalizedAtLocal.ToString("o", CultureInfo.InvariantCulture);
+
+            await Db.RunInTransactionAsync(tran =>
+            {
+                tran.Execute(
+                    @"UPDATE AchievementCard
+                              SET Status = ?,
+                                  FinalizedAt = ?,
+                                  FrozenCurrentValue = ?,
+                                  LastEarnedAt = ?
+                              WHERE AchievementCardID = ?;",
+                    "Completed",
+                    finalizedIso,
+                    frozenCurrentValue,
+                    finalizedIso,
+                    achievementId
+                );
+
+                TryAwardRandomTrophyInTransaction(tran, achievementId, finalizedIso);
+            });
+        }
+
+        public async Task FinalizeDeadlineAchievementFailedAsync(long achievementId, double frozenCurrentValue, DateTime finalizedAtLocal)
+        {
+            await InitializeAsync();
+
+            var finalizedIso = finalizedAtLocal.ToString("o", CultureInfo.InvariantCulture);
+
+            await Db.RunInTransactionAsync(tran =>
+            {
+                tran.Execute(
+                    @"UPDATE AchievementCard
+                              SET Status = ?,
+                                  FinalizedAt = ?,
+                                  FrozenCurrentValue = ?
+                              WHERE AchievementCardID = ?;",
+                    "Failed",
+                    finalizedIso,
+                    frozenCurrentValue,
+                    achievementId
+                );
+            });
+        }
+
+        private async Task<AchievementCardModel> ReloadAchievementAfterFinalizationAsync(long achievementId)
+        {
+            return await GetAchievementCardModelDataAsync((int)achievementId);
+        }
+
+        private async Task<AchievementCardModel> FinalizeDeadlineAchievementIfNeededAsync(AchievementCardModel card)
+        {
+            if (card == null)
+                throw new ArgumentNullException(nameof(card));
+
+            if (card.CompletionType != AchievementCompletionType.Deadline)
+                return card;
+
+            // Already finalized => nothing to do
+            if (card.FinalizedAt.HasValue)
+                return card;
+
+            var now = DateTime.Now;
+
+            if (!card.TryGetEvaluationWindow(now, out var windowStart, out var windowEnd))
+                return card;
+
+            double currentValue;
+
+            switch (card.GoalType)
+            {
+                case AchievementGoalType.Value:
+                    {
+                        var summary = await GetTagValueSummaryAsync(card.Tags, windowStart, windowEnd);
+                        currentValue = summary.CurrentValue;
+                        break;
+                    }
+
+                case AchievementGoalType.ActiveTime:
+                    {
+                        var summary = await GetTagValueSummaryAsync(card.Tags, windowStart, windowEnd);
+                        currentValue = summary.CurrentTotalActiveTimeInSeconds;
+                        break;
+                    }
+
+                default:
+                    // This finalization engine is only intended for the currently-supported
+                    // deadline-capable goal types. Others stay unchanged for now.
+                    return card;
+            }
+
+            var transition = GetDeadlineTransitionResult(card, currentValue, now);
+
+            switch (transition)
+            {
+                case DeadlineTransitionResult.Complete:
+                    await FinalizeDeadlineAchievementCompletedAsync(card.Id, currentValue, now);
+                    return await ReloadAchievementAfterFinalizationAsync(card.Id);
+
+                case DeadlineTransitionResult.Fail:
+                    await FinalizeDeadlineAchievementFailedAsync(card.Id, currentValue, now);
+                    return await ReloadAchievementAfterFinalizationAsync(card.Id);
+
+                default:
+                    return card;
+            }
+        }
+
+        private async Task<List<AchievementCardModel>> FinalizeDeadlineAchievementsIfNeededAsync(IEnumerable<AchievementCardModel> cards)
+        {
+            if (cards == null)
+                return new List<AchievementCardModel>();
+
+            var result = new List<AchievementCardModel>();
+
+            foreach (var card in cards)
+            {
+                var updated = await FinalizeDeadlineAchievementIfNeededAsync(card);
+                result.Add(updated);
+            }
+
+            return result;
         }
 
         #endregion
