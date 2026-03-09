@@ -10,7 +10,7 @@
            BackgroundColor="{Binding CardBackgroundColor}">
 
         <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
-              ColumnDefinitions="*,Auto"
+              ColumnDefinitions="*,Auto, Auto"
               RowSpacing="6">
 
             <!-- Row 1: Title -->
@@ -20,7 +20,14 @@
                    FontSize="18"
                    FontAttributes="Bold"
                    VerticalOptions="Center" />
-            
+
+            <Label Grid.Row="0" Grid.Column="1"
+                        Text="🔒"
+                        IsVisible="{Binding IsLockedThisRange}"
+                        VerticalOptions="Center"
+                        HorizontalOptions="Start"
+                        Margin="0,0,0,0" />
+
             <Border
                     Grid.Row="0" Grid.Column="2" 
                     BackgroundColor="{Binding CardBadgeBackColor}"
@@ -31,7 +38,7 @@
                     Margin="0"
                     Grid.RowSpan="6">
 
-                        <Label
+                <Label
                         Text="{Binding Difficulty}"
                         TextColor="{Binding CardBadgeForeColor}"
                         FontSize="12"
@@ -43,41 +50,44 @@
 
 
             <!-- Row 2: Status + Tags -->
-            <Label Grid.Row="1" Grid.Column="0"
+            <Label Grid.Row="1" Grid.Column="0"  Grid.ColumnSpan="2"
                    Text="{Binding StatusDisplay, StringFormat='Status: {0}'}"
                    FontSize="13"
                    TextColor="Gray" />
 
-            <Label Grid.Row="1" Grid.Column="1"
-                   Text="{Binding Tags, StringFormat='Tags: {0}'}"
+            <Label Grid.Row="1" Grid.Column="2"
+                   Text="{Binding Tags, StringFormat='Tag: {0}'}"
                    FontSize="13"
                    TextColor="Gray"
                    HorizontalTextAlignment="End" />
 
+            <!-- Row 2: LockProgressBar -->
+            <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
+                         HeightRequest="18"
+                         ProgressColor="Green"
+                         IsVisible="{Binding IsLockedThisRange}"
+                         Progress="{Binding LockProgress}" />
+
             <!-- Row 3: ProgressBar -->
-            <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+            <ProgressBar Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
                          HeightRequest="18"
                          Progress="{Binding Progress}" />
 
             <!-- Row 4: Active Time (L) + Goal Type (R) -->
-            <Label Grid.Row="3" Grid.Column="0"
+            <Label Grid.Row="4" Grid.Column="0"
                    Text="{Binding ActiveTimeText}"
                    FontSize="14"
+                   IsVisible="{Binding IsActiveTimeTextVisible}"
                    TextColor="Orange" />
-
-            <Label Grid.Row="3" Grid.Column="1"
-                   Text="{Binding GoalTypeText}"
-                   FontSize="14"
-                   TextColor="Gray"
-                   HorizontalTextAlignment="End" />
 
             <!-- Row 5: Current Value (L) + Target (R) -->
             <Label Grid.Row="4" Grid.Column="0"
                    Text="{Binding CurrentValueText}"
                    TextColor="{Binding CardForeColor}"
+                   IsVisible="{Binding IsCurrentValueTextVisible}"
                    FontSize="14" />
 
-            <Label Grid.Row="4" Grid.Column="1"
+            <Label Grid.Row="4" Grid.Column="2"
                    Text="{Binding TargetText}"
                    FontSize="14"
                    TextColor="{Binding CardForeColor}"
@@ -94,14 +104,6 @@
         <Frame.GestureRecognizers>
             <TapGestureRecognizer Tapped="OnCardTapped" />
         </Frame.GestureRecognizers>
-
-        <Frame.Triggers>
-            <DataTrigger TargetType="Frame"
-                 Binding="{Binding IsLockedThisRange}"
-                 Value="True">
-                <Setter Property="Opacity" Value="0.6" />
-            </DataTrigger>
-        </Frame.Triggers>
 
 
     </Frame>

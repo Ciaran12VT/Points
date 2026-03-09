@@ -125,10 +125,9 @@ namespace Points.Models
 
         public DateTime GetRangeWindowStart(DateTime now)
         {
-            // RangeAmount is int, RangeUnit is enum (you already have these).
             var amt = RangeAmount;
 
-            return RangeUnit switch
+            var rangeStart = RangeUnit switch
             {
                 AchievementRangeUnit.Minutes => now.AddMinutes(-amt),
                 AchievementRangeUnit.Hours => now.AddHours(-amt),
@@ -137,6 +136,11 @@ namespace Points.Models
                 AchievementRangeUnit.Months => now.AddMonths(-amt),
                 _ => now.AddDays(-amt)
             };
+
+            if (LastEarnedAt.HasValue && rangeStart < LastEarnedAt.Value)
+                return LastEarnedAt.Value;
+
+            return rangeStart;
         }
 
         public string GetAvailableIn(DateTime lastEarnedAt)
@@ -173,12 +177,12 @@ namespace Points.Models
             }
         }
 
-        public Color CardBackgroundColor => IsLockedThisRange ? Color.FromArgb("#2A2A2A") : Colors.Black;
+        public Color CardBackgroundColor => Colors.Black; // IsLockedThisRange ? Color.FromArgb("#2A2A2A") : Colors.Black;
 
-        public Color CardBadgeBackColor => IsLockedThisRange ? Color.FromArgb("#2A2A2A") : GetBackColorBasedOnDifficulty();
-        public Color CardBadgeForeColor => IsLockedThisRange ? Colors.Gray : GetForeColorBasedOnDifficulty();
+        public Color CardBadgeBackColor => GetBackColorBasedOnDifficulty(); // IsLockedThisRange ? Color.FromArgb("#2A2A2A") : GetBackColorBasedOnDifficulty();
+        public Color CardBadgeForeColor => GetForeColorBasedOnDifficulty(); // IsLockedThisRange ? Colors.Gray : GetForeColorBasedOnDifficulty();
 
-        public Color CardForeColor => IsLockedThisRange ? Colors.Gray : Colors.White;
+        public Color CardForeColor => Colors.White; // IsLockedThisRange ? Colors.Gray : Colors.White;
 
         private Color GetBackColorBasedOnDifficulty()
         {
@@ -336,6 +340,38 @@ namespace Points.Models
             }
         }
 
+        public double LockProgress
+        {
+            get
+            {
+                if(!IsLockedThisRange) return 0;
+                if (LastEarnedAt is null) return 0;
+
+                var now = DateTime.Now;
+
+                var amt = RangeAmount;
+
+                var rangeEnd = RangeUnit switch
+                {
+                    AchievementRangeUnit.Minutes => LastEarnedAt.Value.AddMinutes(amt),
+                    AchievementRangeUnit.Hours => LastEarnedAt.Value.AddHours(amt),
+                    AchievementRangeUnit.Days => LastEarnedAt.Value.AddDays(amt),
+                    AchievementRangeUnit.Weeks => LastEarnedAt.Value.AddDays((7 * amt)),
+                    AchievementRangeUnit.Months => LastEarnedAt.Value.AddMonths(amt),
+                    _ => now.AddDays(amt)
+                };
+
+                //"Now" as a position between LastEarnedAt and rangeEnd gives us lock progress.
+                var totalLockTime = (rangeEnd - LastEarnedAt.Value).TotalSeconds;
+                if (totalLockTime <= 0) return 1;
+                var remainingLockTime = (rangeEnd - now).TotalSeconds;
+                var lockProgress = 1 - (remainingLockTime / totalLockTime);
+                if (lockProgress < 0) return 0;
+                if (lockProgress > 1) return 1;
+                return lockProgress;
+            }
+        }
+
         // Labels the card needs
         public string ActiveTimeText
         {
@@ -351,6 +387,8 @@ namespace Points.Models
             }
         }
 
+        public bool IsActiveTimeTextVisible => GoalType == AchievementGoalType.ActiveTime;
+
         public string GoalTypeText => GoalType switch
         {
             AchievementGoalType.ActiveTime => "Goal: Active Time",
@@ -360,6 +398,8 @@ namespace Points.Models
         };
 
         public string CurrentValueText => $"Current: {CurrentValue.ToString("0.##", CultureInfo.InvariantCulture)}";
+
+        public bool IsCurrentValueTextVisible => GoalType == AchievementGoalType.Value;
 
         public string TargetText
         {
@@ -414,6 +454,7 @@ namespace Points.Models
             RaisePropertyChanged(nameof(TargetText));
             RaisePropertyChanged(nameof(CompletionTimeText));
             RaisePropertyChanged(nameof(Progress));
+            RaisePropertyChanged(nameof(LockProgress));
         }
 
         public double GetTargetSecondsSpent()
@@ -465,6 +506,7 @@ namespace Points.Models
             RaisePropertyChanged(nameof(CurrentValueText));
             RaisePropertyChanged(nameof(CompletionTimeText));
             RaisePropertyChanged(nameof(StatusDisplay));
+            RaisePropertyChanged(nameof(LockProgress));
         }
     }
 }
