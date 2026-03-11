@@ -109,10 +109,10 @@
                 <!-- Difficulty Level -->
                 <Label Text="Difficulty Level" FontAttributes="Bold"/>
                 <Picker x:Name="DifficultyLevelPicker"
-                    Title="Select goal type"
-                    ItemsSource="{Binding DifficultyLevelOptions}"
-                    SelectedItem="{Binding DifficultyLevel}"
-                    IsEnabled="{Binding CanEdit}"/>
+                        Title="Select difficulty level"
+                        ItemsSource="{Binding DifficultyLevelOptions}"
+                        SelectedItem="{Binding DifficultyLevel}"
+                        IsEnabled="{Binding CanEdit}" />
 
                 <!-- Target for VALUE -->
                 <VerticalStackLayout IsVisible="{Binding IsValueTargetVisible}">
@@ -219,9 +219,10 @@
                 <!-- Completion Type -->
                 <Label Text="Completion Type" FontAttributes="Bold"/>
                 <Picker x:Name="CompletionTypePicker"
-                    Title="Select completion type"
-                    SelectedItem="{Binding CompletionType}" 
-                    IsEnabled="{Binding CanEdit}"/>
+                        Title="Select completion type"
+                        ItemsSource="{Binding CompletionTypeOptions}"
+                        SelectedItem="{Binding CompletionType}"
+                        IsEnabled="{Binding CanEdit}" />
 
 
                 <!-- Range -->
@@ -230,10 +231,11 @@
 
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                         <Picker Grid.Column="0"
-                            x:Name="RangeUnitPicker"
-                            Title="Unit"
-                            SelectedItem="{Binding RangeUnit}" 
-                            IsEnabled="{Binding CanEdit}"/>
+                                x:Name="RangeUnitPicker"
+                                Title="Unit"
+                                ItemsSource="{Binding RangeUnitOptions}"
+                                SelectedItem="{Binding RangeUnit}"
+                                IsEnabled="{Binding CanEdit}" />
 
 
                         <Entry Grid.Column="1"
@@ -262,9 +264,10 @@
                 <!-- Trophies -->
                 <Label Text="Trophies" FontAttributes="Bold"/>
 
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
                     <!-- Add Photo -->
-                    <Button Text="🖼"
+                    <Button  Grid.Column="0"
+                        Text="🖼"
                         WidthRequest="36"
                         HeightRequest="36"
                         CornerRadius="18"
@@ -289,15 +292,26 @@
                         IsEnabled="{Binding CanEdit}"/>
 
                     <!-- Count -->
-                    <Label 
-                       Grid.Column="2"
-                       Text="{Binding Model.TrophyCount, 
-                       StringFormat='Available: {0}'}"
-                       VerticalTextAlignment="Center"
-                       TextColor="Gray"/>
+                    <HorizontalStackLayout
+                        Grid.Column="2"
+                        Spacing="6"
+                        VerticalOptions="Center">
+
+                        <Label
+                            Text="{Binding TrophyCount, StringFormat='Available: {0}'}"
+                            VerticalTextAlignment="Center"
+                            TextColor="Gray" />
+
+                        <Label
+                            Text="{Binding PendingTrophyCountText}"
+                            VerticalTextAlignment="Center"
+                            TextColor="Green"
+                            IsVisible="{Binding HasPendingTrophies}" />
+
+                    </HorizontalStackLayout>
 
                     <Button 
-                        Grid.Column="2" 
+                        Grid.Column="3" 
                         HorizontalOptions="End"
                         Text="👁" 
                         WidthRequest="36"

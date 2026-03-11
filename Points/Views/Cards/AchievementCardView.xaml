@@ -31,6 +31,8 @@
             
             <Label Grid.Row="0" Grid.Column="1"
                        Text="✓"
+                       FontSize="18"
+                       FontAttributes="Bold"
                        IsVisible="{Binding IsCompleted}"
                        VerticalOptions="Center"
                        HorizontalOptions="Start"
@@ -39,6 +41,8 @@
             
             <Label Grid.Row="0" Grid.Column="1"
                        Text="✕"
+                       FontSize="18"
+                       FontAttributes="Bold"
                        IsVisible="{Binding IsFailed}"
                        VerticalOptions="Center"
                        HorizontalOptions="Start"

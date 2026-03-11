@@ -17,7 +17,7 @@ public partial class AchievementDetailsPage : ContentPage
         IEnumerable<string> allTags,
         IEnumerable<string> stepNames,
         IEnumerable<string> achievementTitles,
-        Action<AchievementCardModel> onSaved,
+        Func<AchievementCardModel, Task> onSaved,
         Action<AchievementCardModel> onDelete)
     {
         InitializeComponent();
@@ -30,17 +30,17 @@ public partial class AchievementDetailsPage : ContentPage
         BindingContext = new AchievementDetailsViewModel(model, onSaved, onDelete);
 
         var tagEntry = this.FindByName<Entry>("TagsEntry");
-        var difficultyLevelPicker = this.FindByName<Picker>("DifficultyLevelPicker");
-        var goalTypePicker = this.FindByName<Picker>("GoalTypePicker");
-        var completionTypePicker = this.FindByName<Picker>("CompletionTypePicker");
-        var rangeUnitPicker = this.FindByName<Picker>("RangeUnitPicker");
+        //var difficultyLevelPicker = this.FindByName<Picker>("DifficultyLevelPicker");
+        //var goalTypePicker = this.FindByName<Picker>("GoalTypePicker");
+        //var completionTypePicker = this.FindByName<Picker>("CompletionTypePicker");
+        //var rangeUnitPicker = this.FindByName<Picker>("RangeUnitPicker");
         var stepPicker = this.FindByName<Picker>("StepPicker");
         var reportPicker = this.FindByName<Picker>("CustomReportPicker");
 
-        goalTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementGoalType)).Cast<AchievementGoalType>().ToList();
-        completionTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementCompletionType)).Cast<AchievementCompletionType>().ToList();
-        rangeUnitPicker.ItemsSource = Enum.GetValues(typeof(AchievementRangeUnit)).Cast<AchievementRangeUnit>().ToList();
-        difficultyLevelPicker.ItemsSource = Enum.GetValues(typeof(AchievementDifficultyLevels)).Cast<AchievementDifficultyLevels>().ToList();
+        //goalTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementGoalType)).Cast<AchievementGoalType>().ToList();
+        //completionTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementCompletionType)).Cast<AchievementCompletionType>().ToList();
+        //rangeUnitPicker.ItemsSource = Enum.GetValues(typeof(AchievementRangeUnit)).Cast<AchievementRangeUnit>().ToList();
+        //difficultyLevelPicker.ItemsSource = Enum.GetValues(typeof(AchievementDifficultyLevels)).Cast<AchievementDifficultyLevels>().ToList();
 
         stepPicker.ItemsSource = _stepNames;
         reportPicker.ItemsSource = _reportNames;
@@ -232,7 +232,7 @@ public partial class AchievementDetailsPage : ContentPage
         if (BindingContext is AchievementDetailsViewModel vm && vm.CanEdit)
         {
             vm.TrophiesToAdd.Clear();
-            vm.Model.Trophies.Clear();
+            vm.Trophies.Clear();
         }
     }
 

@@ -75,12 +75,12 @@ namespace Points.ViewModels
                     allTags,
                     stepNames,
                     achievementTitles,
-                    saved =>
+                    async saved =>
                     {
                         var achievementsPage = Pages.First(p => p.Name == "Achievements");
                         var metaAchievementsPage = Pages.First(p => p.Name == "Meta-Achievements");
                         var page = saved.GoalType == AchievementGoalType.Achievements ? metaAchievementsPage : achievementsPage;
-                        CommitCardToPage(page, saved, false);
+                        await CommitCardToPage(page, saved, false);
                     },
                     deleted =>
                     {
@@ -255,7 +255,7 @@ namespace Points.ViewModels
         /// The ONE AND ONLY way a card gets added to a page.
         /// All callers (mock seeding + UI save callbacks) must use this.
         /// </summary>
-        public void CommitCardToPage(AchievementsPageModel page, AchievementCardModel card, bool noDb = false)
+        public async Task CommitCardToPage(AchievementsPageModel page, AchievementCardModel card, bool noDb = false)
         {
             if (page == null || card == null) return;
 
@@ -268,14 +268,14 @@ namespace Points.ViewModels
 
             if (!noDb)
             {
-                CommitCardToDb(card);
+                await CommitCardToDb(card);
                 _ = RefreshSingleDeadlineAchievementAsync(card);
             }
         }
 
-        private void CommitCardToDb(ICardModel card)
+        private async Task CommitCardToDb(ICardModel card)
         {
-            _db.SaveCardModelAsync(card);
+            await _db.SaveCardModelAsync(card);
         }
 
         public void DeleteCardFromDb(AchievementCardModel deleted)

@@ -14,10 +14,17 @@ namespace Points.ViewModels
 {
     public class AchievementDetailsViewModel : ObservableObject
     {
+
+        public IReadOnlyList<AchievementDifficultyLevels> DifficultyLevelOptions { get; } = Enum.GetValues(typeof(AchievementDifficultyLevels)).Cast<AchievementDifficultyLevels>().ToList();
+
+        public IReadOnlyList<AchievementCompletionType> CompletionTypeOptions { get; } = Enum.GetValues(typeof(AchievementCompletionType)).Cast<AchievementCompletionType>().ToList();
+
+        public IReadOnlyList<AchievementRangeUnit> RangeUnitOptions { get; } = Enum.GetValues(typeof(AchievementRangeUnit)).Cast<AchievementRangeUnit>().ToList();
+
         private readonly AchievementCardModel _model;
         public AchievementCardModel Model => _model;
 
-        private readonly Action<AchievementCardModel> _onSaved;
+        private readonly Func<AchievementCardModel, Task> _onSaved;
         private readonly Action<AchievementCardModel> _onDelete;
 
         private readonly IDispatcherTimer _timer;
@@ -27,7 +34,75 @@ namespace Points.ViewModels
 
         public Command ViewTrophiesCommand { get; }
 
-        public List<string> TrophiesToAdd { get; set; } = new List<string>();
+        private ObservableCollection<string> _trophiesToAdd = new();
+        public ObservableCollection<string> TrophiesToAdd
+        {
+            get => _trophiesToAdd;
+            set
+            {
+                if (_trophiesToAdd != null)
+                    _trophiesToAdd.CollectionChanged -= OnTrophiesToAddChanged;
+
+                if (SetProperty(ref _trophiesToAdd, value ?? new ObservableCollection<string>()))
+                {
+                    _trophiesToAdd.CollectionChanged += OnTrophiesToAddChanged;
+                    RaisePropertyChanged(nameof(PendingTrophyCount));
+                    RaisePropertyChanged(nameof(HasPendingTrophies));
+                    RaisePropertyChanged(nameof(PendingTrophyCountText));
+                }
+            }
+        }
+        private void OnTrophiesToAddChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            RaisePropertyChanged(nameof(PendingTrophyCount));
+            RaisePropertyChanged(nameof(HasPendingTrophies));
+            RaisePropertyChanged(nameof(PendingTrophyCountText));
+        }
+
+        public bool HasPendingTrophies => PendingTrophyCount > 0;
+
+        public int PendingTrophyCount
+        {
+            get
+            {
+                var existing = new HashSet<string>(
+                    Trophies.Where(x => !string.IsNullOrWhiteSpace(x)),
+                    StringComparer.OrdinalIgnoreCase);
+
+                return TrophiesToAdd
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(Path.GetFileName)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count(fileName => !existing.Contains(fileName!));
+            }
+        }
+
+        public string PendingTrophyCountText => $"+{PendingTrophyCount}";
+
+        private ObservableCollection<string> _trophies = new();
+        public ObservableCollection<string> Trophies
+        {
+            get => _trophies;
+            set
+            {
+                if (_trophies != null)
+                    _trophies.CollectionChanged -= OnVmTrophiesCollectionChanged;
+
+                if (SetProperty(ref _trophies, value ?? new ObservableCollection<string>()))
+                {
+                    _trophies.CollectionChanged += OnVmTrophiesCollectionChanged;
+                    RaisePropertyChanged(nameof(TrophyCount));
+                }
+            }
+        }
+
+        public int TrophyCount => Trophies.Count;
+
+        private void OnVmTrophiesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            RaisePropertyChanged(nameof(TrophyCount));
+        }
 
         public bool IsReadOnly => _model.IsDeadlineAchievement && _model.IsFinalizedDeadline;
 
@@ -91,13 +166,21 @@ namespace Points.ViewModels
             }
         }
 
-        public AchievementDetailsViewModel(AchievementCardModel model, Action<AchievementCardModel> onSaved, Action<AchievementCardModel> onDelete)
+        public AchievementDetailsViewModel(AchievementCardModel model, Func<AchievementCardModel, Task> onSaved, Action<AchievementCardModel> onDelete)
         {
             _model = model;
             _onSaved = onSaved;
             _onDelete = onDelete;
 
-            _model.Trophies = GetAchievementTrophies();
+            Trophies = GetAchievementTrophies();
+
+            _model.Trophies.Clear();
+            foreach (var trophy in Trophies)
+            {
+                _model.Trophies.Add(trophy);
+            }
+
+            TrophiesToAdd.CollectionChanged += OnTrophiesToAddChanged;
 
             CancelCommand = new Command(async () => await OnCancelAsync());
             ViewTrophiesCommand = new Command(async () => await OnViewTrophiesAsync());
@@ -213,7 +296,7 @@ namespace Points.ViewModels
                 if (!SetProperty(ref _difficultyLevel, value)) return;
 
                 // Tell the UI that all dependent visibility properties changed
-                RaisePropertyChanged(nameof(DifficultyLevel));
+                //RaisePropertyChanged(nameof(DifficultyLevel));
             }
         }
 
@@ -475,15 +558,16 @@ namespace Points.ViewModels
                 _model.Deadline = null;
             }
 
+            await _onSaved(_model);
             SaveTrophiesToDisk();
-
-            _onSaved(_model);
 
             await Shell.Current.Navigation.PopAsync();
         }
 
         private void SaveTrophiesToDisk()
         {
+            if (_model.Id <= 0) return;
+
             string targetTrophyFolderPath = AppPaths.GetAchievementTrophiesPath(_model.Id);
 
             foreach (var trophyToAdd in TrophiesToAdd.Where(x => !string.IsNullOrEmpty(x)))
@@ -498,12 +582,28 @@ namespace Points.ViewModels
 
                     // Overwrite if it already exists
                     File.WriteAllBytes(trophyFullTargetPath, fileContent);
+
+                    if (!Trophies.Contains(trohpyFileName))
+                        Trophies.Add(trohpyFileName);
                 }
+
+                _model.Trophies.Clear();
+                foreach (var trophy in Trophies)
+                {
+                    _model.Trophies.Add(trophy);
+                }
+
+                TrophiesToAdd.Clear();
+                RaisePropertyChanged(nameof(PendingTrophyCount));
+                RaisePropertyChanged(nameof(HasPendingTrophies));
+                RaisePropertyChanged(nameof(PendingTrophyCountText));
             }
         }
 
         private ObservableCollection<string> GetAchievementTrophies()
         {
+            if (_model.Id <= 0) return new ObservableCollection<string>();
+
             string targetTrophyFolderPath = AppPaths.GetAchievementTrophiesPath(_model.Id);
 
             if (!Directory.Exists(targetTrophyFolderPath)) return new ObservableCollection<string>();
@@ -514,12 +614,12 @@ namespace Points.ViewModels
                             .Where(x => !string.IsNullOrWhiteSpace(x))
                             .ToList();
 
-            return new ObservableCollection<string>(trophies);
+            return new ObservableCollection<string>(trophies!);
         }
 
         private async Task OnViewTrophiesAsync()
         {
-            var trophies = _model.Trophies?
+            var trophies = Trophies?
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct()
                 .ToList() ?? new List<string>();

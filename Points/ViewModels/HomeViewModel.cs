@@ -1052,7 +1052,7 @@ namespace Points.ViewModels
                 new ShortcutDetailsPage(
                     model: model,
                     optionsByType: optionsByType,
-                    existingGroupNames: existingGroupNames,
+                    existingGroups: groups,
                     onSaved: onSaved,
                     onDelete: onDelete,
                     defaultType: TargetCardType.MainQuest
@@ -1815,7 +1815,7 @@ namespace Points.ViewModels
                 new ShortcutDetailsPage(
                     model: model,
                     optionsByType: optionsByType,
-                    existingGroupNames: existingGroupNames,
+                    existingGroups: groups,
                     onSaved: onSaved,
                     onDelete: onDelete,
                     defaultType: defaultType

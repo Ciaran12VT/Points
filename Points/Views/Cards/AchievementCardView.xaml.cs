@@ -45,12 +45,12 @@ public partial class AchievementCardView : ContentView
                 allTags,
                 stepNames,
                 achievementTitles,
-                saved =>
+                async saved =>
                 {
                     var achievementsPage = vm.Pages.First(p => p.Name == "Achievements");
                     var metaAchievementsPage = vm.Pages.First(p => p.Name == "Meta-Achievements");
                     var page = saved.GoalType == AchievementGoalType.Achievements ? metaAchievementsPage : achievementsPage;
-                    vm.CommitCardToPage(page, saved, false);
+                    await vm.CommitCardToPage(page, saved, false);
                 },
                 deleted =>
                 {

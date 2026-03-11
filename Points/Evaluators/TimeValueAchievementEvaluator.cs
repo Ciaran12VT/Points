@@ -38,10 +38,11 @@ namespace Points.Evaluators
                         prog = prog / eval.AchievementCard.TargetValue;
                     }
 
-                    if (prog >= 1 && !eval.AchievementCard.IsLockedThisRange)
+                    if (prog >= 1 && eval.MeetsConditionsForAchievement())
                     {
                         earnedAchievements.Add(eval.AchievementCard);
                         eval.CurrentValue = 0;
+                        eval.AchievementCard.CompletedAt = DateTime.Now;
                     }
                 }
             }
@@ -61,6 +62,29 @@ namespace Points.Evaluators
             CurrentValue += incrementBy;
 
             return CurrentValue;
+        }
+
+        public bool MeetsConditionsForAchievement()
+        {
+            if(AchievementCard.CompletionType == AchievementCompletionType.Range && AchievementCard.IsLockedThisRange)
+            {
+                return false;
+            }
+
+            if (AchievementCard.CompletionType == AchievementCompletionType.Deadline)
+            {
+                if(AchievementCard.Deadline > DateTime.Now)
+                {
+                    return false;
+                }
+
+                if(AchievementCard.CompletedAt != DateTime.MinValue)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

@@ -127,30 +127,24 @@ namespace Points.Models
 
         private string GetEventDateText(DateTime value)
         {
-            string retVal = value.ToString("yyyy-mm-dd HH:mm");
+            var now = DateTime.Now;
+            var today = now.Date;
+            var tomorrow = today.AddDays(1);
+            var time = value.ToString("hh:mmtt").ToLower();
 
-            if (value < DateTime.Now && value >= DateTime.Today)
-            {
-                retVal = $"OVERDUE: Today @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
-            }
-            else if (value < DateTime.Now)
-            {
-                retVal = $"Event Time: Today @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
-            }
-            else if (value.Date < DateTime.Now.AddDays(1).Date)
-            {
-                retVal = $"Event Time: Tomorrow @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
-            }
-            else if (value < DateTime.Now.AddDays(7))
-            {
-                retVal = $"Event Time: {value.DayOfWeek} @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
-            }
-            else
-            {
-                retVal = $"Event Time: {value.ToString("MMM-dd")} @ {value.ToString("hh:mm")}{(value.Hour > 12 ? "pm" : "am")}";
-            }
+            if (value < now && value.Date == today)
+                return $"OVERDUE: Today @ {time}";
 
-            return retVal;
+            if (value.Date == today)
+                return $"Event Time: Today @ {time}";
+
+            if (value.Date == tomorrow)
+                return $"Event Time: Tomorrow @ {time}";
+
+            if (value < now.AddDays(7))
+                return $"Event Time: {value:dddd} @ {time}";
+
+            return $"Event Time: {value:MMM-dd} @ {time}";
         }
 
         private TimeSpan? _estCompletionTime;

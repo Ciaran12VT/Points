@@ -21,7 +21,7 @@ namespace Points.Models
         public AchievementCardModel()
         {
             _createdDate = DateTime.Now;
-            Trophies.CollectionChanged += (_, __) => RaisePropertyChanged(nameof(TrophyCount));
+            _trophies.CollectionChanged += OnTrophiesCollectionChanged;
         }
 
         public long CardID { get; set; }
@@ -776,9 +776,34 @@ namespace Points.Models
         public int Target { get; internal set; }
         public DateTime CompletedAt { get; internal set; }
 
-        public ObservableCollection<string> Trophies { get; set; } = new();
+
+        private ObservableCollection<string> _trophies = new();
+        public ObservableCollection<string> Trophies
+        {
+            get => _trophies;
+            set
+            {
+                if (ReferenceEquals(_trophies, value))
+                    return;
+
+                if (_trophies != null)
+                    _trophies.CollectionChanged -= OnTrophiesCollectionChanged;
+
+                _trophies = value ?? new ObservableCollection<string>();
+
+                _trophies.CollectionChanged += OnTrophiesCollectionChanged;
+
+                RaisePropertyChanged(nameof(Trophies));
+                RaisePropertyChanged(nameof(TrophyCount));
+            }
+        }
 
         public int TrophyCount => Trophies.Count;
+
+        private void OnTrophiesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            RaisePropertyChanged(nameof(TrophyCount));
+        }
 
         public int Id { get; set; }
 

@@ -27,7 +27,7 @@ public sealed class ShortcutDetailsViewModel : ObservableObject
     private readonly Action<ShortcutModel>? _onDelete;
 
     private readonly Dictionary<TargetCardType, List<CardOption>> _optionsByType;
-
+    public ShortcutGroupModel? SelectedGroup { get; set; }
     public ObservableCollection<TargetCardType> TargetCardTypeOptions { get; } =
         new(Enum.GetValues(typeof(TargetCardType)).Cast<TargetCardType>());
 
@@ -60,7 +60,21 @@ public sealed class ShortcutDetailsViewModel : ObservableObject
     public string ShortcutOrderText { get => _shortcutOrderText; set => SetProperty(ref _shortcutOrderText, value); }
 
     private string _groupName = "";
-    public string GroupName { get => _groupName; set => SetProperty(ref _groupName, value); }
+    public string GroupName 
+    { 
+        get => _groupName;
+        set
+        {
+            SetProperty(ref _groupName, value);
+
+            if(SelectedGroup != null)
+            {
+                GroupColor = SelectedGroup.Color;
+                GroupOrderText = SelectedGroup.ShortcutGroupOrder.ToString(CultureInfo.InvariantCulture);
+            }
+
+        }
+    }
 
     private string _groupOrderText = "0";
     public string GroupOrderText { get => _groupOrderText; set => SetProperty(ref _groupOrderText, value); }

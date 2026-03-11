@@ -34,28 +34,48 @@ namespace Points.Services.Sqlite
             _dbPath = AppPaths.DatabasePath;
         }
 
+        private readonly SemaphoreSlim _initSemaphore = new(1, 1);
+
         public async Task InitializeAsync()
         {
             if (_db != null) return;
 
-            // Ensures native SQLite is loaded correctly on mobile platforms.
-            SQLitePCL.Batteries_V2.Init();
-
-            _db = new SQLiteAsyncConnection(_dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
-
-            await _db.ExecuteAsync("PRAGMA foreign_keys = ON;");
-
-            var script = SqlQueryService.GenerateDbCreationScript();
-            var statements = script.Split(';').Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-
-            await _db.RunInTransactionAsync(conn =>
+            await _initSemaphore.WaitAsync();
+            try
             {
-                conn.Execute("PRAGMA foreign_keys = ON;"); 
-                foreach (var stmt in statements)
-                    conn.Execute(stmt);
-            });
+                if (_db != null) return;
 
-            await EnsureAchievementCardSchemaAsync();
+                // Ensures native SQLite is loaded correctly on mobile platforms.
+                SQLitePCL.Batteries_V2.Init();
+
+                _db = new SQLiteAsyncConnection(
+                    _dbPath,
+                    SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
+
+                await _db.ExecuteAsync("PRAGMA foreign_keys = ON;");
+
+                var script = SqlQueryService.GenerateDbCreationScript();
+                var statements = script
+                    .Split(';')
+                    .Select(s => s.Trim())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .ToList();
+
+                await _db.RunInTransactionAsync(conn =>
+                {
+                    conn.Execute("PRAGMA foreign_keys = ON;");
+                    foreach (var stmt in statements)
+                    {
+                        conn.Execute(stmt);
+                    }
+                });
+
+                await EnsureAchievementCardSchemaAsync();
+            }
+            finally
+            {
+                _initSemaphore.Release();
+            }
         }
 
         #endregion
@@ -240,7 +260,8 @@ namespace Points.Services.Sqlite
 
         private async Task EnsureAchievementCardSchemaAsync()
         {
-            await InitializeAsync();
+            if (_db == null)
+                throw new InvalidOperationException("Database must be initialized before schema migration.");
 
             var cols = await Db.QueryAsync<PragmaTableInfo>("PRAGMA table_info(AchievementCard);");
             var existing = cols
@@ -403,6 +424,9 @@ namespace Points.Services.Sqlite
                     ? " " + wc
                     : " WHERE " + wc;
             }
+
+            //Debug: check the table definition to ensure new columns are present
+            var pragma = await Db.QueryAsync<PragmaTableInfo>("PRAGMA table_info(AchievementCard);");
 
             var rows = await Db.QueryAsync<AchievementCardJoinedRow>(sql);
             if (rows.Count == 0)
