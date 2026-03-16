@@ -94,7 +94,7 @@ namespace Points.Services
         Task AddRepForStep(int scCardStepID, DateTime repTime, double stepValue);
 
         // Removes the last rep before/at the given time (your implementation treats param as ScCardStepID)
-        Task RemoveRepForStep(int scCardStepID, DateTime repTime);
+        //Task RemoveRepForStep(int scCardStepID, DateTime repTime);
 
         // Adds an Activity row for the card resolved via model type + model.Id
         //Task<int> AddActivity(IActiveCardModel model, DateTime startTime);
@@ -137,7 +137,7 @@ namespace Points.Services
         Task<ShortcutGroupModel> UpsertShortcutGroupAsync(ShortcutGroupModel group);
         Task<ShortcutModel> SaveShortcutAsync(ShortcutModel shortcut);
         Task DeleteShortcutAsync(long shortcutId);
-        Task DeleteShortcutGroupAsync(long shortcutGroupId);
+        //Task DeleteShortcutGroupAsync(long shortcutGroupId);
 
         Task UpsertReportAsync(ReportModel report);
         Task DeleteReportAsync(int reportId);
