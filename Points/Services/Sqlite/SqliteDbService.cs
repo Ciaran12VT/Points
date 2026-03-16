@@ -2,6 +2,7 @@
 using Points.Evaluators;
 using Points.Global;
 using Points.Models;
+using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 using SQLite;
 using SQLitePCL;
@@ -378,7 +379,7 @@ namespace Points.Services.Sqlite
             return model;
         }
 
-        public async Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync(string whereClause = null)
+        public async Task<List<AchievementCardModel>> GetAchievementCardModelsDataAsync()
         {
             await InitializeAsync();
 
@@ -417,13 +418,6 @@ namespace Points.Services.Sqlite
                 JOIN Card c ON c.CardID = a.CardID
             ";
 
-            if (!string.IsNullOrWhiteSpace(whereClause))
-            {
-                var wc = whereClause.Trim();
-                sql += wc.StartsWith("WHERE", StringComparison.OrdinalIgnoreCase)
-                    ? " " + wc
-                    : " WHERE " + wc;
-            }
 
             //Debug: check the table definition to ensure new columns are present
             var pragma = await Db.QueryAsync<PragmaTableInfo>("PRAGMA table_info(AchievementCard);");
@@ -2682,11 +2676,11 @@ namespace Points.Services.Sqlite
             return new ToggleActivityRowResult { Closed = closed, Opened = opened };
         }
 
-        public sealed class ToggleActivityModelResult
-        {
-            public ActivityModel? Closed { get; init; }
-            public ActivityModel? Opened { get; init; }
-        }
+        //public sealed class ToggleActivityModelResult
+        //{
+        //    public ActivityModel? Closed { get; init; }
+        //    public ActivityModel? Opened { get; init; }
+        //}
 
         private sealed class ToggleActivityRowResult
         {

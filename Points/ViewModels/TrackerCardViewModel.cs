@@ -1,7 +1,7 @@
 ﻿using __XamlGeneratedCode__;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Points.Models;
-using Points.Services;
+using Points.Services.Sqlite.Interfaces;
 using Points.Views.Cards;
 using System.Collections.Specialized;
 using System.Windows.Input;

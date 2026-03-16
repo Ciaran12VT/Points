@@ -3,8 +3,8 @@ using Android.App;
 using Android.Content;
 using Android.OS;
 using AndroidX.Core.App;
-using Points.Services;  // IDbService
-using Points.Helpers;   // ServiceHelper.GetService<T>() if you use it
+using Points.Helpers;
+using Points.Services.Sqlite.Interfaces;   // ServiceHelper.GetService<T>() if you use it
 
 namespace Points.Platforms.Android
 {

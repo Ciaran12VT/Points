@@ -1,7 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Points.Models;
-using Points.Services;
+using Points.Services.Sqlite.Interfaces;
 using System.Collections.ObjectModel;
 
 namespace Points.ViewModels

@@ -1,6 +1,6 @@
 ﻿using Points.Global;
 using Points.Models;
-using Points.Services;
+using Points.Services.Sqlite.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -25,7 +25,7 @@ namespace Points.ViewModels
 
         public Command OpenTrophyCommand { get; }
 
-        public TrophyRoomViewModel(Services.IDbService db)
+        public TrophyRoomViewModel(IDbService db)
         {
             _db = db;
 

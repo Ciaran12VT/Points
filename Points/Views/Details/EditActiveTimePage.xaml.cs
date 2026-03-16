@@ -1,6 +1,6 @@
 using Microsoft.Maui.Graphics.Text;
 using Points.Models;
-using Points.Services;
+using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 using Points.Views.Shared;
 

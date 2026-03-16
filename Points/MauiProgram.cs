@@ -5,6 +5,7 @@ using Points.Interfaces;
 using Points.Models;
 using Points.Services;
 using Points.Services.Sqlite;
+using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 using Points.Views;
 

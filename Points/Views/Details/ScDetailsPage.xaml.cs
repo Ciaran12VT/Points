@@ -1,5 +1,5 @@
 using Points.Models;
-using Points.Services;
+using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 using Points.Views.Schedules;
 using System.Collections.Specialized;
@@ -13,7 +13,7 @@ public partial class ScDetailsPage : ContentPage
     private readonly IDbService _db;
     private readonly List<string> _allTags;
 
-    public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, Services.IDbService db)
+    public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, IDbService db)
     {
         InitializeComponent();
         BindingContext = new ScDetailsViewModel(model, onSaved, onDelete, availableTagsList, db);

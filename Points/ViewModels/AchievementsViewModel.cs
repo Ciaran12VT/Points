@@ -1,6 +1,6 @@
 ﻿using Points.Global;
 using Points.Models;
-using Points.Services;
+using Points.Services.Sqlite.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -114,7 +114,7 @@ namespace Points.ViewModels
         private readonly SemaphoreSlim _deadlineRefreshGate = new(1, 1);
         private readonly IDispatcherTimer _deadlineRefreshTimer;
 
-        public AchievementsViewModel(List<string> availableTagsList, Services.IDbService db)
+        public AchievementsViewModel(List<string> availableTagsList, IDbService db)
         {
             _db = db;
 

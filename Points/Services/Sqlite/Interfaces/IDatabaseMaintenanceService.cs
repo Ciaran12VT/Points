@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Points.ViewModels
+namespace Points.Services.Sqlite.Interfaces
 {
-    public interface IDatabaseMaintenance
+    public interface IDatabaseMaintenanceService
     {
         string BackupsFolderPath { get; }
 

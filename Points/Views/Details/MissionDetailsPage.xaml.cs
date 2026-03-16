@@ -1,5 +1,5 @@
 using Points.Models;
-using Points.Services;
+using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 
 namespace Points.Views.Details;
@@ -16,7 +16,7 @@ public partial class MissionDetailsPage : ContentPage
         Action<MissionCardModel> onDelete,
         Action<MissionCardModel> onFail,
         List<string> availableTagsList,
-        Services.IDbService db)
+        IDbService db)
     {
         InitializeComponent();
         BindingContext = new MissionDetailsViewModel(model, onSaved, onDelete, onFail, availableTagsList);

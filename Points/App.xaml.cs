@@ -1,4 +1,4 @@
-﻿using Points.Services;
+﻿using Points.Services.Sqlite.Interfaces;
 
 namespace Points
 {

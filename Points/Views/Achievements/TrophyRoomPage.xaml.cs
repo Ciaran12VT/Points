@@ -1,5 +1,5 @@
 using Points.Models;
-using Points.Services;
+using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 
 namespace Points.Views.Achievements;
@@ -8,7 +8,7 @@ public partial class TrophyRoomPage : ContentPage
 {
     private IDbService _db;
 
-    public TrophyRoomPage(Services.IDbService db)
+    public TrophyRoomPage(IDbService db)
 	{
 		InitializeComponent();
         _db = db;

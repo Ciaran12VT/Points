@@ -4,7 +4,16 @@ namespace Points.Views.Settings;
 
 public partial class SettingsPage : ContentPage
 {
+
+/* Unmerged change from project 'Points (net8.0-android)'
+Before:
     public SettingsPage(Services.IDbService _db)
+    {
+After:
+    public SettingsPage(IDbService _db)
+    {
+*/
+    public SettingsPage(Services.Sqlite.Interfaces.IDbService _db)
     {
         InitializeComponent();
         BindingContext = new SettingsViewModel(_db);

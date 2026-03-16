@@ -4,7 +4,16 @@ namespace Points.Views.Shared;
 
 public partial class DateRangePickerPage : ContentPage
 {
+
+/* Unmerged change from project 'Points (net8.0-android)'
+Before:
 	public DateRangePickerPage(Services.IDbService _db)
+	{
+After:
+	public DateRangePickerPage(IDbService _db)
+	{
+*/
+	public DateRangePickerPage(Services.Sqlite.Interfaces.IDbService _db)
 	{
 		InitializeComponent();
 	}
