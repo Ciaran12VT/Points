@@ -13,7 +13,16 @@ After:
 	public AchievementsPage(IDbService _db, List<string> availableTagsList)
 	{
 */
+
+/* Unmerged change from project 'Points (net8.0-android)'
+Before:
 	public AchievementsPage(Services.Sqlite.Interfaces.IDbService _db, List<string> availableTagsList)
+	{
+After:
+	public AchievementsPage(IDbService _db, List<string> availableTagsList)
+	{
+*/
+	public AchievementsPage(Services.Sqlite.Services.Interfaces.IDbService _db, List<string> availableTagsList)
 	{
 		InitializeComponent();
 

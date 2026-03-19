@@ -1,6 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Points.Models;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Sqlite.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;

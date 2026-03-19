@@ -13,7 +13,16 @@ After:
     public SettingsPage(IDbService _db)
     {
 */
+
+/* Unmerged change from project 'Points (net8.0-android)'
+Before:
     public SettingsPage(Services.Sqlite.Interfaces.IDbService _db)
+    {
+After:
+    public SettingsPage(IDbService _db)
+    {
+*/
+    public SettingsPage(Services.Sqlite.Services.Interfaces.IDbService _db)
     {
         InitializeComponent();
         BindingContext = new SettingsViewModel(_db);

@@ -1,5 +1,5 @@
 ﻿using Points.Models;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Sqlite.Services.Interfaces;
 using Points.ViewModels;
 
 namespace Points.Views.Shared;

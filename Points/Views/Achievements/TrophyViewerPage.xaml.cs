@@ -1,6 +1,6 @@
 using Points.Global;
 using Points.Models;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Sqlite.Services.Interfaces;
 
 namespace Points.Views.Achievements;
 

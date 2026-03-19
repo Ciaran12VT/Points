@@ -13,7 +13,16 @@ After:
 	public DateRangePickerPage(IDbService _db)
 	{
 */
+
+/* Unmerged change from project 'Points (net8.0-android)'
+Before:
 	public DateRangePickerPage(Services.Sqlite.Interfaces.IDbService _db)
+	{
+After:
+	public DateRangePickerPage(IDbService _db)
+	{
+*/
+	public DateRangePickerPage(Services.Sqlite.Services.Interfaces.IDbService _db)
 	{
 		InitializeComponent();
 	}

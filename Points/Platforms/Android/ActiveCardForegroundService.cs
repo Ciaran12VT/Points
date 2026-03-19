@@ -11,7 +11,7 @@ using Java.Sql;
 using am = Android.Media;
 using System.Threading;
 using Points.Helpers;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Sqlite.Services.Interfaces;
 
 // Namespace: use your actual root namespace
 namespace Points.Platforms.Android

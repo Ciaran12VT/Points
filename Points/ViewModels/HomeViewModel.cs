@@ -17,7 +17,7 @@ using Points.Services.Locks;
 using CommunityToolkit.Maui.Views;
 using Points.Views.Popups;
 using Points.Evaluators;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Sqlite.Services.Interfaces;
 
 namespace Points.ViewModels
 {

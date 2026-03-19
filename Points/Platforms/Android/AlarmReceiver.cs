@@ -4,7 +4,7 @@ using Android.Content;
 using Android.OS;
 using AndroidX.Core.App;
 using Points.Helpers;
-using Points.Services.Sqlite.Interfaces;   // ServiceHelper.GetService<T>() if you use it
+using Points.Services.Sqlite.Services.Interfaces;   // ServiceHelper.GetService<T>() if you use it
 
 namespace Points.Platforms.Android
 {
