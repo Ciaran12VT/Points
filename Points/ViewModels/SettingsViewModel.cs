@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using Points.Global;
 using Points.Models;
 using Points.Services.Sqlite.Services.Interfaces;
 using System;
@@ -48,7 +49,7 @@ namespace Points.ViewModels
             {
                 // Android generally can't "open a folder" directly in a reliable way.
                 // So we surface the folder path (and/or you can navigate to a "Backups list" page later).
-                await Shell.Current.DisplayAlert("Backup folder", _db.BackupsFolderPath, "OK");
+                await Shell.Current.DisplayAlert("Backup folder", AppPaths.DbBackupsFolder, "OK");
             });
 
             RefreshLastBackedUp();

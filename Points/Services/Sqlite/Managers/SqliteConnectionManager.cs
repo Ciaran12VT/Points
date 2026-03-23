@@ -11,19 +11,17 @@ namespace Points.Services.Sqlite
     public sealed class SqliteConnectionManager : ISqliteConnectionManager
     {
         private readonly string _dbPath;
-        private readonly SqliteSchemaManager _schemaManager;
 
         private SQLiteAsyncConnection? _db;
 
         private readonly SemaphoreSlim _initSemaphore = new(1, 1);
         private bool _initialized;
 
-        public SqliteConnectionManager(string dbPath, SqliteSchemaManager schemaManager)
+        public SqliteConnectionManager(string dbPath)
         {
             if (string.IsNullOrWhiteSpace(dbPath)) throw new ArgumentException("Database path must be provided.", nameof(dbPath));
 
             _dbPath = dbPath;
-            _schemaManager = schemaManager ?? throw new ArgumentNullException(nameof(schemaManager));
         }
 
         /// <summary>
@@ -64,8 +62,6 @@ namespace Points.Services.Sqlite
 
                 await _db.ExecuteAsync("PRAGMA foreign_keys = ON;").ConfigureAwait(false);
 
-                await _schemaManager.EnsureSchemaAsync(_db).ConfigureAwait(false);
-
                 _initialized = true;
             }
             finally
@@ -97,6 +93,26 @@ namespace Points.Services.Sqlite
             if (File.Exists(_dbPath)) File.Delete(_dbPath);
 
             await InitializeAsync().ConfigureAwait(false);
+        }
+
+        public Task BackupAsync()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task WipeAsync()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task RestoreAsync(string backupFilePath)
+        {
+            throw new NotImplementedException();
+        }
+
+        public DateTime? GetLastBackupUtc()
+        {
+            throw new NotImplementedException();
         }
     }
 }

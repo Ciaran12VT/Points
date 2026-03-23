@@ -387,15 +387,86 @@ namespace Points.Services.Sqlite.Services
 
         private static SqliteDbServiceV2Repositories BuildDefaultRepositories(ISqliteConnectionManager connectionManager)
         {
-            var homeSeedReadRepository = new HomeSeedReadRepository(connectionManager);
-            var cardReadRepository = new CardReadRepository(connectionManager);
-            var cardWriteRepository = new CardWriteRepository(connectionManager);
-            var activityRepository = new ActivityRepository(connectionManager);
-            var achievementRepository = new AchievementRepository(connectionManager);
+            // Core read dependencies
+            var tatReadRepository = new TatReadRepository(connectionManager);
+            var scReadRepository = new ScReadRepository(connectionManager);
+            var missionReadRepository = new MissionReadRepository(connectionManager);
+            var budgetReadRepository = new BudgetReadRepository(connectionManager);
+            var trackerReadRepository = new TrackerReadRepository(connectionManager);
+
+            // Achievement dependencies
+            var achievementCardLookupRepository = new AchievementCardLookupRepository(connectionManager);
+            var achievementEvaluationService = new AchievementEvaluationService(
+                connectionManager,
+                achievementCardLookupRepository);
+
+            var achievementCardMaterializer = new AchievementCardMaterializer(
+                achievementEvaluationService);
+
+            var achievementCardReadRepository = new AchievementCardReadRepository(
+                connectionManager,
+                achievementCardMaterializer);
+
+            var achievementRepository = new AchievementRepository(
+                connectionManager,
+                achievementCardLookupRepository,
+                achievementEvaluationService);
+
+            // Enrichment services used by HomeSeed
+            var achievementEnrichmentService = new AchievementEnrichmentService(
+                achievementEvaluationService);
+
             var lockRepository = new LockRepository(connectionManager);
+
+            var lockEnrichmentService = new LockEnrichmentService(lockRepository);
+
+            // Aggregate readers
+            var mainQuestReadRepository = new MainQuestReadRepository(
+                tatReadRepository,
+                scReadRepository);
+
+            var homeSeedReadRepository = new HomeSeedReadRepository(
+                connectionManager,
+                mainQuestReadRepository,
+                missionReadRepository,
+                budgetReadRepository,
+                achievementCardReadRepository,
+                trackerReadRepository,
+                achievementEnrichmentService,
+                lockEnrichmentService);
+
+            // Public-facing facade repos
+            var cardReadRepository = new CardReadRepository(
+                connectionManager,
+                tatReadRepository,
+                scReadRepository,
+                achievementCardMaterializer);
+
+            var cardIdLookupService = new CardIdLookupService(connectionManager);
+
+            var scCardWriteRepository = new ScCardWriteRepository(connectionManager);
+            var tatCardWriteRepository = new TatCardWriteRepository(connectionManager);
+            var missionCardWriteRepository = new MissionCardWriteRepository(connectionManager);
+            var budgetCardWriteRepository = new BudgetCardWriteRepository(connectionManager);
+            var achievementCardWriteRepository = new AchievementCardWriteRepository(connectionManager);
+            var valueTrackerCardWriteRepository = new ValueTrackerCardWriteRepository(connectionManager);
+            var eventTrackerCardWriteRepository = new EventTrackerCardWriteRepository(connectionManager);
+
+            var cardWriteRepository = new CardWriteRepository(
+                connectionManager,
+                scCardWriteRepository,
+                tatCardWriteRepository,
+                missionCardWriteRepository,
+                budgetCardWriteRepository,
+                achievementCardWriteRepository,
+                valueTrackerCardWriteRepository,
+                eventTrackerCardWriteRepository,
+                cardIdLookupService);
+
+            var activityRepository = new ActivityRepository(connectionManager);
             var plannerRepository = new PlannerRepository(connectionManager);
             var shortcutRepository = new ShortcutRepository(connectionManager);
-            var reportRepository = new ReportRepository(connectionManager);
+            var reportRepository = new ReportRepository(connectionManager, AppPaths.DatabasePath);
 
             return new SqliteDbServiceV2Repositories(
                 homeSeedReadRepository,
@@ -408,12 +479,11 @@ namespace Points.Services.Sqlite.Services
                 shortcutRepository,
                 reportRepository);
         }
-    }
 
-    /// <summary>
-    /// Internal dependency bundle to keep the main constructor readable.
-    /// </summary>
-    public sealed record SqliteDbServiceV2Repositories(
+        /// <summary>
+        /// Internal dependency bundle to keep the main constructor readable.
+        /// </summary>
+        public sealed record SqliteDbServiceV2Repositories(
         IHomeSeedReadRepository HomeSeedReadRepository,
         ICardReadRepository CardReadRepository,
         ICardWriteRepository CardWriteRepository,

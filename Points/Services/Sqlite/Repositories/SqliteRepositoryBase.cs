@@ -9,7 +9,7 @@ namespace Points.Services.Sqlite
     /// Keeps shared access to the connection manager, the async DB handle,
     /// and a few cross-cutting helper methods used throughout the persistence layer.
     /// </summary>
-    internal abstract class SqliteRepositoryBase
+    public abstract class SqliteRepositoryBase
     {
         protected SqliteRepositoryBase(ISqliteConnectionManager connectionManager)
         {

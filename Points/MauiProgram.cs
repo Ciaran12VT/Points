@@ -5,6 +5,7 @@ using Points.Interfaces;
 using Points.Models;
 using Points.Services;
 using Points.Services.Sqlite;
+using Points.Services.Sqlite.Services;
 using Points.Services.Sqlite.Services.Interfaces;
 using Points.ViewModels;
 using Points.Views;
@@ -42,7 +43,7 @@ namespace Points
             builder.Services.AddTransient<HomePage>();      // <-- add this
             builder.Services.AddTransient<HomeViewModel>();
             builder.Services.AddSingleton<AppShell>();      // <-- add this
-            builder.Services.AddSingleton<IDbService, SqliteDbService>();
+            builder.Services.AddSingleton<IDbService, SqliteDbServiceV2>();
 
             var app = builder.Build();
 

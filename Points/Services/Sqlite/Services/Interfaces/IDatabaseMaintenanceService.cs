@@ -8,8 +8,6 @@ namespace Points.Services.Sqlite.Services.Interfaces
 {
     public interface IDatabaseMaintenanceService
     {
-        string BackupsFolderPath { get; }
-
         Task WipeAsync();
         Task BackupAsync();
         Task RestoreAsync(string backupFilePath);
