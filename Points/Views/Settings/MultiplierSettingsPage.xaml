@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Settings.MultipliersSettingsPage"
+             Title="Multipliers Settings">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="12">
+
+                <Frame Padding="12"
+                       CornerRadius="12"
+                       HasShadow="False"
+                       BorderColor="#DDDDDD">
+
+                    <VerticalStackLayout Spacing="10">
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Label Text="Hard Mode"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding HardModeEnabled}" />
+                        </Grid>
+
+                        <Label Text="When no Activity is active, apply an idle penalty to discourage wasting time."
+                               Opacity="0.7"
+                               FontSize="12" />
+
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              ColumnSpacing="8"
+                              IsVisible="{Binding HardModeEnabled}">
+                            <Label Text="Idle penalty"
+                                   VerticalOptions="Center"
+                                   Opacity="0.7" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding HardModeIdlePenaltyText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="e.g. 0.2 (stored as negative)" />
+
+                            <Label Grid.Column="2"
+                                   Text="per minute"
+                                   VerticalOptions="Center"
+                                   Opacity="0.7" />
+                        </Grid>
+
+                        <Label Text="Enter a positive or negative number; it will be stored as a negative penalty."
+                               IsVisible="{Binding HardModeEnabled}"
+                               Opacity="0.6"
+                               FontSize="11" />
+
+                        <Label Text="Please enter a valid number."
+                               TextColor="#B00020"
+                               FontSize="12"
+                               IsVisible="{Binding HardModeEnabled}">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsHardModePenaltyValid}"
+                                             Value="True">
+                                    <Setter Property="IsVisible" Value="False" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+
+                    </VerticalStackLayout>
+                </Frame>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button Grid.Row="1"
+                Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48" />
+
+    </Grid>
+</ContentPage>

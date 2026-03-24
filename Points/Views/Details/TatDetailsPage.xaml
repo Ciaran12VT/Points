@@ -167,16 +167,18 @@
 
                 <!-- ValueRates header + add button -->
                 <Grid ColumnDefinitions="Auto,*,Auto"
-                   VerticalOptions="Center"
-                   ColumnSpacing="12"
-                   Margin="0,0,0,4">
-                    <Label Grid.Column="0"
-                        Text="Value Rates"
-                        FontAttributes="Bold"
-                        VerticalOptions="Center"/>
+                      VerticalOptions="Center"
+                      ColumnSpacing="12"
+                      Margin="0,0,0,4"
+                      IsVisible="{Binding IsValueRatesEnabled}">
 
-                    <!-- spacer -->
+                    <Label Grid.Column="0"
+                           Text="Value Rates"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
                     <BoxView Grid.Column="1" Opacity="0" />
+
                     <Button Grid.Column="2"
                             Text="+"
                             WidthRequest="36"
@@ -192,40 +194,38 @@
                 </Grid>
 
                 <CollectionView ItemsSource="{Binding ValueRates}"
-                             SelectionMode="None"
-                             Margin="0,4,0,0">
+                                SelectionMode="None"
+                                Margin="0,4,0,0"
+                                IsVisible="{Binding IsValueRatesEnabled}">
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <Frame Padding="10"
-                                Margin="0,6"
-                                CornerRadius="10"
-                                HasShadow="True">
+                                   Margin="0,6"
+                                   CornerRadius="10"
+                                   HasShadow="True">
                                 <Grid ColumnDefinitions="*,50,40"
-                                   RowDefinitions="Auto"
-                                   ColumnSpacing="10">
+                                      RowDefinitions="Auto"
+                                      ColumnSpacing="10">
 
-                                    <!-- Rate Name -->
                                     <Entry Grid.Row="0" Grid.Column="0"
-                                        Text="{Binding RateName}"
-                                        Placeholder="Step title"/>
+                                           Text="{Binding RateName}"
+                                           Placeholder="Step title"/>
 
-                                    <!-- ValuePerMinute -->
                                     <Entry Grid.Row="0" Grid.Column="1"
-                                        Keyboard="Numeric"
-                                        Text="{Binding ValuePerMinute}"
-                                        Placeholder="Value"
-                                        HorizontalTextAlignment="End"/>
+                                           Keyboard="Numeric"
+                                           Text="{Binding ValuePerMinute}"
+                                           Placeholder="Value"
+                                           HorizontalTextAlignment="End"/>
 
-                                    <!-- Delete -->
                                     <Button Grid.Row="0" Grid.Column="2"
-                                         Text="✕"
-                                         Command="{Binding DeleteValueRateCommand}"
-                                         BackgroundColor="DarkRed"
-                                         TextColor="White"
-                                         WidthRequest="36"
-                                         HeightRequest="36"
-                                         CornerRadius="8"
-                                         Padding="0"/>
+                                            Text="✕"
+                                            Command="{Binding DeleteValueRateCommand}"
+                                            BackgroundColor="DarkRed"
+                                            TextColor="White"
+                                            WidthRequest="36"
+                                            HeightRequest="36"
+                                            CornerRadius="8"
+                            Padding="0"/>
 
                                 </Grid>
                             </Frame>
@@ -234,35 +234,40 @@
                 </CollectionView>
 
                 <!-- Schedule -->
-                <Label Text="Schedule" FontAttributes="Bold" FontSize="14" />
-
-                <Grid ColumnDefinitions="*,Auto"
-                  ColumnSpacing="12"
-                  VerticalOptions="Center">
-
-                    <Label x:Name="ScheduleSummaryLabel"
-                       Text="None"
-                       Opacity="0.75"
-                       VerticalTextAlignment="Center" />
-
-                    <Button Grid.Column="1"
-                        Text="📅"
-                        WidthRequest="36"
-                        HeightRequest="36"
-                        CornerRadius="18"
-                        Padding="0"
-                        HorizontalOptions="End"
-                        VerticalOptions="Center"
-                        BackgroundColor="Green"
-                        Clicked="OnEditSchedulesClicked" />
-                </Grid>
-
-                <!-- Locks -->
-                <Label Text="Locks" FontAttributes="Bold" FontSize="14" />
+                <Label Text="Schedule"
+                       FontAttributes="Bold"
+                       FontSize="14"
+                       IsVisible="{Binding IsSchedulesEnabled}" />
 
                 <Grid ColumnDefinitions="*,Auto"
                       ColumnSpacing="12"
-                      VerticalOptions="Center">
+                      VerticalOptions="Center"
+                      IsVisible="{Binding IsSchedulesEnabled}">
+
+                    <Label x:Name="ScheduleSummaryLabel"
+                           Text="None"
+                           Opacity="0.75"
+                           VerticalTextAlignment="Center" />
+
+                    <Button Grid.Column="1"
+                            Text="📅"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            BackgroundColor="Green"
+                            Clicked="OnEditSchedulesClicked" />
+                </Grid>
+
+                <!-- Locks -->
+                <Label Text="Locks" FontAttributes="Bold" FontSize="14" IsVisible="{Binding IsLocksEnabled}"/>
+
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="12"
+                      VerticalOptions="Center"
+                      IsVisible="{Binding IsLocksEnabled}">
 
                     <Label x:Name="LocksSummaryLabel"
                        Text="None"

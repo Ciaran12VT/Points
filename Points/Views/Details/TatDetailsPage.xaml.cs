@@ -1,4 +1,5 @@
-﻿using Points.Models;
+﻿using Points.Global;
+using Points.Models;
 using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 using Points.Views.Schedules;
@@ -17,8 +18,13 @@ public partial class TatDetailsPage : ContentPage
     public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList, IDbService db, List<DependencyTaskOption> dependencyOptions)
     {
         InitializeComponent();
-        BindingContext = new TatDetailsViewModel(model, onSaved, onDelete, availableTagsList);
+        var vm = new TatDetailsViewModel(model, onSaved, onDelete, availableTagsList);
+        BindingContext = vm;
+
         _model = model;
+        vm.IsLocksEnabled = SettingsProvider.IsLocksEnabled;
+        vm.IsValueRatesEnabled = SettingsProvider.IsValueRatesEnabled;
+        vm.IsSchedulesEnabled = SettingsProvider.IsSchedulesEnabled;
         _db = db;
         _allTags = availableTagsList;
         _dependencyOptions = dependencyOptions;

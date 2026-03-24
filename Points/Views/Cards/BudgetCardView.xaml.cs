@@ -1,3 +1,4 @@
+using Points.Global;
 using Points.Helpers;
 using Points.Models;
 using Points.Services;
@@ -16,6 +17,8 @@ public partial class BudgetCardView : ContentView
     {
         if (BindingContext is not Points.Models.BudgetCardModel b)
             return;
+
+        b.IsCashInEnabled = SettingsProvider.IsCashInEnabled;
 
         var input = await Shell.Current.DisplayPromptAsync(
             "Spend",

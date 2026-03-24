@@ -140,11 +140,20 @@ public partial class HomePage : ContentPage
         vm.FilterCardsBySearchTerm(input);
     }
 
-    protected override void OnAppearing()
+
+    private bool _hasAppearedOnce = false;
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
 
         StartTicker();
+
+        if (BindingContext is HomeViewModel vm && _hasAppearedOnce)
+        {
+            await vm.LoadAsync();
+        }
+
+        _hasAppearedOnce = true;
     }
 
     protected override void OnDisappearing()

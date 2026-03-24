@@ -47,29 +47,30 @@
 
                             <!-- Spend button -->
                             <Button
-                    Text="-"
-                    WidthRequest="36"
-                    HeightRequest="36"
-                    CornerRadius="18"
-                    Padding="0"
-                    Margin="0"
-                    TextColor="White"
-                    BackgroundColor="Red"
-                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SpendCommand}"
-                    Clicked="OnSpendClicked" />
+                                Text="-"
+                                WidthRequest="36"
+                                HeightRequest="36"
+                                CornerRadius="18"
+                                Padding="0"
+                                Margin="0"
+                                TextColor="White"
+                                BackgroundColor="Red"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SpendCommand}"
+                                Clicked="OnSpendClicked" />
 
                             <!-- Cash-in button -->
                             <Button
-                    Text="$"
-                    WidthRequest="36"
-                    HeightRequest="36"
-                    CornerRadius="18"
-                    Padding="0"
-                    Margin="0"
-                    TextColor="White"
-                    BackgroundColor="Green"
-                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CashInCommand}"
-                    Clicked="OnCashInClicked" />
+                                Text="$"
+                                WidthRequest="36"
+                                HeightRequest="36"
+                                CornerRadius="18"
+                                Padding="0"
+                                Margin="0"
+                                TextColor="White"
+                                BackgroundColor="Green"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CashInCommand}"
+                                Clicked="OnCashInClicked" 
+                                IsVisible="{Binding IsCashInEnabled}"/>
 
             </HorizontalStackLayout>
 

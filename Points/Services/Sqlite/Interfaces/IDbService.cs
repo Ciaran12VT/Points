@@ -1,4 +1,5 @@
 ﻿using Points.Evaluators;
+using Points.Global;
 using Points.Models;
 
 namespace Points.Services.Sqlite.Interfaces
@@ -102,6 +103,17 @@ namespace Points.Services.Sqlite.Interfaces
         Task UpsertReportAsync(ReportModel report);
         Task DeleteReportAsync(int reportId);
         Task<IReadOnlyList<ReportModel>> GetReportsAsync();
+
+        #endregion
+
+        #region Settings
+
+        Task SetStringSettingAsync(string settingKey, string value);
+        Task SetBoolSettingAsync(string settingKey, bool value);
+        Task SetIntSettingAsync(string settingKey, int value);
+        Task SetNullableIntSettingAsync(string settingKey, int? value);
+        Task SetDoubleSettingAsync(string settingKey, double value);
+        Task<List<AcquiredSetting>> GetSettingsAsync();
 
         #endregion
     }

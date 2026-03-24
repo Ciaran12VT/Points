@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Settings.ModulesAndFeaturesSettingsPage"
+             Title="Modules &amp; Features">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="12">
+
+                <!-- MODULES -->
+                <Frame Padding="12"
+                       CornerRadius="12"
+                       HasShadow="False"
+                       BorderColor="#DDDDDD">
+
+                    <VerticalStackLayout Spacing="12">
+
+                        <Label Text="Modules"
+                               FontAttributes="Bold"
+                               FontSize="18" />
+
+                        <!-- Dashboard -->
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Dashboard"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding DashboardActive}" />
+                            <Entry Grid.Column="2"
+                                   WidthRequest="70"
+                                   Text="{Binding DashboardScreenOrderText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Order" />
+                        </Grid>
+
+                        <!-- Main Quest -->
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Main Quest"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding MainQuestActive}" />
+                            <Entry Grid.Column="2"
+                                   WidthRequest="70"
+                                   Text="{Binding MainQuestScreenOrderText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Order" />
+                        </Grid>
+
+                        <!-- Mission -->
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Mission"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding MissionActive}" />
+                            <Entry Grid.Column="2"
+                                   WidthRequest="70"
+                                   Text="{Binding MissionScreenOrderText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Order" />
+                        </Grid>
+
+                        <!-- Budgets -->
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Budgets"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding BudgetsActive}" />
+                            <Entry Grid.Column="2"
+                                   WidthRequest="70"
+                                   Text="{Binding BudgetsScreenOrderText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Order" />
+                        </Grid>
+
+                        <!-- Achievements -->
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Achievements"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding AchievementsActive}" />
+                            <Entry Grid.Column="2"
+                                   WidthRequest="70"
+                                   Text="{Binding AchievementsScreenOrderText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Order" />
+                        </Grid>
+
+                        <!-- Arcs -->
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Arcs"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding ArcsActive}" />
+                            <Entry Grid.Column="2"
+                                   WidthRequest="70"
+                                   Text="{Binding ArcsScreenOrderText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Order" />
+                        </Grid>
+
+                        <!-- Planners -->
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Planners"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding PlannersActive}" />
+                            <Entry Grid.Column="2"
+                                   WidthRequest="70"
+                                   Text="{Binding PlannersScreenOrderText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Order" />
+                        </Grid>
+
+                        <Label Text="Each module has an enabled flag and a screen order."
+                               Opacity="0.65"
+                               FontSize="12" />
+
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- FEATURES -->
+                <Frame Padding="12"
+                       CornerRadius="12"
+                       HasShadow="False"
+                       BorderColor="#DDDDDD">
+
+                    <VerticalStackLayout Spacing="12">
+
+                        <Label Text="Features"
+                               FontAttributes="Bold"
+                               FontSize="18" />
+
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Locks"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding LocksActive}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Schedules"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding SchedulesActive}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Value Rates"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding ValueRatesActive}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="10">
+                            <Label Text="Cash In"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding CashInActive}" />
+                        </Grid>
+
+                    </VerticalStackLayout>
+                </Frame>
+
+                <Label Text="Please enter valid whole numbers for screen order values."
+                       TextColor="#B00020"
+                       FontSize="12"
+                       IsVisible="{Binding HasInvalidScreenOrder}" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button Grid.Row="1"
+                Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48" />
+
+    </Grid>
+</ContentPage>

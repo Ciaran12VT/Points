@@ -1,51 +1,29 @@
-using Points.ViewModels;
+using Points.Services.Sqlite.Interfaces;
 
 namespace Points.Views.Settings;
 
 public partial class SettingsPage : ContentPage
 {
+    private readonly IDbService _db;
 
-/* Unmerged change from project 'Points (net8.0-android)'
-Before:
-    public SettingsPage(Services.IDbService _db)
-    {
-After:
-    public SettingsPage(IDbService _db)
-    {
-*/
-    public SettingsPage(Services.Sqlite.Interfaces.IDbService _db)
+    public SettingsPage(IDbService db)
     {
         InitializeComponent();
-        BindingContext = new SettingsViewModel(_db);
+        _db = db;
     }
 
-
-    private async void OnWipeDbClicked(object sender, EventArgs e)
+    private async void OnDatabaseSettingsClicked(object sender, EventArgs e)
     {
-        if (BindingContext is not SettingsViewModel vm) return;
-
-        var input = await Shell.Current.DisplayPromptAsync("Wipe DB", "Are you sure you want to wipe the DB? To proceed, type exactly \"Wipe db\".", "Wipe", "Cancel");
-
-        if (string.IsNullOrWhiteSpace(input))
-            return;
-
-        if(input == "Wipe db")
-        {
-            await vm.WipeDatabase();
-        }
+        await Shell.Current.Navigation.PushAsync(new DatabaseSettingsPage(_db));
     }
 
-    private async void OnExportDBClicked(object sender, EventArgs e)
+    private async void OnMultipliersSettingsClicked(object sender, EventArgs e)
     {
-        if (BindingContext is not SettingsViewModel vm) return;
-
-        await vm.ExportDatabaseAsync();
+        await Shell.Current.Navigation.PushAsync(new MultipliersSettingsPage(_db));
     }
 
-    private async void OnImportDBClicked(object sender, EventArgs e)
+    private async void OnModulesAndFeaturesSettingsClicked(object sender, EventArgs e)
     {
-        if (BindingContext is not SettingsViewModel vm) return;
-
-        await vm.ImportDatabaseAsync();
+        await Shell.Current.Navigation.PushAsync(new ModulesAndFeaturesSettingsPage(_db));
     }
 }

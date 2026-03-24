@@ -30,6 +30,44 @@ namespace Points.ViewModels
         private readonly IDispatcherTimer _timer;
         public void StopTimer() => _timer?.Stop();
 
+        public bool IsLocksEnabled
+        {
+            get => _model.IsLocksEnabled;
+            set
+            {
+                if (_model.IsLocksEnabled != value)
+                {
+                    _model.IsLocksEnabled = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+        public bool IsValueRatesEnabled
+        {
+            get => _model.IsValueRatesEnabled;
+            set
+            {
+                if (_model.IsValueRatesEnabled != value)
+                {
+                    _model.IsValueRatesEnabled = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+        public bool IsSchedulesEnabled
+        {
+            get => _model.IsSchedulesEnabled;
+            set
+            {
+                if (_model.IsSchedulesEnabled != value)
+                {
+                    _model.IsSchedulesEnabled = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
         public TatDetailsViewModel(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList)
         {
             _onSaved = onSaved;

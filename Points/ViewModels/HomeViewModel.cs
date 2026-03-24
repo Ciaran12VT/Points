@@ -386,23 +386,11 @@ namespace Points.ViewModels
                 {
                     eventCard.AddValue();
                     await _db.SaveCardModelAsync(eventCard);
-                }
-
-                
+                }      
             });
-
-            // Pages + mock data moved out of constructor logic
-            InitializePages();        // defines pages (empty)
-                                      //SeedMockCards();          // adds mocks via the SAME route as UI adds
 
             // kick off async load without awaiting
             Initialization = LoadAsync();
-
-            // Start on Main Quest
-            Position = 0;
-
-            // Ensure mission ordering after seeding
-            SortMissionCards();
         }
 
         private void WireLongPress(ICardModel card)
@@ -474,8 +462,13 @@ namespace Points.ViewModels
             });
         }
 
-        private async Task LoadAsync()
+        public async Task LoadAsync()
         {
+            var settings = await _db.GetSettingsAsync();
+            SettingsProvider.Initialize(settings);
+
+            await InitializePagesAsync();
+
             // Get seed data (mock now, sqlite later)
             var now = DateTime.Now;
             var seed = await _db.GetHomeSeedDataAsync(new TimeScopeRange(TimeScope.Daily, now).Start, new TimeScopeRange(TimeScope.Monthly, now).End);
@@ -486,15 +479,15 @@ namespace Points.ViewModels
             // Make sure we touch ObservableCollection on UI thread
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                var dashboard = Pages.First(p => p.Name == "Dashboard");
-                var mainQuest = Pages.First(p => p.Name == "Main Quest");
-                var mission = Pages.First(p => p.Name == "Mission");
-                var budgets = Pages.First(p => p.Name == "Budgets");
-                var achievements = Pages.First(p => p.Name == "Challenges & Pinned Achievements");
-                var trackers = Pages.First(p => p.Name == "Arcs");
-                var planners = Pages.First(p => p.Name == "Planners");
+                var dashboard = Pages.FirstOrDefault(p => p.Name == "Dashboard");
+                var mainQuest = Pages.FirstOrDefault(p => p.Name == "Main Quest");
+                var mission = Pages.FirstOrDefault(p => p.Name == "Mission");
+                var budgets = Pages.FirstOrDefault(p => p.Name == "Budgets");
+                var achievements = Pages.FirstOrDefault(p => p.Name == "Challenges & Pinned Achievements");
+                var trackers = Pages.FirstOrDefault(p => p.Name == "Arcs");
+                var planners = Pages.FirstOrDefault(p => p.Name == "Planners");
 
-                RebuildDashboardCells(dashboard, shortcuts);
+                if(dashboard != null) RebuildDashboardCells(dashboard, shortcuts);
 
                 // Activate the card that was active when the app last closed (DB-authoritative)
                 if (openActivity != null)
@@ -532,23 +525,38 @@ namespace Points.ViewModels
                 }
 
 
-                foreach (var c in seed.MainQuestCards)
-                    CommitCardToPage(mainQuest, c, true);
+                if (mainQuest != null)
+                {
+                    foreach (var c in seed.MainQuestCards)
+                        CommitCardToPage(mainQuest, c, true);
+                }
 
-                foreach (var c in seed.MissionCards)
-                    CommitCardToPage(mission, c, true);
+                if (mission != null)
+                {
+                    foreach (var c in seed.MissionCards)
+                        CommitCardToPage(mission, c, true);
+                }
 
-                foreach (var c in seed.BudgetCards)
-                    CommitCardToPage(budgets, c, true);
+                if (budgets != null)
+                {
+                    foreach (var c in seed.BudgetCards)
+                        CommitCardToPage(budgets, c, true);
+                }
 
-                foreach (var c in seed.Achievements.Cast<AchievementCardModel>().Where(x => x.IsPinned))
-                    CommitCardToPage(achievements, c, true);
+                if (achievements != null)
+                {
+                    foreach (var c in seed.Achievements.Cast<AchievementCardModel>().Where(x => x.IsPinned))
+                        CommitCardToPage(achievements, c, true);
+                }
 
-                foreach (var c in seed.ValueTrackers)
-                    CommitCardToPage(trackers, c, true);
+                if (trackers != null)
+                {
+                    foreach (var c in seed.ValueTrackers)
+                        CommitCardToPage(trackers, c, true);
 
-                foreach (var c in seed.EventTrackers)
-                    CommitCardToPage(trackers, c, true);
+                    foreach (var c in seed.EventTrackers)
+                        CommitCardToPage(trackers, c, true);
+                }
 
                 SortMissionCards();
                 OnPropertyChanged(nameof(HasNegativeAvailableMission));
@@ -562,43 +570,50 @@ namespace Points.ViewModels
                 var allCards = seed.MainQuestCards;
                 var enabledPlannerModels = allPlannerModels.Where(p => p.Enabled).ToList();
 
-                foreach (var scope in new[] { TimeScope.Daily, TimeScope.Weekly, TimeScope.Monthly })
+                if (planners != null)
                 {
-                    var modelsForScope = enabledPlannerModels
-                        .Where(p => p.TimeScope == scope)
-                        .ToList();
-
-                    if (modelsForScope.Count == 0) continue;
-
-                    var rowVms = new List<PlannerProgressRowVm>();
-                    foreach (var plannerModel in modelsForScope)
+                    foreach (var scope in new[] { TimeScope.Daily, TimeScope.Weekly, TimeScope.Monthly })
                     {
-                        var card = allCards.FirstOrDefault(c => c.CardID == plannerModel.CardId);
-                        if (card is null) continue;
+                        var modelsForScope = enabledPlannerModels
+                            .Where(p => p.TimeScope == scope)
+                            .ToList();
 
-                        var row = new PlannerProgressRowVm(card, plannerModel)
+                        if (modelsForScope.Count == 0)
+                            continue;
+
+                        var rowVms = new List<PlannerProgressRowVm>();
+                        foreach (var plannerModel in modelsForScope)
                         {
-                            EnableCheckbox = false
-                        };
-                        rowVms.Add(row);
-                    }
+                            var card = allCards.FirstOrDefault(c => c.CardID == plannerModel.CardId);
+                            if (card is null)
+                                continue;
 
-                    if (rowVms.Count == 0) continue;
+                            var row = new PlannerProgressRowVm(card, plannerModel)
+                            {
+                                EnableCheckbox = false
+                            };
 
-                    var maxValue = rowVms.Max(r => Math.Max(r.TotalValue, r.CurrentValue.HasValue ? r.CurrentValue.Value : 0));
+                            rowVms.Add(row);
+                        }
 
-                    CommitCardToPage(planners, new DateHeaderCardModel { Title = scope.ToString() }, noDb: true);
+                        if (rowVms.Count == 0)
+                            continue;
 
-                    foreach (var row in rowVms)
-                    {
-                        row.MaxValue = maxValue;
-                        CommitCardToPage(planners, row, noDb: true);
+                        var maxValue = rowVms.Max(r => Math.Max(
+                            r.TotalValue,
+                            r.CurrentValue.HasValue ? r.CurrentValue.Value : 0));
+
+                        CommitCardToPage(planners, new DateHeaderCardModel { Title = scope.ToString() }, noDb: true);
+
+                        foreach (var row in rowVms)
+                        {
+                            row.MaxValue = maxValue;
+                            CommitCardToPage(planners, row, noDb: true);
+                        }
                     }
                 }
 
             });
-
-
 
             var scheduleables =
                 seed.MainQuestCards
@@ -613,6 +628,12 @@ namespace Points.ViewModels
                 .ToList();
 
             await _alarmScheduler.ScheduleAllAsync(schedules);
+
+            // Start on Main Quest
+            Position = 0;
+
+            // Ensure mission ordering after seeding
+            SortMissionCards();
         }
 
         private async Task ReloadPlannersAsync()
@@ -1253,18 +1274,127 @@ namespace Points.ViewModels
 
         #region Page + mock seeding (moved out of ctor; uses single route)
 
-        private void InitializePages()
+        private async Task InitializePagesAsync()
         {
             Pages.Clear();
 
-            Pages.Add(new HomePageModel("Dashboard", Enumerable.Empty<ICardModel>(), "𓃑", 7));
-            Pages.Add(new HomePageModel("Main Quest", Enumerable.Empty<IActiveCardModel>(), "♻", 12));
-            Pages.Add(new HomePageModel("Mission", Enumerable.Empty<IActiveCardModel>(), "⚑", 12));
-            Pages.Add(new HomePageModel("Budgets", Enumerable.Empty<IActiveCardModel>(), "◷", 12));
-            Pages.Add(new HomePageModel("Challenges & Pinned Achievements", Enumerable.Empty<ICardModel>(), "★", 12));
-            Pages.Add(new HomePageModel("Arcs", Enumerable.Empty<ICardModel>(), "∿", 12));
-            Pages.Add(new HomePageModel("Planners", Enumerable.Empty<ICardModel>(), "☰", 12));
-       
+            var settings = await _db.GetSettingsAsync();
+
+            var pageDefinitions = new List<PageDefinition>
+            {
+                new(
+                    title: "Dashboard",
+                    icon: "𓃑",
+                    defaultOrder: 1,
+                    activeSettingKey: SettingKeys.DashboardActive,
+                    orderSettingKey: SettingKeys.DashboardScreenOrder,
+                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
+
+                new(
+                    title: "Main Quest",
+                    icon: "♻",
+                    defaultOrder: 2,
+                    activeSettingKey: SettingKeys.MainQuestActive,
+                    orderSettingKey: SettingKeys.MainQuestScreenOrder,
+                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
+
+                new(
+                    title: "Mission",
+                    icon: "⚑",
+                    defaultOrder: 3,
+                    activeSettingKey: SettingKeys.MissionActive,
+                    orderSettingKey: SettingKeys.MissionScreenOrder,
+                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
+
+                new(
+                    title: "Budgets",
+                    icon: "◷",
+                    defaultOrder: 4,
+                    activeSettingKey: SettingKeys.BudgetsActive,
+                    orderSettingKey: SettingKeys.BudgetsScreenOrder,
+                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
+
+                new(
+                    title: "Challenges & Pinned Achievements",
+                    icon: "★",
+                    defaultOrder: 5,
+                    activeSettingKey: SettingKeys.AchievementsActive,
+                    orderSettingKey: SettingKeys.AchievementsScreenOrder,
+                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
+
+                new(
+                    title: "Arcs",
+                    icon: "∿",
+                    defaultOrder: 6,
+                    activeSettingKey: SettingKeys.ArcsActive,
+                    orderSettingKey: SettingKeys.ArcsScreenOrder,
+                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
+
+                new(
+                    title: "Planners",
+                    icon: "☰",
+                    defaultOrder: 7,
+                    activeSettingKey: SettingKeys.PlannersActive,
+                    orderSettingKey: SettingKeys.PlannersScreenOrder,
+                    cardsFactory: () => Enumerable.Empty<ICardModel>())
+            };
+
+            var activePagesInOrder = pageDefinitions
+                .Select(def => new
+                {
+                    Definition = def,
+                    IsActive = GetBoolSetting(settings, def.ActiveSettingKey, true),
+                    ScreenOrder = GetIntSetting(settings, def.OrderSettingKey, def.DefaultOrder)
+                })
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.ScreenOrder)
+                .ThenBy(x => x.Definition.DefaultOrder)
+                .ToList();
+
+            foreach (var page in activePagesInOrder)
+            {
+                Pages.Add(new HomePageModel(
+                    page.Definition.Title,
+                    page.Definition.CardsFactory(),
+                    page.Definition.Icon,
+                    12));
+            }
+        }
+
+        private static bool GetBoolSetting(List<AcquiredSetting> settings, string key, bool defaultValue)
+        {
+            return settings.FirstOrDefault(x => x.SettingKey == key)?.BoolValue ?? defaultValue;
+        }
+
+        private static int GetIntSetting(List<AcquiredSetting> settings, string key, int defaultValue)
+        {
+            return settings.FirstOrDefault(x => x.SettingKey == key)?.IntValue ?? defaultValue;
+        }
+
+        private sealed class PageDefinition
+        {
+            public string Title { get; }
+            public string Icon { get; }
+            public int DefaultOrder { get; }
+            public string ActiveSettingKey { get; }
+            public string OrderSettingKey { get; }
+            public Func<IEnumerable<ICardModel>> CardsFactory { get; }
+
+            public PageDefinition(
+                string title,
+                string icon,
+                int defaultOrder,
+                string activeSettingKey,
+                string orderSettingKey,
+                Func<IEnumerable<ICardModel>> cardsFactory)
+            {
+                Title = title;
+                Icon = icon;
+                DefaultOrder = defaultOrder;
+                ActiveSettingKey = activeSettingKey;
+                OrderSettingKey = orderSettingKey;
+                CardsFactory = cardsFactory;
+            }
         }
 
         #endregion

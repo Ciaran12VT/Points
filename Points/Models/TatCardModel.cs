@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Maui.Views;
 using Points.Converters;
 using Points.Evaluators;
+using Points.Global;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -34,7 +35,50 @@ namespace Points.Models
 
         public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
 
-        public List<LockModel> Locks { get; set; } = new();
+        private bool _isLocksEnabled;
+        public bool IsLocksEnabled
+        {
+            get => _isLocksEnabled;
+            set
+            {
+                if (SetProperty(ref _isLocksEnabled, value))
+                {
+                    RaisePropertyChanged(nameof(Locks));
+                }
+            }
+        }
+        private bool _isValueRatesEnabled;
+        public bool IsValueRatesEnabled
+        {
+            get => _isValueRatesEnabled;
+            set => SetProperty(ref _isValueRatesEnabled, value);
+        }
+
+        private bool _isSchedulesEnabled;
+        public bool IsSchedulesEnabled
+        {
+            get => _isSchedulesEnabled;
+            set => SetProperty(ref _isSchedulesEnabled, value);
+        }
+
+        private List<LockModel> _locks = new();
+
+        public List<LockModel> Locks
+        {
+            get
+            {
+                if (!IsLocksEnabled)
+                    return EmptyLocks;
+
+                return _locks;
+            }
+            set
+            {
+                _locks = value ?? new List<LockModel>();
+            }
+        }
+
+        private static readonly List<LockModel> EmptyLocks = new();
 
         public ObservableCollection<CardSchedule> Schedules { get; set; } = new();
 

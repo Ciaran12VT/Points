@@ -2,6 +2,7 @@
 using Points.Evaluators;
 using Points.Global;
 using Points.Models;
+using Points.Models.DbModels;
 using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 using SQLite;
@@ -72,6 +73,7 @@ namespace Points.Services.Sqlite
                 });
 
                 await EnsureAchievementCardSchemaAsync();
+                await SaveBuiltInSettingDefinitionsAsync();
             }
             finally
             {
@@ -4368,13 +4370,360 @@ namespace Points.Services.Sqlite
 
         #endregion
 
-        #endregion
+        #region Settings
 
-        #region Delete
+        private async Task SaveBuiltInSettingDefinitionsAsync()
+        {
+            var settingDefinitions = SettingKeys.GetBuiltInSettingDefinitions();
+            await SaveSettingDefinitionsAsync(settingDefinitions);
+        }
 
-        #region Achievements
+        public sealed class SettingRow
+        {
+            public string SettingKey { get; set; } = string.Empty;
+            public string SettingValue { get; set; } = string.Empty;
+            public string ValueType { get; set; } = string.Empty;
+            public string Category { get; set; } = string.Empty;
+            public string DisplayName { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public int IsUserEditable { get; set; }
+            public int SortOrder { get; set; }
+        }
 
-        public async Task DeleteAchievementCardModelAsync(AchievementCardModel model)
+        private void ValidateSettingDefinitions(List<SettingDefinition> settingDefinitions)
+        {
+            var duplicateKeys = settingDefinitions
+                .GroupBy(x => x.SettingKey)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (duplicateKeys.Any())
+            {
+                throw new InvalidOperationException(
+                    $"Duplicate setting keys found: {string.Join(", ", duplicateKeys)}");
+            }
+        }
+
+        private async Task SaveSettingDefinitionsAsync(List<SettingDefinition> settingDefinitions)
+        {
+            ValidateSettingDefinitions(settingDefinitions);
+
+            // Get all current rows from the DB
+            var existingSettingsInDb = await Db.QueryAsync<SettingRow>("SELECT * FROM Setting");
+
+            foreach (var definition in settingDefinitions)
+            {
+                var existingSetting = existingSettingsInDb.FirstOrDefault(x => x.SettingKey == definition.SettingKey);
+
+                if (existingSetting == null)
+                {
+                    // Insert brand new setting row using the code-owned default value + metadata
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO Setting
+                            (SettingKey, SettingValue, ValueType, Category, DisplayName, Description, IsUserEditable, SortOrder)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+                        definition.SettingKey,
+                        definition.DefaultValue,
+                        definition.ValueType,
+                        definition.Category,
+                        definition.DisplayName,
+                        definition.Description,
+                        definition.IsUserEditable ? 1 : 0,
+                        definition.SortOrder);
+                }
+                else
+                {
+                    // Update code-owned metadata, but preserve the existing SettingValue
+                    await Db.ExecuteAsync(
+                        @"UPDATE Setting
+                          SET ValueType = ?,
+                              Category = ?,
+                              DisplayName = ?,
+                              Description = ?,
+                              IsUserEditable = ?,
+                              SortOrder = ?
+                          WHERE SettingKey = ?;",
+                        definition.ValueType,
+                        definition.Category,
+                        definition.DisplayName,
+                        definition.Description,
+                        definition.IsUserEditable ? 1 : 0,
+                        definition.SortOrder,
+                        definition.SettingKey);
+
+                    // Remove from the "to delete" list
+                    existingSettingsInDb.Remove(existingSetting);
+                }
+            }
+
+            // Any remaining rows in existingSettingsInDb no longer exist in code, so delete them
+            foreach (var settingToDelete in existingSettingsInDb)
+            {
+                await Db.ExecuteAsync(
+                    "DELETE FROM Setting WHERE SettingKey = ?;",
+                    settingToDelete.SettingKey);
+            }
+        }
+
+        public async Task<List<AcquiredSetting>> GetSettingsAsync()
+        {
+            var settingRows = await Db.QueryAsync<SettingRow>(
+                "SELECT * FROM Setting ORDER BY Category, SortOrder, SettingKey;");
+
+            var acquiredSettings = new List<AcquiredSetting>();
+
+            foreach (var row in settingRows)
+            {
+                var acquiredSetting = GetAcquiredSettingFromRow(row);
+                acquiredSettings.Add(acquiredSetting);
+            }
+
+            return acquiredSettings;
+        }
+
+        private AcquiredSetting GetAcquiredSettingFromRow(SettingRow row)
+        {
+            return row.ValueType switch
+            {
+                SettingValueTypes.String => GetStringSettingFromRow(row),
+                SettingValueTypes.Bool => GetBoolSettingFromRow(row),
+                SettingValueTypes.Int => GetIntSettingFromRow(row),
+                SettingValueTypes.NullableInt => GetNullableIntSettingFromRow(row),
+                SettingValueTypes.Double => GetDoubleSettingFromRow(row),
+                _ => throw new InvalidOperationException(
+                    $"Unsupported setting value type '{row.ValueType}' for setting '{row.SettingKey}'.")
+            };
+        }
+
+        private AcquiredSetting GetStringSettingFromRow(SettingRow row)
+        {
+            return CreateBaseAcquiredSetting(row, row.SettingValue, stringValue: row.SettingValue);
+        }
+
+        private AcquiredSetting GetBoolSettingFromRow(SettingRow row)
+        {
+            if (!TryParseBoolSettingValue(row.SettingValue, out var parsedValue))
+            {
+                throw new InvalidOperationException(
+                    $"Setting '{row.SettingKey}' has ValueType '{SettingValueTypes.Bool}' but value '{row.SettingValue}' could not be parsed.");
+            }
+
+            return CreateBaseAcquiredSetting(row, row.SettingValue, boolValue: parsedValue);
+        }
+
+        private AcquiredSetting GetIntSettingFromRow(SettingRow row)
+        {
+            if (!TryParseIntSettingValue(row.SettingValue, out var parsedValue))
+            {
+                throw new InvalidOperationException(
+                    $"Setting '{row.SettingKey}' has ValueType '{SettingValueTypes.Int}' but value '{row.SettingValue}' could not be parsed.");
+            }
+
+            return CreateBaseAcquiredSetting(row, row.SettingValue, intValue: parsedValue);
+        }
+
+        private AcquiredSetting GetNullableIntSettingFromRow(SettingRow row)
+        {
+            if (!TryParseNullableIntSettingValue(row.SettingValue, out var parsedValue))
+            {
+                throw new InvalidOperationException(
+                    $"Setting '{row.SettingKey}' has ValueType '{SettingValueTypes.NullableInt}' but value '{row.SettingValue}' could not be parsed.");
+            }
+
+            return CreateBaseAcquiredSetting(row, row.SettingValue, intValue: parsedValue);
+        }
+
+        private AcquiredSetting GetDoubleSettingFromRow(SettingRow row)
+        {
+            if (!TryParseDoubleSettingValue(row.SettingValue, out var parsedValue))
+            {
+                throw new InvalidOperationException(
+                    $"Setting '{row.SettingKey}' has ValueType '{SettingValueTypes.Double}' but value '{row.SettingValue}' could not be parsed.");
+            }
+
+            return CreateBaseAcquiredSetting(row, row.SettingValue, doubleValue: parsedValue);
+        }
+
+        private AcquiredSetting CreateBaseAcquiredSetting(
+            SettingRow row,
+            string rawValue,
+            string? stringValue = null,
+            bool? boolValue = null,
+            int? intValue = null,
+            double? doubleValue = null)
+        {
+            return new AcquiredSetting
+            {
+                SettingKey = row.SettingKey,
+                ValueType = row.ValueType,
+                RawValue = rawValue,
+
+                StringValue = stringValue,
+                BoolValue = boolValue,
+                IntValue = intValue,
+                DoubleValue = doubleValue,
+
+                Category = row.Category,
+                DisplayName = row.DisplayName,
+                Description = row.Description,
+                IsUserEditable = row.IsUserEditable == 1,
+                SortOrder = row.SortOrder
+            };
+        }
+
+        private bool TryParseBoolSettingValue(string value, out bool parsedValue)
+        {
+            if (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                parsedValue = true;
+                return true;
+            }
+
+            if (string.Equals(value, "false", StringComparison.OrdinalIgnoreCase))
+            {
+                parsedValue = false;
+                return true;
+            }
+
+            parsedValue = false;
+            return false;
+        }
+
+        private bool TryParseIntSettingValue(string value, out int parsedValue)
+        {
+            return int.TryParse(
+                value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out parsedValue);
+        }
+
+        private bool TryParseNullableIntSettingValue(string value, out int? parsedValue)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                parsedValue = null;
+                return true;
+            }
+
+            if (int.TryParse(
+                value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var parsedInt))
+            {
+                parsedValue = parsedInt;
+                return true;
+            }
+
+            parsedValue = null;
+            return false;
+        }
+
+        private bool TryParseDoubleSettingValue(string value, out double parsedValue)
+        {
+            return double.TryParse(
+                value,
+                NumberStyles.Float | NumberStyles.AllowLeadingSign,
+                CultureInfo.InvariantCulture,
+                out parsedValue);
+        }
+
+        public async Task<Dictionary<string, AcquiredSetting>> GetSettingsByKeyAsync()
+        {
+            var settings = await GetSettingsAsync();
+            return settings.ToDictionary(x => x.SettingKey, x => x);
+        }
+
+        public async Task SetStringSettingAsync(string settingKey, string value)
+        {
+            await SetSettingValueAsync(settingKey, value ?? string.Empty, SettingValueTypes.String);
+        }
+
+        public async Task SetBoolSettingAsync(string settingKey, bool value)
+        {
+            await SetSettingValueAsync(settingKey, FormatBoolSettingValue(value), SettingValueTypes.Bool);
+        }
+
+        public async Task SetIntSettingAsync(string settingKey, int value)
+        {
+            await SetSettingValueAsync(settingKey, FormatIntSettingValue(value), SettingValueTypes.Int);
+        }
+
+        public async Task SetNullableIntSettingAsync(string settingKey, int? value)
+        {
+            await SetSettingValueAsync(settingKey, FormatNullableIntSettingValue(value), SettingValueTypes.NullableInt);
+        }
+
+        public async Task SetDoubleSettingAsync(string settingKey, double value)
+        {
+            await SetSettingValueAsync(settingKey, FormatDoubleSettingValue(value), SettingValueTypes.Double);
+        }
+
+        private async Task SetSettingValueAsync(string settingKey, string settingValue, string expectedValueType)
+        {
+            var existingRows = await Db.QueryAsync<SettingRow>(
+                "SELECT * FROM Setting WHERE SettingKey = ?;",
+                settingKey);
+
+            var existingRow = existingRows.FirstOrDefault();
+
+            if (existingRow == null)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot set value for setting '{settingKey}' because no Setting row exists for that key.");
+            }
+
+            ValidateSettingValueType(existingRow, expectedValueType);
+
+            await Db.ExecuteAsync(
+                "UPDATE Setting SET SettingValue = ? WHERE SettingKey = ?;",
+                settingValue,
+                settingKey);
+        }
+
+        private void ValidateSettingValueType(SettingRow row, string expectedValueType)
+        {
+            if (!string.Equals(row.ValueType, expectedValueType, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Setting '{row.SettingKey}' has ValueType '{row.ValueType}', but code attempted to write it as '{expectedValueType}'.");
+            }
+        }
+
+        private string FormatBoolSettingValue(bool value)
+        {
+            return value ? "true" : "false";
+        }
+
+        private string FormatIntSettingValue(int value)
+        {
+            return value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private string FormatNullableIntSettingValue(int? value)
+        {
+            return value.HasValue
+                ? value.Value.ToString(CultureInfo.InvariantCulture)
+                : string.Empty;
+        }
+
+        private string FormatDoubleSettingValue(double value)
+        {
+            return value.ToString(CultureInfo.InvariantCulture);
+        }
+
+
+    #endregion
+
+    #endregion
+
+    #region Delete
+
+    #region Achievements
+
+    public async Task DeleteAchievementCardModelAsync(AchievementCardModel model)
         {
             await InitializeAsync();
 

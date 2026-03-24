@@ -40,6 +40,19 @@ namespace Points.Models
         public ObservableCollection<BudgetTransaction> Transactions { get; set; } = new();
         public int Id { get; set; }
 
+        private bool _isCashInEnabled;
+        public bool IsCashInEnabled
+        {
+            get => _isCashInEnabled;
+            set
+            {
+                if (SetProperty(ref _isCashInEnabled, value))
+                {
+                    RaisePropertyChanged(nameof(IsCashInEnabled));
+                }
+            }
+        }
+
         // ---- Core calculations ----
 
         public double GetBalance(DateTime now)
