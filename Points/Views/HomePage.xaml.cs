@@ -146,13 +146,19 @@ public partial class HomePage : ContentPage
     {
         base.OnAppearing();
 
-        StartTicker();
-
-        if (BindingContext is HomeViewModel vm && _hasAppearedOnce)
+        if (BindingContext is HomeViewModel vm)
         {
-            await vm.LoadAsync();
+            if (_hasAppearedOnce)
+            {
+                await vm.LoadAsync();
+            }
+            else if (vm.Initialization != null)
+            {
+                await vm.Initialization;
+            }
         }
 
+        StartTicker();
         _hasAppearedOnce = true;
     }
 

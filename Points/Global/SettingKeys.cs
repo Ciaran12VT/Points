@@ -36,6 +36,11 @@ namespace Points.Global
         public const string ValueRatesActive = "ValueRatesActive";
         public const string CashInActive = "CashInActive";
 
+        //Defaults
+        public const string MissionType = "MissionType";
+        public const string ValueRatesValuePerMinute = "ValueRatesValuePerMinute";
+        public const string AchievementNameRegex = "AchievementNameRegex";
+
         public static List<SettingDefinition> GetBuiltInSettingDefinitions()
         {
             return new List<SettingDefinition>
@@ -292,6 +297,39 @@ namespace Points.Global
                     Description = "Whether Cash In features are enabled.",
                     IsUserEditable = true,
                     SortOrder = 180
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionType,
+                    DefaultValue = "true",
+                    ValueType = SettingValueTypes.String,
+                    Category = "Defaults",
+                    DisplayName = "Default Mission Type",
+                    Description = "The default mission type assigned when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 10
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.ValueRatesValuePerMinute,
+                    DefaultValue = "1.0",
+                    ValueType = SettingValueTypes.Double,
+                    Category = "Defaults",
+                    DisplayName = "Default Value Per Minute",
+                    Description = "The default value per minute assigned when creating a new value rate.",
+                    IsUserEditable = true,
+                    SortOrder = 20
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.AchievementNameRegex,
+                    DefaultValue = @"^(?<name>.+?)(\s*\#(?<tags>.+))?$",
+                    ValueType = SettingValueTypes.String,
+                    Category = "Defaults",
+                    DisplayName = "Achievement Name Regex",
+                    Description = "The regular expression used to parse achievement names and tags when importing from text. Must contain 'name' and 'tags' named capture groups.",
+                    IsUserEditable = true,
+                    SortOrder = 30
                 }
             };
         }
@@ -391,6 +429,13 @@ namespace Points.Global
         public static bool IsSchedulesEnabled => GetBool(SettingKeys.SchedulesActive, true);
         public static bool IsValueRatesEnabled => GetBool(SettingKeys.ValueRatesActive, true);
         public static bool IsCashInEnabled => GetBool(SettingKeys.CashInActive, true);
+
+        // -----------------------
+        // Defaults
+        // -----------------------
+
+        public static string DefaultMissionType => GetString(SettingKeys.MissionType, "Stable");
+        public static double DefaultValueRatesValuePerMinute => GetDouble(SettingKeys.ValueRatesValuePerMinute, 0.1);
 
         // -----------------------
         // Public helpers

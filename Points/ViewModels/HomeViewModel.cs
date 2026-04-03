@@ -227,6 +227,7 @@ namespace Points.ViewModels
             set
             {
                 if (_position == value) return;
+                if (Pages.Count == 0 || value < 0 || value >= Pages.Count) return;
                 _position = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CurrentPage));
@@ -243,6 +244,9 @@ namespace Points.ViewModels
 
         private void SetSelectedPageIcon()
         {
+            if (Pages.Count == 0 || Position < 0 || Position >= Pages.Count)
+                return;
+
             foreach (var page in Pages)
             {
                 if(page == Pages[Position])
@@ -313,12 +317,16 @@ namespace Points.ViewModels
 
         public List<IActiveCardModel> GetActiveCardModels()
         {
-            var mainQuest = Pages.First(p => p.Name == "Main Quest");
-            var mission = Pages.First(p => p.Name == "Mission");
+            var mainQuest = Pages.FirstOrDefault(p => p.Name == "Main Quest");
+            var mission = Pages.FirstOrDefault(p => p.Name == "Mission");
 
             var merge = new List<IActiveCardModel>();
-            merge.AddRange(mainQuest.AllCards.OfType<IActiveCardModel>());
-            merge.AddRange(mission.AllCards.OfType<IActiveCardModel>());
+
+            if (mainQuest != null)
+                merge.AddRange(mainQuest.AllCards.OfType<IActiveCardModel>());
+
+            if (mission != null)
+                merge.AddRange(mission.AllCards.OfType<IActiveCardModel>());
 
             return merge;
         }
@@ -467,7 +475,7 @@ namespace Points.ViewModels
             var settings = await _db.GetSettingsAsync();
             SettingsProvider.Initialize(settings);
 
-            await InitializePagesAsync();
+            InitializePages(settings);
 
             // Get seed data (mock now, sqlite later)
             var now = DateTime.Now;
@@ -488,6 +496,39 @@ namespace Points.ViewModels
                 var planners = Pages.FirstOrDefault(p => p.Name == "Planners");
 
                 if(dashboard != null) RebuildDashboardCells(dashboard, shortcuts);
+
+                if (mainQuest != null)
+                {
+                    foreach (var c in seed.MainQuestCards)
+                        CommitCardToPage(mainQuest, c, true);
+                }
+
+                if (mission != null)
+                {
+                    foreach (var c in seed.MissionCards)
+                        CommitCardToPage(mission, c, true);
+                }
+
+                if (budgets != null)
+                {
+                    foreach (var c in seed.BudgetCards)
+                        CommitCardToPage(budgets, c, true);
+                }
+
+                if (achievements != null)
+                {
+                    foreach (var c in seed.Achievements.Cast<AchievementCardModel>().Where(x => x.IsPinned))
+                        CommitCardToPage(achievements, c, true);
+                }
+
+                if (trackers != null)
+                {
+                    foreach (var c in seed.ValueTrackers)
+                        CommitCardToPage(trackers, c, true);
+
+                    foreach (var c in seed.EventTrackers)
+                        CommitCardToPage(trackers, c, true);
+                }
 
                 // Activate the card that was active when the app last closed (DB-authoritative)
                 if (openActivity != null)
@@ -522,40 +563,6 @@ namespace Points.ViewModels
                 {
                     _activeCard = null;
                     _activeCardNotificationService.UpdateActiveCardNotification(null);
-                }
-
-
-                if (mainQuest != null)
-                {
-                    foreach (var c in seed.MainQuestCards)
-                        CommitCardToPage(mainQuest, c, true);
-                }
-
-                if (mission != null)
-                {
-                    foreach (var c in seed.MissionCards)
-                        CommitCardToPage(mission, c, true);
-                }
-
-                if (budgets != null)
-                {
-                    foreach (var c in seed.BudgetCards)
-                        CommitCardToPage(budgets, c, true);
-                }
-
-                if (achievements != null)
-                {
-                    foreach (var c in seed.Achievements.Cast<AchievementCardModel>().Where(x => x.IsPinned))
-                        CommitCardToPage(achievements, c, true);
-                }
-
-                if (trackers != null)
-                {
-                    foreach (var c in seed.ValueTrackers)
-                        CommitCardToPage(trackers, c, true);
-
-                    foreach (var c in seed.EventTrackers)
-                        CommitCardToPage(trackers, c, true);
                 }
 
                 SortMissionCards();
@@ -633,7 +640,7 @@ namespace Points.ViewModels
             Position = 0;
 
             // Ensure mission ordering after seeding
-            SortMissionCards();
+            //SortMissionCards();
         }
 
         private async Task ReloadPlannersAsync()
@@ -1274,11 +1281,9 @@ namespace Points.ViewModels
 
         #region Page + mock seeding (moved out of ctor; uses single route)
 
-        private async Task InitializePagesAsync()
+        private void InitializePages(List<AcquiredSetting> settings)
         {
             Pages.Clear();
-
-            var settings = await _db.GetSettingsAsync();
 
             var pageDefinitions = new List<PageDefinition>
             {
@@ -2020,6 +2025,9 @@ namespace Points.ViewModels
 
             try
             {
+                if (Pages.Count == 0 || Position < 0 || Position >= Pages.Count)
+                    return;
+
                 var achievementsPage = Pages[Position];
                 if (achievementsPage == null) return;
 

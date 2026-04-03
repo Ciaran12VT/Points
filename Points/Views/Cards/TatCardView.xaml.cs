@@ -14,7 +14,7 @@ public partial class TatCardView : ContentView
 	{
 		InitializeComponent();
 
-        Unloaded += (_, __) => DetachAll();
+       // Unloaded += (_, __) => DetachAll();
     }
 
     private async void OnCardTapped(object sender, TappedEventArgs e)
@@ -29,87 +29,87 @@ public partial class TatCardView : ContentView
 
     }
 
-    #region Button Color Toggle Logic
+    //#region Button Color Toggle Logic
 
-    private TatCardModel? _model;
-    private HomeViewModel? _homeVm;
+    //private TatCardModel? _model;
+    //private HomeViewModel? _homeVm;
 
-    protected override void OnBindingContextChanged()
-    {
-        base.OnBindingContextChanged();
+    //protected override void OnBindingContextChanged()
+    //{
+    //    base.OnBindingContextChanged();
 
-        // BindingContext may change due to CollectionView recycling
-        DetachAll();
+    //    // BindingContext may change due to CollectionView recycling
+    //    DetachAll();
 
-        _model = BindingContext as TatCardModel;
-        if (_model == null)
-            return;
+    //    _model = BindingContext as TatCardModel;
+    //    if (_model == null)
+    //        return;
 
-        // 1) Listen to model IsActive changes (instant updates)
-        _model.PropertyChanged += OnModelPropertyChanged;
+    //    // 1) Listen to model IsActive changes (instant updates)
+    //    _model.PropertyChanged += OnModelPropertyChanged;
 
-        // 2) Try to hook into HomeViewModel Tick (fallback healing)
-        TryAttachToHomeVm();
+    //    // 2) Try to hook into HomeViewModel Tick (fallback healing)
+    //    TryAttachToHomeVm();
 
-        // Ensure initial correct colour
-        UpdateToggleColor();
-    }
+    //    // Ensure initial correct colour
+    //    UpdateToggleColor();
+    //}
 
-    private void TryAttachToHomeVm()
-    {
-        // Find the page each time; don’t assume parent is ready in ctor
-        var page = this.FindParentOfType<ContentPage>();
-        if (page?.BindingContext is not HomeViewModel vm)
-            return;
+    //private void TryAttachToHomeVm()
+    //{
+    //    // Find the page each time; don’t assume parent is ready in ctor
+    //    var page = this.FindParentOfType<ContentPage>();
+    //    if (page?.BindingContext is not HomeViewModel vm)
+    //        return;
 
-        _homeVm = vm;
-        _homeVm.TickHappened += OnTickHappened;
-    }
+    //    _homeVm = vm;
+    //    _homeVm.TickHappened += OnTickHappened;
+    //}
 
-    private void OnTickHappened()
-    {
-        // Tick could be fired from non-UI thread depending on your timer
-        MainThread.BeginInvokeOnMainThread(UpdateToggleColor);
-    }
+    //private void OnTickHappened()
+    //{
+    //    // Tick could be fired from non-UI thread depending on your timer
+    //    MainThread.BeginInvokeOnMainThread(UpdateToggleColor);
+    //}
 
-    private void OnModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(TatCardModel.IsActive))
-            MainThread.BeginInvokeOnMainThread(UpdateToggleColor);
-    }
+    //private void OnModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    //{
+    //    if (e.PropertyName == nameof(TatCardModel.IsActive))
+    //        MainThread.BeginInvokeOnMainThread(UpdateToggleColor);
+    //}
 
-    private void UpdateToggleColor()
-    {
-        if (_model == null)
-            return;
+    //private void UpdateToggleColor()
+    //{
+    //    if (_model == null)
+    //        return;
 
-        // Match your intended semantics:
-        // Active => Green, Inactive => Gray
-        ActivityToggleButton.BackgroundColor = _model.IsActive ? Colors.Green : Colors.Gray;
-    }
+    //    // Match your intended semantics:
+    //    // Active => Green, Inactive => Gray
+    //    ActivityToggleButton.BackgroundColor = _model.IsActive ? Colors.Green : Colors.Gray;
+    //}
 
-    private void DetachAll()
-    {
-        if (_model != null)
-            _model.PropertyChanged -= OnModelPropertyChanged;
+    //private void DetachAll()
+    //{
+    //    if (_model != null)
+    //        _model.PropertyChanged -= OnModelPropertyChanged;
 
-        if (_homeVm != null)
-            _homeVm.TickHappened -= OnTickHappened;
+    //    if (_homeVm != null)
+    //        _homeVm.TickHappened -= OnTickHappened;
 
-        _model = null;
-        _homeVm = null;
-    }
+    //    _model = null;
+    //    _homeVm = null;
+    //}
 
-    // Your existing handler can now just call UpdateToggleColor()
-    private void OnActivityToggleButtonClicked(object sender, EventArgs e)
-    {
-        if (_longPressFired)
-            return;
+    //// Your existing handler can now just call UpdateToggleColor()
+    //private void OnActivityToggleButtonClicked(object sender, EventArgs e)
+    //{
+    //    if (_longPressFired)
+    //        return;
 
-        UpdateToggleColor();
-    }
+    //    UpdateToggleColor();
+    //}
 
-    #endregion
+    //#endregion
 
 
     private CancellationTokenSource? _longPressCts;
