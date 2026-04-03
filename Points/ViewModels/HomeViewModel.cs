@@ -362,7 +362,17 @@ namespace Points.ViewModels
             OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
             OpenReportsCommand = new Command(async () => await OpenReportsAsync());
             OpenShortcutDetailsCommand = new Command<ShortcutModel>(async shortcut => await OpenShortcutDetailsAsync(shortcut));
-            ScrollToDashboardCommand = new Command(() => Position = Pages.IndexOf(Pages.First(p => p.IsDashboard)));
+            ScrollToDashboardCommand = new Command(() =>
+            {
+                if (Pages.Count == 0)
+                {
+                    Position = 0;
+                    return;
+                }
+
+                var dashboard = Pages.FirstOrDefault(p => p.IsDashboard) ?? Pages.First();
+                Position = Pages.IndexOf(dashboard);
+            });
             ToggleTopToolbarCommand = new Command(() =>
             {
                 IsTopToolbarVisible = !IsTopToolbarVisible;
