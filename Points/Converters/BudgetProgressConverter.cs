@@ -12,7 +12,7 @@ namespace Points.Converters
     {
         public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
         {
-            if (values is null || values.Length < 2) return 0d;
+            if (values is null || values.Length < 3) return 0d;
 
             var cardObj = values[0];
             var nowObj = values[2];

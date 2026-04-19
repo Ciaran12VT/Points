@@ -11,8 +11,6 @@
             <converters:BudgetGlobalRemainingTextConverter x:Key="BudgetGlobalRemainingTextConverter" />
             <converters:BudgetCurrencyRemainingTextConverter x:Key="BudgetCurrencyRemainingTextConverter" />
             <converters:BudgetCashedInValueTextConverter x:Key="BudgetCashedInValueTextConverter" />
-            <converters:BudgetNextTopUpCountdownTextConverter x:Key="BudgetNextTopUpCountdownTextConverter" />
-            <converters:BudgetNextTopUpAmountTextConverter x:Key="BudgetNextTopUpAmountTextConverter" />
             <converters:BudgetValueColorConverter x:Key="BudgetValueColorConverter" />
             <converters:BudgetPercentCompleteColorConverter x:Key="BudgetPercentCompleteColorConverter" />
             
@@ -199,33 +197,20 @@
             </Label>
 
 
-            <!-- Row 4: Next top-up countdown (left) and next top-up value (right) -->
-            <Label Grid.Row="4" Grid.Column="0"
-               FontSize="14"
-               TextColor="Orange">
-                <Label.Text>
-                    <MultiBinding Converter="{StaticResource BudgetNextTopUpCountdownTextConverter}">
-                        <Binding Path="." />
-                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
-                        <!-- force refresh every second -->
-                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
-                    </MultiBinding>
-                </Label.Text>
-            </Label>
+            <!-- Row 4: Next top-up countdown and value -->
+            <VerticalStackLayout Grid.Row="4"
+                                 Grid.Column="0"
+                                 Grid.ColumnSpan="3"
+                                 Spacing="2">
+                <Label FontSize="14"
+                       TextColor="Orange"
+                       Text="{Binding NextTopUpCountdownText}" />
 
-            <Label Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
-               FontSize="14"
-               TextColor="Orange"
-               HorizontalTextAlignment="End">
-                <Label.Text>
-                    <MultiBinding Converter="{StaticResource BudgetNextTopUpAmountTextConverter}">
-                        <Binding Path="." />
-                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.RangeEnd" />
-                        <!-- force refresh every second -->
-                        <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}" Path="BindingContext.Now" />
-                    </MultiBinding>
-                </Label.Text>
-            </Label>
+                <Label FontSize="14"
+                       TextColor="Orange"
+                       HorizontalTextAlignment="End"
+                       Text="{Binding NextTopUpAmountText}" />
+            </VerticalStackLayout>
 
 
         </Grid>

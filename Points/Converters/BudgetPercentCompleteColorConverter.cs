@@ -12,24 +12,27 @@ namespace Points.Converters
     {
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
-            if (values is null || values.Length < 3) return Colors.Grey;
+            if (values is null || values.Length < 4) return Colors.Grey;
 
             var cardObj = values[0];
             var startObj = values[1];
             var endObj = values[2];
+            var nowObj = values[3];
 
             if (cardObj is null || cardObj == BindableProperty.UnsetValue) return Colors.Grey;
             if (startObj is null || startObj == BindableProperty.UnsetValue) return Colors.Grey;
             if (endObj is null || endObj == BindableProperty.UnsetValue) return Colors.Grey;
+            if (nowObj is null || nowObj == BindableProperty.UnsetValue) return Colors.Grey;
 
             if (cardObj is not BudgetCardModel b) return Colors.Grey;
             if (startObj is not DateTime start) return Colors.Grey;
             if (endObj is not DateTime end) return Colors.Grey;
+            if (nowObj is not DateTime now) return Colors.Grey;
 
-            var dailyTotal = b.GetDailyTopUpTotal(DateTime.Now);
-            if (dailyTotal <= 0) return "%: --";
+            var dailyTotal = b.GetDailyTopUpTotal(now.Date);
+            if (dailyTotal <= 0) return Colors.Grey;
 
-            var balance = b.GetBalance(DateTime.Now);
+            var balance = b.GetBalance(now);
             var pct = (balance / dailyTotal) * 100.0;
 
             var color = Colors.Red;

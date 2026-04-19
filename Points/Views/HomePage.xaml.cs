@@ -13,6 +13,11 @@ public partial class HomePage : ContentPage
     readonly IAudioFeedback _audio;
     int _lastPos = -1;
     private readonly Dictionary<HomePageModel, CollectionView> _cardsListsByPage = new();
+    private static readonly TimeSpan ScrollInteractionSettleDelay = TimeSpan.FromMilliseconds(180);
+    private CancellationTokenSource? _cardsScrollSettleCts;
+    private IDisposable? _cardsScrollSuppressionHandle;
+    private CancellationTokenSource? _carouselScrollSettleCts;
+    private IDisposable? _carouselScrollSuppressionHandle;
 
 
     private CancellationTokenSource? _dashboardLongPressCts;
@@ -71,6 +76,8 @@ public partial class HomePage : ContentPage
 
     private async Task ScrollToCardInternal(HomeViewModel vm, ICardModel card)
     {
+        using var suppression = vm.BeginInteractionSuppression();
+
         var targetPos = vm.GetCardPageIndex(card);
         if (targetPos == -1) return;
 
@@ -101,13 +108,117 @@ public partial class HomePage : ContentPage
         collectionView.ScrollTo(card, position: ScrollToPosition.Center, animate: true);
     }
 
+    private void KeepCardsScrollInteractionSuppressed()
+    {
+        if (BindingContext is not HomeViewModel vm)
+            return;
+
+        _cardsScrollSuppressionHandle ??= vm.BeginInteractionSuppression();
+
+        _cardsScrollSettleCts?.Cancel();
+        _cardsScrollSettleCts?.Dispose();
+
+        var cts = new CancellationTokenSource();
+        _cardsScrollSettleCts = cts;
+        _ = ReleaseCardsScrollInteractionAsync(cts);
+    }
+
+    private async Task ReleaseCardsScrollInteractionAsync(CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(ScrollInteractionSettleDelay, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (!ReferenceEquals(_cardsScrollSettleCts, cts))
+            {
+                cts.Dispose();
+                return;
+            }
+
+            _cardsScrollSettleCts = null;
+            cts.Dispose();
+            _cardsScrollSuppressionHandle?.Dispose();
+            _cardsScrollSuppressionHandle = null;
+        });
+    }
+
+    private void ReleaseCardsScrollInteraction()
+    {
+        _cardsScrollSettleCts?.Cancel();
+        _cardsScrollSettleCts?.Dispose();
+        _cardsScrollSettleCts = null;
+
+        _cardsScrollSuppressionHandle?.Dispose();
+        _cardsScrollSuppressionHandle = null;
+    }
+
+    private void KeepCarouselInteractionSuppressed()
+    {
+        if (BindingContext is not HomeViewModel vm)
+            return;
+
+        _carouselScrollSuppressionHandle ??= vm.BeginInteractionSuppression();
+
+        _carouselScrollSettleCts?.Cancel();
+        _carouselScrollSettleCts?.Dispose();
+
+        var cts = new CancellationTokenSource();
+        _carouselScrollSettleCts = cts;
+        _ = ReleaseCarouselInteractionAsync(cts);
+    }
+
+    private async Task ReleaseCarouselInteractionAsync(CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(ScrollInteractionSettleDelay, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (!ReferenceEquals(_carouselScrollSettleCts, cts))
+            {
+                cts.Dispose();
+                return;
+            }
+
+            _carouselScrollSettleCts = null;
+            cts.Dispose();
+            _carouselScrollSuppressionHandle?.Dispose();
+            _carouselScrollSuppressionHandle = null;
+        });
+    }
+
+    private void ReleaseCarouselInteraction()
+    {
+        _carouselScrollSettleCts?.Cancel();
+        _carouselScrollSettleCts?.Dispose();
+        _carouselScrollSettleCts = null;
+
+        _carouselScrollSuppressionHandle?.Dispose();
+        _carouselScrollSuppressionHandle = null;
+    }
+
     void Carousel_PositionChanged(object? sender, PositionChangedEventArgs e)
     {
+        KeepCarouselInteractionSuppressed();
+
         if (e.CurrentPosition != _lastPos)
         {
             _lastPos = e.CurrentPosition;
-            _audio.Thock();
-            HapticFeedback.Perform(HapticFeedbackType.Click);
+            //_audio.Thock();
+            //HapticFeedback.Perform(HapticFeedbackType.Click);
         }
 
         _posTcs?.TrySetResult(e.CurrentPosition);
@@ -116,11 +227,18 @@ public partial class HomePage : ContentPage
     int _lastCenterIndex = -1;
     void Cards_Scrolled(object? sender, ItemsViewScrolledEventArgs e)
     {
+        KeepCardsScrollInteractionSuppressed();
+
         if (e.CenterItemIndex != _lastCenterIndex && e.CenterItemIndex >= 0)
         {
             _lastCenterIndex = e.CenterItemIndex;
-            _audio.Tick();
+            //_audio.Tick();
         }
+    }
+
+    void Carousel_Scrolled(object? sender, ItemsViewScrolledEventArgs e)
+    {
+        KeepCarouselInteractionSuppressed();
     }
 
     private async void OnTextSearchClicked(object sender, EventArgs e)
@@ -165,6 +283,8 @@ public partial class HomePage : ContentPage
     protected override void OnDisappearing()
     {
         StopTicker();
+        ReleaseCardsScrollInteraction();
+        ReleaseCarouselInteraction();
         base.OnDisappearing();
     }
 
@@ -275,6 +395,8 @@ public partial class HomePage : ContentPage
 
         if (cell.IsPlaceholder || cell.Shortcut is null)
             return;
+
+        using var suppression = vm.BeginInteractionSuppression();
 
         if (vm.ShortcutClickedCommand?.CanExecute(cell.Shortcut) == true)
             vm.ShortcutClickedCommand.Execute(cell.Shortcut);

@@ -3,7 +3,6 @@ using Points.Helpers;
 using Points.Models;
 using Points.Services;
 using Points.ViewModels;
-using Points.Views.Details;
 
 namespace Points.Views.Cards;
 
@@ -13,6 +12,24 @@ public partial class BudgetCardView : ContentView
 	{
 		InitializeComponent();
     }
+
+    protected override void OnBindingContextChanged()
+    {
+        base.OnBindingContextChanged();
+
+        if (BindingContext is BudgetCardModel budget)
+        {
+            budget.IsCashInEnabled = SettingsProvider.IsCashInEnabled;
+            budget.NotifyTimeChanged(GetCurrentTime());
+        }
+    }
+
+    private DateTime GetCurrentTime()
+    {
+        var page = this.FindParentOfType<ContentPage>();
+        return page?.BindingContext is HomeViewModel vm ? vm.Now : DateTime.Now;
+    }
+
     private async void OnSpendClicked(object sender, EventArgs e)
     {
         if (BindingContext is not Points.Models.BudgetCardModel b)

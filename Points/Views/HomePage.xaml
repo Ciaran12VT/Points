@@ -192,6 +192,7 @@
                       Position="{Binding Position, Mode=TwoWay}"
                       ItemTemplate="{StaticResource HomePaneTemplateSelector}"
                       IsSwipeEnabled="True"
+                      Scrolled="Carousel_Scrolled"
                       PositionChanged="Carousel_PositionChanged">
 
             <!--<CarouselView.ItemTemplate>

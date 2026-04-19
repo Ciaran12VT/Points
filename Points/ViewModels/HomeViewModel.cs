@@ -30,6 +30,12 @@ namespace Points.ViewModels
         private IAlarmScheduler _alarmScheduler;
 
         private readonly SemaphoreSlim _achievementTickGate = new(1, 1);
+        private int _tickSuppressionCount;
+        private int _suppressedTickPending;
+        private CancellationTokenSource? _pageNavigationSuppressionCts;
+        private CancellationTokenSource? _shortcutNavigationSuppressionCts;
+        private static readonly TimeSpan PageNavigationSuppressionWindow = TimeSpan.FromMilliseconds(650);
+        private static readonly TimeSpan ShortcutNavigationSuppressionWindow = TimeSpan.FromMilliseconds(1200);
 
         #region Commands
         public Command<IActiveCardModel> ActivateCardCommand { get; }
@@ -39,6 +45,7 @@ namespace Points.ViewModels
         {
             if (shortcut == null) return;
 
+            SuppressTicksForShortcutNavigation();
             ScrollToAnyCardByIdRequested?.Invoke(shortcut.TargetCardId);
         }
 
@@ -106,6 +113,12 @@ namespace Points.ViewModels
                 _now = value;
                 OnPropertyChanged();
             }
+        }
+
+        public IDisposable BeginInteractionSuppression()
+        {
+            Interlocked.Increment(ref _tickSuppressionCount);
+            return new InteractionSuppressionHandle(this);
         }
 
         //A collection of the Carousel Pages (Main Quest, Mission, Budgets)
@@ -266,6 +279,7 @@ namespace Points.ViewModels
             int i = Pages.IndexOf(hpm);
             if(i > -1)
             {
+                SuppressTicksForPageNavigation();
                 Position = i;
             }
         }
@@ -364,6 +378,8 @@ namespace Points.ViewModels
             OpenShortcutDetailsCommand = new Command<ShortcutModel>(async shortcut => await OpenShortcutDetailsAsync(shortcut));
             ScrollToDashboardCommand = new Command(() =>
             {
+                SuppressTicksForPageNavigation();
+
                 if (Pages.Count == 0)
                 {
                     Position = 0;
@@ -575,6 +591,9 @@ namespace Points.ViewModels
                     _activeCardNotificationService.UpdateActiveCardNotification(null);
                 }
 
+                var now = DateTime.Now;
+
+                RefreshBudgetCards(now);
                 SortMissionCards();
                 OnPropertyChanged(nameof(HasNegativeAvailableMission));
                 OnPropertyChanged(nameof(GlobalValueColor));
@@ -583,7 +602,7 @@ namespace Points.ViewModels
 
                 // Load planner progress rows — separate DB calls since these
                 // are not part of the home seed data
-                var now = DateTime.Now;
+                
                 var allCards = seed.MainQuestCards;
                 var enabledPlannerModels = allPlannerModels.Where(p => p.Enabled).ToList();
 
@@ -1798,6 +1817,7 @@ namespace Points.ViewModels
             int pos = Pages.IndexOf(pg);
             if (pos == -1) return;
 
+            SuppressTicksForPageNavigation();
             Position = pos;
         }
 
@@ -2007,12 +2027,24 @@ namespace Points.ViewModels
         public event Action? TickHappened;
         public void Tick()
         {
-            Now = DateTime.Now;
+            if (AreTicksSuppressed)
+            {
+                Interlocked.Exchange(ref _suppressedTickPending, 1);
+                return;
+            }
+
+            RunTickCore(DateTime.Now);
+        }
+
+        private void RunTickCore(DateTime now)
+        {
+            Now = now;
 
             foreach (var page in Pages)
                 foreach (var card in page.AllCards.OfType<MissionCardModel>())
                     card.NotifyTimeChanged();
 
+            RefreshBudgetCards(now);
             SortMissionCards();
             _ = UpdateAchievementsPerTickAsync();
 
@@ -2026,6 +2058,103 @@ namespace Points.ViewModels
             OnPropertyChanged(nameof(RangeEnd));
 
             TickHappened?.Invoke();
+        }
+
+        private void RefreshBudgetCards(DateTime now)
+        {
+            foreach (var page in Pages)
+                foreach (var budget in page.AllCards.OfType<BudgetCardModel>())
+                    budget.NotifyTimeChanged(now);
+        }
+
+        private bool AreTicksSuppressed => Volatile.Read(ref _tickSuppressionCount) > 0;
+
+        private void SuppressTicksForPageNavigation()
+        {
+            _pageNavigationSuppressionCts?.Cancel();
+            _pageNavigationSuppressionCts?.Dispose();
+
+            var cts = new CancellationTokenSource();
+            _pageNavigationSuppressionCts = cts;
+
+            var suppression = BeginInteractionSuppression();
+            _ = ReleasePageNavigationSuppressionAsync(suppression, cts);
+        }
+
+        private async Task ReleasePageNavigationSuppressionAsync(IDisposable suppression, CancellationTokenSource cts)
+        {
+            try
+            {
+                await Task.Delay(PageNavigationSuppressionWindow, cts.Token);
+            }
+            catch (TaskCanceledException)
+            {
+            }
+            finally
+            {
+                if (ReferenceEquals(_pageNavigationSuppressionCts, cts))
+                    _pageNavigationSuppressionCts = null;
+
+                cts.Dispose();
+                suppression.Dispose();
+            }
+        }
+
+        private void SuppressTicksForShortcutNavigation()
+        {
+            _shortcutNavigationSuppressionCts?.Cancel();
+            _shortcutNavigationSuppressionCts?.Dispose();
+
+            var cts = new CancellationTokenSource();
+            _shortcutNavigationSuppressionCts = cts;
+
+            var suppression = BeginInteractionSuppression();
+            _ = ReleaseShortcutNavigationSuppressionAsync(suppression, cts);
+        }
+
+        private async Task ReleaseShortcutNavigationSuppressionAsync(IDisposable suppression, CancellationTokenSource cts)
+        {
+            try
+            {
+                await Task.Delay(ShortcutNavigationSuppressionWindow, cts.Token);
+            }
+            catch (TaskCanceledException)
+            {
+            }
+            finally
+            {
+                if (ReferenceEquals(_shortcutNavigationSuppressionCts, cts))
+                    _shortcutNavigationSuppressionCts = null;
+
+                cts.Dispose();
+                suppression.Dispose();
+            }
+        }
+
+        private void EndInteractionSuppression()
+        {
+            var remaining = Interlocked.Decrement(ref _tickSuppressionCount);
+            if (remaining > 0)
+                return;
+
+            if (remaining < 0)
+            {
+                Interlocked.Exchange(ref _tickSuppressionCount, 0);
+            }
+
+            if (Interlocked.Exchange(ref _suppressedTickPending, 0) == 0)
+                return;
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (AreTicksSuppressed)
+                {
+                    Interlocked.Exchange(ref _suppressedTickPending, 1);
+                    return;
+                }
+
+                RunTickCore(DateTime.Now);
+            });
         }
 
         private async Task UpdateAchievementsPerTickAsync()
@@ -2175,12 +2304,29 @@ namespace Points.ViewModels
 
         public async Task SaveBudget(BudgetCardModel b)
         {
+            b.NotifyTimeChanged(Now);
             await _db.SaveCardModelAsync(b);
         }
 
         internal void DebugBeep()
         {
             _activeCardNotificationService.DebugBeep();
+        }
+
+        private sealed class InteractionSuppressionHandle : IDisposable
+        {
+            private HomeViewModel? _owner;
+
+            public InteractionSuppressionHandle(HomeViewModel owner)
+            {
+                _owner = owner;
+            }
+
+            public void Dispose()
+            {
+                var owner = Interlocked.Exchange(ref _owner, null);
+                owner?.EndInteractionSuppression();
+            }
         }
     }
 

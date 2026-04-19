@@ -24,7 +24,7 @@ namespace Points.Converters
             if (nowObj is not DateTime now) return Colors.Grey;
 
             var estCompletionTime = mission.EstCompletionTime ?? TimeSpan.Zero;
-            var timeLeft = (mission.DueDate - DateTime.Now);
+            var timeLeft = mission.DueDate - now;
 
             if(timeLeft == TimeSpan.Zero) return Colors.Red;
 

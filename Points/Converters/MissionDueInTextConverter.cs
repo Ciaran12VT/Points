@@ -27,12 +27,12 @@ namespace Points.Converters
 
             if(mission.IsAvailable && !mission.IsComplete)
             {
-                var timeLeft = (mission.DueDate - DateTime.Now);
+                var timeLeft = mission.DueDate - now;
                 var totalHours = (int)timeLeft.TotalHours;
 
                 var labelText = timeLeft > TimeSpan.Zero ? "Due In" : "Overdue By";
 
-                if (mission.DueDate.Date == DateTime.Today.AddDays(1).Date)
+                if (mission.DueDate.Date == now.Date.AddDays(1))
                 {
                     result = $"Due Tomorrow at " + mission.DueDate.ToString("hh") + (mission.DueDate.Hour >= 12 ? "am" : "pm");
                     return result;
@@ -57,7 +57,7 @@ namespace Points.Converters
             }
             else if(mission.IsComplete)
             {
-                var timeUsed = mission.GetActiveTime(mission.AvailableFromDate, mission.CompletedDate ?? DateTime.Now);
+                var timeUsed = mission.GetActiveTime(mission.AvailableFromDate, mission.CompletedDate ?? now);
                 var totalHours = (int)timeUsed.TotalHours;
 
                 if (totalHours > 23)

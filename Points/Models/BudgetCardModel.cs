@@ -53,6 +53,20 @@ namespace Points.Models
             }
         }
 
+        private string _nextTopUpCountdownText = "Next Top-Up In: --:--:--";
+        public string NextTopUpCountdownText
+        {
+            get => _nextTopUpCountdownText;
+            private set => SetProperty(ref _nextTopUpCountdownText, value);
+        }
+
+        private string _nextTopUpAmountText = "Next Top-Up Value: --";
+        public string NextTopUpAmountText
+        {
+            get => _nextTopUpAmountText;
+            private set => SetProperty(ref _nextTopUpAmountText, value);
+        }
+
         // ---- Core calculations ----
 
         public double GetBalance(DateTime now)
@@ -139,6 +153,8 @@ namespace Points.Models
                 CurrencyAmount = currencyAmount,
                 GlobalValueAmount = 0
             });
+
+            NotifyTimeChanged(DateTime.Now);
         }
 
         public void AddCashIn(double currencyAmount)
@@ -150,6 +166,8 @@ namespace Points.Models
                 CurrencyAmount = currencyAmount,
                 GlobalValueAmount = currencyAmount * ExchangeRate
             });
+
+            NotifyTimeChanged(DateTime.Now);
         }
 
         public double GetDailyTopUpTotal(DateTime day)
@@ -161,6 +179,25 @@ namespace Points.Models
         public double GetGlobalValueRemaining(DateTime now)
         {
             return GetBalance(now) * ExchangeRate;
+        }
+
+        public void NotifyTimeChanged(DateTime now)
+        {
+            var next = GetNextTopUp(now);
+            if (next is null)
+            {
+                NextTopUpCountdownText = "Next Top-Up In: --:--:--";
+                NextTopUpAmountText = "Next Top-Up Value: --";
+                return;
+            }
+
+            var remaining = next.Value.When - now;
+            if (remaining < TimeSpan.Zero)
+                remaining = TimeSpan.Zero;
+
+            var totalHours = (int)remaining.TotalHours;
+            NextTopUpCountdownText = $"Next Top-Up In: {totalHours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+            NextTopUpAmountText = $"Next Top-Up Value: {next.Value.Amount:0}";
         }
 
     }
