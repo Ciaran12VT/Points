@@ -198,19 +198,24 @@
 
 
             <!-- Row 4: Next top-up countdown and value -->
-            <VerticalStackLayout Grid.Row="4"
-                                 Grid.Column="0"
-                                 Grid.ColumnSpan="3"
-                                 Spacing="2">
-                <Label FontSize="14"
+            <Grid Grid.Row="4"
+                  Grid.Column="0"
+                  Grid.ColumnSpan="3"
+                  ColumnDefinitions="*,Auto"
+                  ColumnSpacing="8">
+                <Label Grid.Column="0"
+                       FontSize="14"
                        TextColor="Orange"
+                       LineBreakMode="NoWrap"
                        Text="{Binding NextTopUpCountdownText}" />
 
-                <Label FontSize="14"
+                <Label Grid.Column="1"
+                       FontSize="14"
                        TextColor="Orange"
                        HorizontalTextAlignment="End"
+                       LineBreakMode="NoWrap"
                        Text="{Binding NextTopUpAmountText}" />
-            </VerticalStackLayout>
+            </Grid>
 
 
         </Grid>
