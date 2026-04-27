@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Points.Models;
 using Points.Global;
@@ -396,36 +397,104 @@ namespace Points.ViewModels
             });
 
 
-            AddTrackerValueCommand = new Command<TrackerCardModel>(async (card) =>
-            {
-                if (card is ValueTrackerCardModel valueCard)
-                {
-                    var page = Shell.Current?.CurrentPage;
-                    if (page == null) return;
-
-                    var input = await page.DisplayPromptAsync("Add Value", "Enter a value:",
-                        accept: "OK", cancel: "Cancel", keyboard: Keyboard.Numeric);
-
-                    if (string.IsNullOrWhiteSpace(input)) return;
-
-                    if (!double.TryParse(input, out var v))
-                    {
-                        await page.DisplayAlert("Invalid value", "Please enter a valid number.", "OK");
-                        return;
-                    }
-
-                    valueCard.AddValue(v);
-                    await _db.SaveCardModelAsync(valueCard);
-                }
-                else if (card is EventTrackerCardModel eventCard)
-                {
-                    eventCard.AddValue();
-                    await _db.SaveCardModelAsync(eventCard);
-                }      
-            });
+            AddTrackerValueCommand = new Command<TrackerCardModel>(async card => await AddTrackerValueWithMetadataAsync(card));
 
             // kick off async load without awaiting
             Initialization = LoadAsync();
+        }
+
+        private async Task AddTrackerValueWithMetadataAsync(TrackerCardModel? card)
+        {
+            if (card == null)
+                return;
+
+            var page = Shell.Current?.CurrentPage;
+            if (page == null)
+                return;
+
+            if (card is ValueTrackerCardModel valueCard)
+            {
+                var input = await page.DisplayPromptAsync(
+                    "Add Value",
+                    "Enter a value:",
+                    accept: "OK",
+                    cancel: "Cancel",
+                    keyboard: Keyboard.Numeric);
+
+                if (string.IsNullOrWhiteSpace(input))
+                    return;
+
+                if (!double.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) &&
+                    !double.TryParse(input, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
+                {
+                    await page.DisplayAlert("Invalid value", "Please enter a valid number.", "OK");
+                    return;
+                }
+
+                var metadata = await PromptUdmdForCardAsync(valueCard.CardID);
+                if (metadata.Cancelled)
+                    return;
+
+                var trackerValue = new TrackerValueModel
+                {
+                    Timestamp = DateTime.Now,
+                    Value = value
+                };
+
+                valueCard.Values.Add(trackerValue);
+                await _db.SaveCardModelAsync(valueCard);
+                await SaveTrackerMetadataIfNeededAsync(valueCard.CardID, trackerValue.Id, metadata);
+            }
+            else if (card is EventTrackerCardModel eventCard)
+            {
+                var metadata = await PromptUdmdForCardAsync(eventCard.CardID);
+                if (metadata.Cancelled)
+                    return;
+
+                var trackerValue = new TrackerValueModel
+                {
+                    Timestamp = DateTime.Now,
+                    Value = 1
+                };
+
+                eventCard.Values.Add(trackerValue);
+                await _db.SaveCardModelAsync(eventCard);
+                await SaveTrackerMetadataIfNeededAsync(eventCard.CardID, trackerValue.Id, metadata);
+            }
+        }
+
+        private async Task<UdmdPromptResult> PromptUdmdForCardAsync(long cardId)
+        {
+            var page = Shell.Current?.CurrentPage;
+            if (page == null || cardId <= 0)
+                return UdmdPromptResult.Empty;
+
+            return await UdmdPromptPage.PromptForCardAsync(page, _db, cardId);
+        }
+
+        private async Task SaveTrackerMetadataIfNeededAsync(long cardId, long trackerValueId, UdmdPromptResult metadata)
+        {
+            if (metadata.Values.Count == 0)
+                return;
+
+            if (trackerValueId <= 0)
+            {
+                metadata.CleanupCreatedImages();
+                return;
+            }
+
+            try
+            {
+                await _db.SaveTrackerValueMetadataAsync(cardId, trackerValueId, metadata.Values);
+            }
+            catch (Exception ex)
+            {
+                metadata.CleanupCreatedImages();
+
+                var page = Shell.Current?.CurrentPage;
+                if (page != null)
+                    await page.DisplayAlert("Metadata not saved", ex.Message, "OK");
+            }
         }
 
         private void WireLongPress(ICardModel card)
@@ -964,7 +1033,8 @@ namespace Points.ViewModels
                         budget,
                         saved => CommitCardToPage(page, saved),
                         deleted => RemoveCardFromPage(page, deleted),
-                        GetTags()
+                        GetTags(),
+                        _db
                     )
                 );
                 return;
@@ -977,7 +1047,8 @@ namespace Points.ViewModels
                         valueTracker,
                         saved => CommitCardToPage(page, saved),
                         deleted => DeleteCardFromPageAndDbAsync(page, deleted),
-                        onCancelled: () => { }
+                        onCancelled: () => { },
+                        db: _db
                     )
                 );
                 return;
@@ -990,7 +1061,8 @@ namespace Points.ViewModels
                         eventTracker,
                         saved => CommitCardToPage(page, saved),
                         deleted => DeleteCardFromPageAndDbAsync(page, deleted),
-                        onCancelled: () => { }
+                        onCancelled: () => { },
+                        db: _db
                     )
                 );
                 return;
@@ -1508,12 +1580,35 @@ namespace Points.ViewModels
                     valuePerMinute = tatNoRates.SelectedValueRateModel?.ValuePerMinute ?? tatNoRates.ValuePerMinute;
                 }
 
+                var pendingMetadata = UdmdPromptResult.Empty;
+                if (!card.IsActive)
+                {
+                    // Prompt before creating the Activity row. If the prompt is cancelled, no parent
+                    // Activity is created, so there is no partial UDMD state to clean up.
+                    pendingMetadata = await PromptUdmdForCardAsync(card.CardID);
+                    if (pendingMetadata.Cancelled)
+                        return;
+                }
+
                 // DB authoritative toggle
                 var result = await _db.ToggleActivityAsync(
                     cardId: card.CardID,
                     utcNow: nowUtcNonNull,
                     valueRateName: rateName,
                     valuePerMinute: valuePerMinute);
+
+                if (result.Opened != null && pendingMetadata.Values.Count > 0)
+                {
+                    try
+                    {
+                        await _db.SaveActivityMetadataAsync(card.CardID, result.Opened.Id, pendingMetadata.Values);
+                    }
+                    catch (Exception ex)
+                    {
+                        pendingMetadata.CleanupCreatedImages();
+                        await Shell.Current.DisplayAlert("Metadata not saved", ex.Message, "OK");
+                    }
+                }
 
                 // Deterministic lookup across all loaded cards
                 IActiveCardModel? ResolveCard(long cardId) =>
@@ -2320,6 +2415,52 @@ namespace Points.ViewModels
         {
             b.NotifyTimeChanged(Now);
             await _db.SaveCardModelAsync(b);
+        }
+
+        public async Task RecordBudgetTransactionAsync(BudgetCardModel budget, BudgetTransactionType type, double amount)
+        {
+            if (budget == null || amount <= 0)
+                return;
+
+            var metadata = await PromptUdmdForCardAsync(budget.CardID);
+            if (metadata.Cancelled)
+                return;
+
+            var transaction = new BudgetTransaction
+            {
+                Timestamp = DateTime.Now,
+                Type = type,
+                CurrencyAmount = amount,
+                GlobalValueAmount = type == BudgetTransactionType.CashIn
+                    ? amount * budget.ExchangeRate
+                    : 0
+            };
+
+            budget.Transactions.Add(transaction);
+            budget.NotifyTimeChanged(Now);
+            await _db.SaveCardModelAsync(budget);
+
+            if (metadata.Values.Count == 0)
+                return;
+
+            if (transaction.Id <= 0)
+            {
+                metadata.CleanupCreatedImages();
+                return;
+            }
+
+            try
+            {
+                await _db.SaveBudgetTransactionMetadataAsync(budget.CardID, transaction.Id, metadata.Values);
+            }
+            catch (Exception ex)
+            {
+                metadata.CleanupCreatedImages();
+
+                var page = Shell.Current?.CurrentPage;
+                if (page != null)
+                    await page.DisplayAlert("Metadata not saved", ex.Message, "OK");
+            }
         }
 
         internal void DebugBeep()

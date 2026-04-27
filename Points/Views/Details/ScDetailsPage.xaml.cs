@@ -149,6 +149,18 @@ public partial class ScDetailsPage : ContentPage
         ErrorLabel.Text = msg;
         ErrorLabel.IsVisible = true;
     }
+
+    private async void OnEditUdmdClicked(object sender, EventArgs e)
+    {
+        if (_model.CardID <= 0)
+        {
+            ShowError("Please save the card before configuring metadata fields.");
+            return;
+        }
+
+        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _db));
+    }
+
     protected override void OnDisappearing()
     {
         base.OnDisappearing();

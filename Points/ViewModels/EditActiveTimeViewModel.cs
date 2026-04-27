@@ -16,6 +16,7 @@ namespace Points.ViewModels
 
         private DateTime _start;
         private DateTime? _end;
+        private string _metadataSummary = "";
         private readonly string _rateName;
         private readonly double _valuePerMinute;
 
@@ -66,6 +67,20 @@ namespace Points.ViewModels
 
         public string RateName => _rateName;
         public double ValuePerMinute => _valuePerMinute;
+
+        public string MetadataSummary
+        {
+            get => _metadataSummary;
+            set
+            {
+                if (_metadataSummary == value) return;
+                _metadataSummary = value;
+                OnPropertyChanged(nameof(MetadataSummary));
+                OnPropertyChanged(nameof(HasMetadata));
+            }
+        }
+
+        public bool HasMetadata => !string.IsNullOrWhiteSpace(MetadataSummary);
 
         public EditActiveTimeRow(ActivityModel model)
         {

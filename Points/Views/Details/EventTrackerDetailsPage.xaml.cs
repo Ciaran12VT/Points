@@ -1,5 +1,6 @@
 using System.Globalization;
 using Points.Models;
+using Points.Services.Sqlite.Interfaces;
 
 namespace Points.Views.Details;
 
@@ -9,6 +10,7 @@ public partial class EventTrackerDetailsPage : ContentPage
     private readonly Action<EventTrackerCardModel> _onSaved;
     private readonly Func<EventTrackerCardModel, Task> _onDelete;
     private readonly Action _onCancelled;
+    private readonly IDbService _db;
 
     // This exists only to bind DatePicker cleanly, same as your ValueTracker page pattern.
     public DateTime StartDate { get; set; }
@@ -17,7 +19,8 @@ public partial class EventTrackerDetailsPage : ContentPage
         EventTrackerCardModel model,
         Action<EventTrackerCardModel> onSaved,
         Func<EventTrackerCardModel, Task> onDelete,
-        Action onCancelled)
+        Action onCancelled,
+        IDbService db)
     {
         InitializeComponent();
 
@@ -25,6 +28,7 @@ public partial class EventTrackerDetailsPage : ContentPage
         _onSaved = onSaved;
         _onDelete = onDelete;
         _onCancelled = onCancelled;
+        _db = db;
 
         // Defaults
         if (_model.CreatedDate == default)
@@ -49,6 +53,8 @@ public partial class EventTrackerDetailsPage : ContentPage
         // Title initial value
         TitleEntry.Text = _model.Title ?? "";
         StartDatePicker.Date = StartDate;
+
+        _ = LoadMetadataHistoryAsync();
     }
 
     private async void OnCancelClicked(object sender, EventArgs e)
@@ -121,6 +127,49 @@ public partial class EventTrackerDetailsPage : ContentPage
     {
         ErrorLabel.Text = msg;
         ErrorLabel.IsVisible = true;
+    }
+
+    private async void OnEditUdmdClicked(object sender, EventArgs e)
+    {
+        if (_model.CardID <= 0)
+        {
+            ShowError("Please save the tracker before configuring metadata fields.");
+            return;
+        }
+
+        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _db));
+    }
+
+    private async Task LoadMetadataHistoryAsync()
+    {
+        if (_model.Values.Count == 0)
+            return;
+
+        MetadataHistoryStack.Children.Clear();
+
+        foreach (var value in _model.Values.Where(x => x.Id > 0).OrderByDescending(x => x.Timestamp))
+        {
+            var metadata = await _db.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.TrackerValue, value.Id);
+            if (metadata.Count == 0)
+                continue;
+
+            MetadataHistoryStack.Children.Add(new Label
+            {
+                Text = $"{value.Timestamp:MMM-dd HH:mm}: {FormatMetadata(metadata)}",
+                FontSize = 13,
+                Opacity = 0.8
+            });
+        }
+
+        var hasMetadata = MetadataHistoryStack.Children.Count > 0;
+        MetadataHistoryTitle.IsVisible = hasMetadata;
+        MetadataHistoryStack.IsVisible = hasMetadata;
+    }
+
+    private static string FormatMetadata(IEnumerable<UdmdTransModel> metadata)
+    {
+        return string.Join("  |  ", metadata.Select(x =>
+            $"{x.FieldName}: {UdmdValueFormatter.ToDisplayString(x)}"));
     }
 
     private static List<DateTime> ParseEventTimes(string? text)

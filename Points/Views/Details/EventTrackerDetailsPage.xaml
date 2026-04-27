@@ -58,6 +58,21 @@
                     HeightRequest="100"
                     Placeholder="2026-01-01 09:30, 2026-01-02 18:10" />
 
+            <Button Text="Metadata Fields"
+                    TextColor="White"
+                    BackgroundColor="DodgerBlue"
+                    CornerRadius="12"
+                    Clicked="OnEditUdmdClicked" />
+
+            <Label x:Name="MetadataHistoryTitle"
+                   Text="Recorded Metadata"
+                   FontAttributes="Bold"
+                   FontSize="14"
+                   IsVisible="False" />
+            <VerticalStackLayout x:Name="MetadataHistoryStack"
+                                 Spacing="6"
+                                 IsVisible="False" />
+
             <!-- Error -->
             <Label x:Name="ErrorLabel"
                    Text=""

@@ -58,12 +58,10 @@ public partial class BudgetCardView : ContentView
         if (amount <= 0)
             return;
 
-        b.AddSpend(amount);
-
         var page = this.FindParentOfType<ContentPage>();
         if (page?.BindingContext is HomeViewModel vm)
         {
-            await vm.SaveBudget(b);
+            await vm.RecordBudgetTransactionAsync(b, BudgetTransactionType.Spend, amount);
         }
     }
 
@@ -93,12 +91,10 @@ public partial class BudgetCardView : ContentView
         if (amount <= 0)
             return;
 
-        b.AddCashIn(amount);
-
         var page = this.FindParentOfType<ContentPage>();
         if (page?.BindingContext is HomeViewModel vm)
         {
-            await vm.SaveBudget(b);
+            await vm.RecordBudgetTransactionAsync(b, BudgetTransactionType.CashIn, amount);
         }
     }
 

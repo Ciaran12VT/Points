@@ -16,6 +16,7 @@
                 <DataTemplate>
                     <Grid
                         ColumnDefinitions="*,*,60,44"
+                        RowDefinitions="Auto,Auto"
                         ColumnSpacing="10"
                         Padding="0,6"
                         VerticalOptions="Center">
@@ -71,6 +72,7 @@
                         <!-- Delete ("X") -->
                         <Button
                             Grid.Column="3"
+                            Grid.Row="0"
                             Text="✕"
                             WidthRequest="36"
                             HeightRequest="36"
@@ -81,6 +83,16 @@
                             TextColor="White"
                             Command="{Binding BindingContext.DeleteRowCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                             CommandParameter="{Binding .}" />
+
+                        <Label
+                            Grid.Row="1"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="4"
+                            Text="{Binding MetadataSummary}"
+                            IsVisible="{Binding HasMetadata}"
+                            FontSize="12"
+                            Opacity="0.72"
+                            Margin="4,2,0,0" />
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

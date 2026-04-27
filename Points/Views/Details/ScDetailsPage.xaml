@@ -197,6 +197,12 @@
                         Clicked="OnEditSchedulesClicked" />
                 </Grid>
 
+                <Button Text="Metadata Fields"
+                        TextColor="White"
+                        BackgroundColor="DodgerBlue"
+                        CornerRadius="12"
+                        Clicked="OnEditUdmdClicked" />
+
 
                 <!-- Error -->
                 <Label x:Name="ErrorLabel"

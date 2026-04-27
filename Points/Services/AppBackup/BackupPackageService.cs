@@ -79,7 +79,15 @@ namespace Points.Services.Backup
                 Description: "Mission resource attachments.",
                 Kind: BackupResourceKind.Folder,
                 GetLocalPath: () => AppPaths.MissionResourcesFolder,
-                PackagePath: "folders/resources")
+                PackagePath: "folders/resources"),
+
+            new(
+                Key: "image_metadata",
+                Title: "Image Metadata folder",
+                Description: "User-defined metadata image captures.",
+                Kind: BackupResourceKind.Folder,
+                GetLocalPath: () => AppPaths.ImageMetadataFolder,
+                PackagePath: "folders/ImageMetadata")
         };
 
         public static IReadOnlyList<BackupResourceOption> GetExportableResources()

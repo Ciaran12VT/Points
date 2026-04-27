@@ -11,6 +11,7 @@ public sealed class BudgetTransactionRow : BindableObject
     private DateTime _timestamp;
     private BudgetTransactionType _type;
     private double _amount;
+    private string _metadataSummary = "";
 
     public DateTime Timestamp
     {
@@ -53,6 +54,20 @@ public sealed class BudgetTransactionRow : BindableObject
     public string TypeText => Type == BudgetTransactionType.Spend ? "Spend" : "CashIn";
 
     public string TimestampText => Timestamp.ToString("MMM-dd HH:mm");
+
+    public string MetadataSummary
+    {
+        get => _metadataSummary;
+        set
+        {
+            if (_metadataSummary == value) return;
+            _metadataSummary = value;
+            OnPropertyChanged(nameof(MetadataSummary));
+            OnPropertyChanged(nameof(HasMetadata));
+        }
+    }
+
+    public bool HasMetadata => !string.IsNullOrWhiteSpace(MetadataSummary);
 
     public BudgetTransactionRow(BudgetTransaction model)
     {

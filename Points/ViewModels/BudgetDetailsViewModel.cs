@@ -1,5 +1,6 @@
 ﻿using Points.Global;
 using Points.Models;
+using Points.Services.Sqlite.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -15,6 +16,7 @@ namespace Points.ViewModels
         private readonly BudgetCardModel _model;
         private readonly Action<BudgetCardModel> _onSaved;
         private Action<BudgetCardModel> _onDelete;
+        private readonly IDbService _db;
 
         public List<string> AvailableTagList { get; }
         public Command CancelCommand { get; }
@@ -32,11 +34,12 @@ namespace Points.ViewModels
         public void StopTimer() => _timer?.Stop();
 
 
-        public BudgetDetailsViewModel(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete, List<string> availableTagsList)
+        public BudgetDetailsViewModel(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete, List<string> availableTagsList, IDbService db)
         {
             _model = model;
             _onSaved = onSaved;
             _onDelete = onDelete;
+            _db = db;
             AvailableTagList = availableTagsList;
 
             // Tick every second
@@ -251,7 +254,8 @@ namespace Points.ViewModels
             await Shell.Current.Navigation.PushAsync(new Points.Views.Details.BudgetTransactionLogPage(
                 transactions: working,
                 tcs: tcs,
-                exchangeRate: _model.ExchangeRate
+                exchangeRate: _model.ExchangeRate,
+                db: _db
             ));
 
             var edited = await tcs.Task;

@@ -15,6 +15,7 @@ namespace Points.Global
         public static string CacheFolder => Ensure("cache");
         public static string AchievementTrophiesFolder => Ensure("trophies");
         public static string MissionResourcesFolder => Ensure("resources");
+        public static string ImageMetadataFolder => Ensure("ImageMetadata");
         public static string ExportsFolder => Ensure("exports");
 
         public static string DatabasePath => Path.Combine(DbFolder, "points.db3");
@@ -28,6 +29,12 @@ namespace Points.Global
         {
             return Ensure(Path.Combine("resources", $"MissionID_{missionId}"));
         }
+
+        public static string GetImageMetadataPath(long cardId)
+        {
+            return Ensure(Path.Combine("ImageMetadata", $"CardID_{cardId}"));
+        }
+
         public static IEnumerable<string> EnumerateMissionResourceFiles(int missionId)
         {
             var folder = GetMissionResourcesPath(missionId); // ensures it exists

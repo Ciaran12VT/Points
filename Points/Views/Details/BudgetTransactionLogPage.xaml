@@ -15,7 +15,7 @@
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid
-                        ColumnDefinitions="*,110,*,44"
+                        ColumnDefinitions="*,*,Auto,44"
                         ColumnSpacing="10"
                         Padding="0,6"
                         VerticalOptions="Center">
@@ -40,29 +40,9 @@
                                 LineBreakMode="NoWrap" />
                         </Frame>
 
-                        <!-- Type cell (tap to edit) -->
-                        <Frame
-                            Grid.Column="1"
-                            Padding="12"
-                            CornerRadius="12"
-                            HasShadow="False"
-                            BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
-                            <Frame.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding BindingContext.EditTypeCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
-                                    CommandParameter="{Binding .}" />
-                            </Frame.GestureRecognizers>
-
-                            <Label
-                                Text="{Binding TypeText}"
-                                VerticalOptions="Center"
-                                HorizontalOptions="Center"
-                                LineBreakMode="NoWrap"/>
-                        </Frame>
-
                         <!-- Timestamp cell (tap to edit) -->
                         <Frame
-                            Grid.Column="2"
+                            Grid.Column="1"
                             Padding="12"
                             CornerRadius="12"
                             HasShadow="False"
@@ -79,6 +59,30 @@
                                 HorizontalOptions="Center"
                                 LineBreakMode="NoWrap"/>
                         </Frame>
+
+                        <!-- Metadata -->
+                        <Button
+                            Grid.Column="2"
+                            Text="i"
+                            IsEnabled="{Binding HasMetadata}"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            FontAttributes="Bold"
+                            BackgroundColor="DodgerBlue"
+                            TextColor="White"
+                            Clicked="OnMetadataClicked">
+                            <Button.Triggers>
+                                <DataTrigger
+                                    TargetType="Button"
+                                    Binding="{Binding HasMetadata}"
+                                    Value="False">
+                                    <Setter Property="BackgroundColor" Value="Gray" />
+                                    <Setter Property="TextColor" Value="White" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
 
                         <!-- Delete -->
                         <Button

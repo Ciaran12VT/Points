@@ -110,6 +110,12 @@
                         BackgroundColor="DodgerBlue"
                         Margin="0,8,0,0"/>
 
+                <Button Text="Metadata Fields"
+                        TextColor="White"
+                        BackgroundColor="DodgerBlue"
+                        Margin="0,8,0,0"
+                        Clicked="OnEditUdmdClicked"/>
+
                 <!-- Start Date/Time -->
                 <Label Text="Start Date" FontAttributes="Bold"/>
                 <DatePicker Date="{Binding StartDate}" />

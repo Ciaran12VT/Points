@@ -185,6 +185,17 @@ public partial class TatDetailsPage : ContentPage
         ErrorLabel.IsVisible = true;
     }
 
+    private async void OnEditUdmdClicked(object sender, EventArgs e)
+    {
+        if (_model.CardID <= 0)
+        {
+            ShowError("Please save the card before configuring metadata fields.");
+            return;
+        }
+
+        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _db));
+    }
+
     private async void OnSetActiveTimeTargetClicked(object sender, EventArgs e)
     {
         if (BindingContext is TatDetailsViewModel typedVm)

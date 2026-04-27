@@ -245,6 +245,40 @@ namespace Points.Services.Sqlite
                     FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE
                 );
 
+                -- =========================
+                -- User-Defined Metadata (UDMD)
+                -- =========================
+                CREATE TABLE IF NOT EXISTS UdmdConfig (
+                    UdmdConfigID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID       INTEGER NOT NULL,
+                    FieldName    TEXT    NOT NULL,
+                    FieldType    TEXT    NOT NULL,
+                    IsRequired   INTEGER NOT NULL DEFAULT 0,
+                    DisplayOrder INTEGER NOT NULL DEFAULT 0,
+                    IsActive     INTEGER NOT NULL DEFAULT 1,
+                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS UdmdDropdown (
+                    UdmdDropdownID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    UdmdConfigID   INTEGER NOT NULL,
+                    DropdownValue  TEXT    NOT NULL,
+                    DisplayOrder   INTEGER NOT NULL DEFAULT 0,
+                    IsActive       INTEGER NOT NULL DEFAULT 1,
+                    FOREIGN KEY (UdmdConfigID) REFERENCES UdmdConfig(UdmdConfigID) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS UdmdTrans (
+                    UdmdTransID      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID           INTEGER NOT NULL,
+                    UdmdConfigID     INTEGER NOT NULL,
+                    RelatedEntityType TEXT   NOT NULL,
+                    RelatedEntityId  INTEGER NOT NULL,
+                    FieldValue       TEXT    NOT NULL,
+                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE,
+                    FOREIGN KEY (UdmdConfigID) REFERENCES UdmdConfig(UdmdConfigID) ON DELETE CASCADE
+                );
+
                 CREATE TABLE IF NOT EXISTS CardSchedule (
                     ScheduleId     INTEGER PRIMARY KEY,
                     CardId         INTEGER NOT NULL,
@@ -400,6 +434,19 @@ namespace Points.Services.Sqlite
 
                 CREATE INDEX IF NOT EXISTS IX_TrackerValue_CardID      ON TrackerValue(CardID);
                 CREATE INDEX IF NOT EXISTS IX_TrackerValue_TimeStamp   ON TrackerValue(TimeStamp);
+
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_UdmdConfig_CardID_FieldName
+                ON UdmdConfig(CardID, FieldName);
+
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_UdmdDropdown_Config_Value
+                ON UdmdDropdown(UdmdConfigID, DropdownValue);
+
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_UdmdTrans_Related_Config
+                ON UdmdTrans(RelatedEntityType, RelatedEntityId, UdmdConfigID);
+
+                CREATE INDEX IF NOT EXISTS IX_UdmdTrans_CardID ON UdmdTrans(CardID);
+                CREATE INDEX IF NOT EXISTS IX_UdmdTrans_UdmdConfigID ON UdmdTrans(UdmdConfigID);
+                CREATE INDEX IF NOT EXISTS IX_UdmdTrans_Related ON UdmdTrans(RelatedEntityType, RelatedEntityId);
 
                 CREATE INDEX IF NOT EXISTS IX_CardSchedule_CardId ON CardSchedule(CardId);
 

@@ -40,6 +40,24 @@ public partial class EditActiveTimePage : ContentPage
                 return DisplayAlert(title, message, "Delete", "Cancel");
             }
         );
+
+        _ = LoadMetadataSummariesAsync();
+    }
+
+    private async Task LoadMetadataSummariesAsync()
+    {
+        if (BindingContext is not EditActiveTimeViewModel vm)
+            return;
+
+        foreach (var row in vm.Rows.Where(x => x.Id > 0))
+        {
+            var metadata = await _db.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.Activity, row.Id);
+            if (metadata.Count == 0)
+                continue;
+
+            row.MetadataSummary = string.Join("  |  ", metadata.Select(x =>
+                $"{x.FieldName}: {UdmdValueFormatter.ToDisplayString(x)}"));
+        }
     }
 
     public enum ActiveBoundary
