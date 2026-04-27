@@ -1,4 +1,5 @@
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Backup;
 using Points.ViewModels;
 
 namespace Points.Views.Settings;
@@ -36,7 +37,29 @@ public partial class DatabaseSettingsPage : ContentPage
         if (BindingContext is not DatabaseSettingsViewModel vm)
             return;
 
-        await vm.ExportDatabaseAsync();
+        var selectionPage = new BackupSelectionPage(
+            "Export",
+            "Choose what to include in the Points backup package.",
+            "Export",
+            vm.GetExportableItems());
+
+        await Shell.Current.Navigation.PushModalAsync(selectionPage);
+        var selectedKeys = await selectionPage.SelectionTask;
+
+        if (selectedKeys == null)
+            return;
+
+        try
+        {
+            var savedPath = await vm.ExportDatabaseAsync(selectedKeys);
+
+            if (!string.IsNullOrWhiteSpace(savedPath))
+                await DisplayAlert("Export Complete", $"Saved backup to:\n{savedPath}", "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Export Failed", ex.Message, "OK");
+        }
     }
 
     private async void OnImportDBClicked(object sender, EventArgs e)
@@ -44,6 +67,58 @@ public partial class DatabaseSettingsPage : ContentPage
         if (BindingContext is not DatabaseSettingsViewModel vm)
             return;
 
-        await vm.ImportDatabaseAsync();
+        var source = await DisplayActionSheet(
+            "Import",
+            "Cancel",
+            null,
+            "Backup or database file",
+            "Backup folder");
+
+        if (string.IsNullOrWhiteSpace(source) || source == "Cancel")
+            return;
+
+        BackupImportPlan? importPlan = null;
+
+        try
+        {
+            importPlan = source == "Backup folder"
+                ? await vm.PickImportFolderAsync()
+                : await vm.PickImportFileAsync();
+
+            if (importPlan == null)
+                return;
+
+            var selectionPage = new BackupSelectionPage(
+                "Import",
+                "Choose what to restore. Selected folders will replace the existing app folders.",
+                "Import",
+                importPlan.Resources);
+
+            await Shell.Current.Navigation.PushModalAsync(selectionPage);
+            var selectedKeys = await selectionPage.SelectionTask;
+
+            if (selectedKeys == null)
+                return;
+
+            var confirm = await DisplayAlert(
+                "Import",
+                "Selected data will replace the current data in the app. Continue?",
+                "Import",
+                "Cancel");
+
+            if (!confirm)
+                return;
+
+            await vm.ImportDatabaseAsync(importPlan, selectedKeys);
+            await DisplayAlert("Import Complete", "Selected backup items were restored.", "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Import Failed", ex.Message, "OK");
+        }
+        finally
+        {
+            importPlan?.Dispose();
+        }
     }
 }

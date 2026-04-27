@@ -19,28 +19,10 @@
                             TextColor="White"
                             Clicked="OnWipeDbClicked" />
 
-                    <Button Text="Backup"
-                            Command="{Binding BackupCommand}" />
-
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                        <Label Text="Last backed up:"
-                               VerticalOptions="Center"
-                               Opacity="0.7" />
-                        <Label Grid.Column="1"
-                               Text="{Binding LastBackedUpText}"
-                               VerticalOptions="Center" />
-                    </Grid>
-
-                    <Button Text="Restore"
-                            Command="{Binding RestoreCommand}" />
-
-                    <Button Text="Browse Backup Files"
-                            Command="{Binding BrowseBackupsCommand}" />
-
-                    <Button Text="Export Database"
+                    <Button Text="Export"
                             Clicked="OnExportDBClicked" />
 
-                    <Button Text="Import Database"
+                    <Button Text="Import"
                             Clicked="OnImportDBClicked" />
 
                 </VerticalStackLayout>

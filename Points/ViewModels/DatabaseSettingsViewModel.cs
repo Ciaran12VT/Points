@@ -1,66 +1,16 @@
-﻿using Points.Services.Sqlite.Interfaces;
-using System.ComponentModel;
-using System.Windows.Input;
+using CommunityToolkit.Maui.Storage;
+using Points.Services.Backup;
+using Points.Services.Sqlite.Interfaces;
 
 namespace Points.ViewModels
 {
-    public class DatabaseSettingsViewModel : Models.ObservableObject, INotifyPropertyChanged
+    public class DatabaseSettingsViewModel
     {
         private readonly IDbService _db;
 
         public DatabaseSettingsViewModel(IDbService db)
         {
             _db = db;
-
-            BackupCommand = new Command(async () =>
-            {
-                await _db.BackupAsync();
-                RefreshLastBackedUp();
-            });
-
-            RestoreCommand = new Command(async () =>
-            {
-                var pick = await FilePicker.Default.PickAsync(new PickOptions
-                {
-                    PickerTitle = "Select a SQLite backup file",
-                    FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-                    {
-                        [DevicePlatform.Android] = new[] { ".db", ".sqlite", ".sqlite3", ".bak" },
-                    })
-                });
-
-                if (pick == null)
-                    return;
-
-                await _db.RestoreAsync(pick.FullPath);
-                RefreshLastBackedUp();
-            });
-
-            BrowseBackupsCommand = new Command(async () =>
-            {
-                await Shell.Current.DisplayAlert("Backup folder", _db.BackupsFolderPath, "OK");
-            });
-
-            RefreshLastBackedUp();
-        }
-
-        public ICommand BackupCommand { get; }
-        public ICommand RestoreCommand { get; }
-        public ICommand BrowseBackupsCommand { get; }
-
-        private string _lastBackedUpText = "Never";
-        public string LastBackedUpText
-        {
-            get => _lastBackedUpText;
-            private set => SetProperty(ref _lastBackedUpText, value);
-        }
-
-        private void RefreshLastBackedUp()
-        {
-            var dt = _db.GetLastBackupUtc();
-            LastBackedUpText = dt == null
-                ? "Never"
-                : $"{dt.Value.ToLocalTime():yyyy-MM-dd HH:mm}";
         }
 
         public async Task WipeDatabase()
@@ -68,58 +18,122 @@ namespace Points.ViewModels
             await _db.WipeAsync();
         }
 
-        public async Task ExportDatabaseAsync()
+        public IReadOnlyList<BackupResourceOption> GetExportableItems()
         {
-#if ANDROID
-            var dbFolder = Path.Combine(FileSystem.AppDataDirectory, "db");
-            var dbPath = Path.Combine(dbFolder, "points.db3");
-            var backupPath = Path.Combine(FileSystem.CacheDirectory, $"points_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db");
-
-            File.Copy(dbPath, backupPath, overwrite: true);
-
-            await Share.Default.RequestAsync(new ShareFileRequest
-            {
-                Title = "Export DB",
-                File = new ShareFile(backupPath)
-            });
-#endif
+            return BackupPackageService.GetExportableResources();
         }
 
-        public async Task ImportDatabaseAsync()
+        public async Task<string?> ExportDatabaseAsync(IEnumerable<string> selectedKeys)
         {
-#if ANDROID
+            var packagePath = await BackupPackageService.CreateExportPackageAsync(_db, selectedKeys);
+
             try
             {
-                var dbFolder = Path.Combine(FileSystem.AppDataDirectory, "db");
-                var dbPath = Path.Combine(dbFolder, "points.db3");
+                await using var packageStream = File.OpenRead(packagePath);
+                var result = await FileSaver.Default.SaveAsync(
+                    Path.GetFileName(packagePath),
+                    packageStream,
+                    CancellationToken.None);
 
-                var result = await FilePicker.Default.PickAsync(new PickOptions
+                if (!result.IsSuccessful)
                 {
-                    PickerTitle = "Select database file to import"
-                });
+                    if (result.Exception != null)
+                        throw result.Exception;
 
-                if (result == null)
-                    return;
+                    return null;
+                }
 
-                var destinationPath = dbPath;
+                return result.FilePath;
+            }
+            finally
+            {
+                TryDelete(packagePath);
+            }
+        }
 
-                await _db.CloseDatabaseAsync();
+        public async Task<BackupImportPlan?> PickImportFileAsync()
+        {
+            var result = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Select Points backup zip or database file"
+            });
 
-                using var sourceStream = await result.OpenReadAsync();
-                using var destinationStream = File.Open(destinationPath, FileMode.Create, FileAccess.Write);
+            if (result == null)
+                return null;
 
+            var fileName = !string.IsNullOrWhiteSpace(result.FileName)
+                ? result.FileName
+                : result.FullPath ?? "";
+            var extension = (Path.GetExtension(fileName) ?? "").ToLowerInvariant();
+            var tempPath = Path.Combine(
+                FileSystem.CacheDirectory,
+                $"points_import_{Guid.NewGuid():N}{extension}");
+
+            await using (var sourceStream = await result.OpenReadAsync())
+            await using (var destinationStream = File.Create(tempPath))
+            {
                 await sourceStream.CopyToAsync(destinationStream);
+            }
 
-                await _db.ReinitializeDatabaseAsync();
+            try
+            {
+                if (extension == ".zip")
+                    return await BackupPackageService.InspectZipPackageAsync(tempPath);
 
-                RefreshLastBackedUp();
+                if (extension is ".db" or ".db3" or ".sqlite" or ".sqlite3")
+                    return BackupPackageService.CreateLegacyDatabaseImportPlan(tempPath, new[] { tempPath });
+
+                throw new InvalidDataException("Select a .zip Points backup or a .db3 SQLite database file.");
+            }
+            catch
+            {
+                TryDelete(tempPath);
+                throw;
+            }
+        }
+
+        public async Task<BackupImportPlan?> PickImportFolderAsync()
+        {
+            var result = await FolderPicker.Default.PickAsync(CancellationToken.None);
+
+            if (!result.IsSuccessful)
+            {
+                if (result.Exception != null)
+                    throw result.Exception;
+
+                return null;
+            }
+
+            if (result.Folder == null || string.IsNullOrWhiteSpace(result.Folder.Path))
+                return null;
+
+            return BackupPackageService.InspectPackageFolder(result.Folder.Path);
+        }
+
+        public async Task ImportDatabaseAsync(BackupImportPlan plan, IEnumerable<string> selectedKeys)
+        {
+            try
+            {
+                await BackupPackageService.RestoreAsync(_db, plan, selectedKeys);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"ImportDatabaseAsync failed: {ex}");
+                System.Diagnostics.Debug.WriteLine($"Import failed: {ex}");
                 throw;
             }
-#endif
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+                // Best effort cleanup for cache files.
+            }
         }
     }
 }
