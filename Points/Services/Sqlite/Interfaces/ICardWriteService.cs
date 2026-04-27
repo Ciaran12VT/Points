@@ -10,5 +10,6 @@ namespace Points.Services.Sqlite.Interfaces
     public interface ICardWriteService
     {
         Task SaveCardModelAsync(ICardModel model);
+        Task DeleteCardModelAsync(ICardModel model);
     }
 }

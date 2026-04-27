@@ -42,6 +42,7 @@ namespace Points.Services.Sqlite.Interfaces
         #region Card Writes
 
         Task SaveCardModelAsync(ICardModel model);
+        Task DeleteCardModelAsync(ICardModel model);
 
         #endregion
 

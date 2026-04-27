@@ -502,6 +502,10 @@ namespace Points.ViewModels
             var settings = await _db.GetSettingsAsync();
             SettingsProvider.Initialize(settings);
 
+            var pageToRestore = Pages.Count > 0 && Position >= 0 && Position < Pages.Count
+                ? Pages[Position].Name
+                : "Main Quest";
+
             InitializePages(settings);
 
             // Get seed data (mock now, sqlite later)
@@ -649,8 +653,7 @@ namespace Points.ViewModels
 
             await _scheduleCoordinator.SyncEnabledSchedulesAsync();
 
-            // Start on Main Quest
-            Position = 0;
+            RestorePosition(pageToRestore);
 
             // Ensure mission ordering after seeding
             //SortMissionCards();
@@ -722,9 +725,29 @@ namespace Points.ViewModels
 
         private async Task ReloadDashboardAsync()
         {
-            var dashboard = Pages.First(p => p.IsDashboard);
             var shortcuts = await _db.GetDashboardShortcutsAsync();
-            RebuildDashboardCells(dashboard, shortcuts);
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                var dashboard = Pages.FirstOrDefault(p => p.IsDashboard);
+                if (dashboard == null) return;
+
+                RebuildDashboardCells(dashboard, shortcuts);
+            });
+        }
+
+        private void RestorePosition(string? pageName)
+        {
+            if (Pages.Count == 0)
+                return;
+
+            var page = !string.IsNullOrWhiteSpace(pageName)
+                ? Pages.FirstOrDefault(p => p.Name == pageName)
+                : null;
+
+            page ??= Pages.FirstOrDefault(p => p.Name == "Main Quest") ?? Pages.First();
+
+            Position = Pages.IndexOf(page);
+            SetSelectedPageIcon();
         }
 
         private void RebuildDashboardCells(HomePageModel dashboardPage, List<ShortcutModel> shortcuts)
@@ -953,6 +976,7 @@ namespace Points.ViewModels
                     new ValueTrackerDetailsPage(
                         valueTracker,
                         saved => CommitCardToPage(page, saved),
+                        deleted => DeleteCardFromPageAndDbAsync(page, deleted),
                         onCancelled: () => { }
                     )
                 );
@@ -965,6 +989,7 @@ namespace Points.ViewModels
                     new EventTrackerDetailsPage(
                         eventTracker,
                         saved => CommitCardToPage(page, saved),
+                        deleted => DeleteCardFromPageAndDbAsync(page, deleted),
                         onCancelled: () => { }
                     )
                 );
@@ -1202,6 +1227,15 @@ namespace Points.ViewModels
                 SortMissionCards();
                 OnPropertyChanged(nameof(HasNegativeAvailableMission));
             }
+        }
+
+        private async Task DeleteCardFromPageAndDbAsync(HomePageModel page, ICardModel card)
+        {
+            if (page == null || card == null) return;
+
+            await _db.DeleteCardModelAsync(card);
+            RemoveCardFromPage(page, card);
+            await ReloadDashboardAsync();
         }
 
         #endregion

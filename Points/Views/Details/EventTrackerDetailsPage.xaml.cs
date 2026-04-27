@@ -7,6 +7,7 @@ public partial class EventTrackerDetailsPage : ContentPage
 {
     private readonly EventTrackerCardModel _model;
     private readonly Action<EventTrackerCardModel> _onSaved;
+    private readonly Func<EventTrackerCardModel, Task> _onDelete;
     private readonly Action _onCancelled;
 
     // This exists only to bind DatePicker cleanly, same as your ValueTracker page pattern.
@@ -15,12 +16,14 @@ public partial class EventTrackerDetailsPage : ContentPage
     public EventTrackerDetailsPage(
         EventTrackerCardModel model,
         Action<EventTrackerCardModel> onSaved,
+        Func<EventTrackerCardModel, Task> onDelete,
         Action onCancelled)
     {
         InitializeComponent();
 
         _model = model;
         _onSaved = onSaved;
+        _onDelete = onDelete;
         _onCancelled = onCancelled;
 
         // Defaults
@@ -52,6 +55,30 @@ public partial class EventTrackerDetailsPage : ContentPage
     {
         _onCancelled?.Invoke();
         await Shell.Current.Navigation.PopAsync();
+    }
+
+    private async void OnDeleteClicked(object sender, EventArgs e)
+    {
+        var confirmed = await Shell.Current.DisplayAlert(
+            "Delete Arc?",
+            "This will delete this Arc and its saved values. Continue?",
+            "Delete",
+            "Cancel");
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            if (_onDelete != null)
+                await _onDelete(_model);
+
+            await Shell.Current.Navigation.PopAsync();
+        }
+        catch (Exception ex)
+        {
+            await Shell.Current.DisplayAlert("Delete failed", ex.Message, "OK");
+        }
     }
 
     private async void OnOkClicked(object sender, EventArgs e)

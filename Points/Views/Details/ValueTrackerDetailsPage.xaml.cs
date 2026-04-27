@@ -8,17 +8,20 @@ public partial class ValueTrackerDetailsPage : ContentPage
 {
     private readonly ValueTrackerCardModel _model;
     private readonly Action<ValueTrackerCardModel> _onSaved;
+    private readonly Func<ValueTrackerCardModel, Task> _onDelete;
     private readonly Action _onCancelled;
 
     public ValueTrackerDetailsPage(
         ValueTrackerCardModel model,
         Action<ValueTrackerCardModel> onSaved,
+        Func<ValueTrackerCardModel, Task> onDelete,
         Action onCancelled)
     {
         InitializeComponent();
 
         _model = model;
         _onSaved = onSaved;
+        _onDelete = onDelete;
         _onCancelled = onCancelled;
 
         BindingContext = _model;
@@ -45,6 +48,30 @@ public partial class ValueTrackerDetailsPage : ContentPage
     {
         _onCancelled?.Invoke();
         await Shell.Current.Navigation.PopAsync();
+    }
+
+    private async void OnDeleteClicked(object sender, EventArgs e)
+    {
+        var confirmed = await Shell.Current.DisplayAlert(
+            "Delete Arc?",
+            "This will delete this Arc and its saved values. Continue?",
+            "Delete",
+            "Cancel");
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            if (_onDelete != null)
+                await _onDelete(_model);
+
+            await Shell.Current.Navigation.PopAsync();
+        }
+        catch (Exception ex)
+        {
+            await Shell.Current.DisplayAlert("Delete failed", ex.Message, "OK");
+        }
     }
 
     private async void OnOkClicked(object sender, EventArgs e)

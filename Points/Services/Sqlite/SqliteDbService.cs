@@ -3212,6 +3212,42 @@ namespace Points.Services.Sqlite
             return null;
         }
 
+        public async Task DeleteCardModelAsync(ICardModel model)
+        {
+            await InitializeAsync();
+
+            if (model == null)
+                throw new ArgumentNullException(nameof(model));
+
+            var cardId = model.CardID;
+            if (cardId <= 0)
+            {
+                var resolvedCardId = await CheckForCardID(model);
+                if (resolvedCardId == null)
+                    return;
+
+                cardId = resolvedCardId.Value;
+            }
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                conn.Execute("DELETE FROM Shortcut WHERE TargetCardId = ?;", cardId);
+                conn.Execute("DELETE FROM NotificationLog WHERE CardId = ?;", cardId);
+                conn.Execute("DELETE FROM CardSchedule WHERE CardId = ?;", cardId);
+                conn.Execute("DELETE FROM LockTaskDependency WHERE TaskDependencyCardId = ?;", cardId);
+
+                var lockIds = conn.QueryScalars<long>("SELECT LockId FROM Lock WHERE CardId = ?;", cardId);
+                DeleteByIds(conn, "LockSchedule", "LockId", lockIds.ToList());
+                DeleteByIds(conn, "LockTaskDependency", "LockId", lockIds.ToList());
+                conn.Execute("DELETE FROM Lock WHERE CardId = ?;", cardId);
+
+                conn.Execute("DELETE FROM Card WHERE CardID = ?;", cardId);
+            });
+
+            model.Id = 0;
+            model.CardID = 0;
+        }
+
         #endregion
 
         #region Achievements

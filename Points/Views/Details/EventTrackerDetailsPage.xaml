@@ -9,7 +9,25 @@
         <VerticalStackLayout Padding="16" Spacing="14">
 
             <!-- Title -->
-            <Label Text="Title" FontAttributes="Bold" FontSize="14" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                <Label Text="Title"
+                       FontAttributes="Bold"
+                       FontSize="14"
+                       VerticalOptions="Center" />
+
+                <Button Grid.Column="1"
+                        Text="X"
+                        BackgroundColor="DarkRed"
+                        TextColor="White"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"
+                        Clicked="OnDeleteClicked" />
+            </Grid>
+
             <Entry x:Name="TitleEntry"
                    Placeholder="e.g. Gym session, Cigarettes, Meditations"
                    Text="{Binding Title}" />

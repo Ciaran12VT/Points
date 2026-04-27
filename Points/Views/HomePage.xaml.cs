@@ -266,11 +266,7 @@ public partial class HomePage : ContentPage
 
         if (BindingContext is HomeViewModel vm)
         {
-            if (_hasAppearedOnce)
-            {
-                await vm.LoadAsync();
-            }
-            else if (vm.Initialization != null)
+            if (!_hasAppearedOnce && vm.Initialization != null)
             {
                 await vm.Initialization;
             }
