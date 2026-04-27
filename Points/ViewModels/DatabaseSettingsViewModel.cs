@@ -55,7 +55,7 @@ namespace Points.ViewModels
         {
             var result = await FilePicker.Default.PickAsync(new PickOptions
             {
-                PickerTitle = "Select Points backup zip or database file"
+                PickerTitle = "Select a Points .zip backup or .db3 database"
             });
 
             if (result == null)
@@ -83,7 +83,7 @@ namespace Points.ViewModels
                 if (extension is ".db" or ".db3" or ".sqlite" or ".sqlite3")
                     return BackupPackageService.CreateLegacyDatabaseImportPlan(tempPath, new[] { tempPath });
 
-                throw new InvalidDataException("Select a .zip Points backup or a .db3 SQLite database file.");
+                throw new InvalidDataException("Select a Points .zip backup package, or a legacy .db3 SQLite database file.");
             }
             catch
             {
@@ -94,6 +94,11 @@ namespace Points.ViewModels
 
         public async Task<BackupImportPlan?> PickImportFolderAsync()
         {
+#if ANDROID
+            await Task.CompletedTask;
+            throw new PlatformNotSupportedException(
+                "Folder import is not supported on Android because Android does not grant Points direct access to every file inside a selected folder. Import the exported .zip backup package instead.");
+#else
             var result = await FolderPicker.Default.PickAsync(CancellationToken.None);
 
             if (!result.IsSuccessful)
@@ -108,6 +113,7 @@ namespace Points.ViewModels
                 return null;
 
             return BackupPackageService.InspectPackageFolder(result.Folder.Path);
+#endif
         }
 
         public async Task ImportDatabaseAsync(BackupImportPlan plan, IEnumerable<string> selectedKeys)

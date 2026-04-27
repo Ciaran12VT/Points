@@ -1,6 +1,8 @@
 ﻿#if ANDROID
 using Android.App;
 using Android.Content;
+using Points.Helpers;
+using Points.Services.Scheduling;
 
 namespace Points.Platforms.Android
 {
@@ -10,7 +12,20 @@ namespace Points.Platforms.Android
     {
         public override void OnReceive(Context context, Intent intent)
         {
-            // TODO: load enabled schedules from DB and reschedule them
+            _ = HandleAsync();
+        }
+
+        private static async Task HandleAsync()
+        {
+            try
+            {
+                var coordinator = ServiceHelper.GetService<INotificationScheduleCoordinator>();
+                await coordinator.SyncEnabledSchedulesAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"BootReceiver failed to sync schedules: {ex}");
+            }
         }
     }
 }

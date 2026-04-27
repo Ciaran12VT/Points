@@ -67,50 +67,13 @@ public partial class DatabaseSettingsPage : ContentPage
         if (BindingContext is not DatabaseSettingsViewModel vm)
             return;
 
-        var source = await DisplayActionSheet(
-            "Import",
-            "Cancel",
-            null,
-            "Backup or database file",
-            "Backup folder");
-
-        if (string.IsNullOrWhiteSpace(source) || source == "Cancel")
-            return;
-
         BackupImportPlan? importPlan = null;
 
+#if ANDROID
         try
         {
-            importPlan = source == "Backup folder"
-                ? await vm.PickImportFolderAsync()
-                : await vm.PickImportFileAsync();
-
-            if (importPlan == null)
-                return;
-
-            var selectionPage = new BackupSelectionPage(
-                "Import",
-                "Choose what to restore. Selected folders will replace the existing app folders.",
-                "Import",
-                importPlan.Resources);
-
-            await Shell.Current.Navigation.PushModalAsync(selectionPage);
-            var selectedKeys = await selectionPage.SelectionTask;
-
-            if (selectedKeys == null)
-                return;
-
-            var confirm = await DisplayAlert(
-                "Import",
-                "Selected data will replace the current data in the app. Continue?",
-                "Import",
-                "Cancel");
-
-            if (!confirm)
-                return;
-
-            await vm.ImportDatabaseAsync(importPlan, selectedKeys);
-            await DisplayAlert("Import Complete", "Selected backup items were restored.", "OK");
+            importPlan = await vm.PickImportFileAsync();
+            await ImportSelectedItemsAsync(vm, importPlan);
         }
         catch (Exception ex)
         {
@@ -120,5 +83,63 @@ public partial class DatabaseSettingsPage : ContentPage
         {
             importPlan?.Dispose();
         }
+#else
+        var source = await DisplayActionSheet(
+            "Import",
+            "Cancel",
+            null,
+            "Backup .zip or database file",
+            "Backup folder");
+
+        if (string.IsNullOrWhiteSpace(source) || source == "Cancel")
+            return;
+
+        try
+        {
+            importPlan = source == "Backup folder"
+                ? await vm.PickImportFolderAsync()
+                : await vm.PickImportFileAsync();
+
+            await ImportSelectedItemsAsync(vm, importPlan);
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Import Failed", ex.Message, "OK");
+        }
+        finally
+        {
+            importPlan?.Dispose();
+        }
+#endif
+    }
+
+    private async Task ImportSelectedItemsAsync(DatabaseSettingsViewModel vm, BackupImportPlan? importPlan)
+    {
+        if (importPlan == null)
+            return;
+
+        var selectionPage = new BackupSelectionPage(
+            "Import",
+            "Choose what to restore. Selected folders will replace the existing app folders.",
+            "Import",
+            importPlan.Resources);
+
+        await Shell.Current.Navigation.PushModalAsync(selectionPage);
+        var selectedKeys = await selectionPage.SelectionTask;
+
+        if (selectedKeys == null)
+            return;
+
+        var confirm = await DisplayAlert(
+            "Import",
+            "Selected data will replace the current data in the app. Continue?",
+            "Import",
+            "Cancel");
+
+        if (!confirm)
+            return;
+
+        await vm.ImportDatabaseAsync(importPlan, selectedKeys);
+        await DisplayAlert("Import Complete", "Selected backup items were restored.", "OK");
     }
 }

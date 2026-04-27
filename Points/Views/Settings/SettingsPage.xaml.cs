@@ -26,4 +26,9 @@ public partial class SettingsPage : ContentPage
     {
         await Shell.Current.Navigation.PushAsync(new ModulesAndFeaturesSettingsPage(_db));
     }
+
+    private async void OnNotificationsLogClicked(object sender, EventArgs e)
+    {
+        await Shell.Current.Navigation.PushAsync(new NotificationLogPage(_db));
+    }
 }

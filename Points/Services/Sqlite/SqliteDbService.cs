@@ -2257,6 +2257,27 @@ namespace Points.Services.Sqlite
             return scheduleModels;
         }
 
+        public async Task<List<CardSchedule>> GetEnabledCardSchedulesAsync()
+        {
+            await InitializeAsync();
+
+            var rows = await Db.QueryAsync<CardScheduleRow>(
+                @"SELECT
+                      ScheduleID     AS ScheduleID,
+                      CardID         AS CardID,
+                      FrequencyType  AS FrequencyType,
+                      FrequencyValue AS FrequencyValue,
+                      FromDateTime   AS FromDateTime,
+                      ToDateTime     AS ToDateTime,
+                      IsEnabled      AS IsEnabled,
+                      Note           AS Note
+                  FROM CardSchedule
+                  WHERE IsEnabled = 1
+                  ORDER BY datetime(FromDateTime);");
+
+            return rows.Select(CardScheduleMapper.ToDomain).ToList();
+        }
+
         public async Task<CardSchedule?> GetCardScheduleByIdAsync(long scheduleId)
         {
             await InitializeAsync();
@@ -2269,6 +2290,245 @@ namespace Points.Services.Sqlite
 
             var row = rows.FirstOrDefault();
             return row == null ? null : CardScheduleMapper.ToDomain(row);
+        }
+
+        #endregion
+
+        #region Notification Logs
+
+        private static readonly TimeSpan NotificationSentMatchWindow = TimeSpan.FromMinutes(5);
+
+        public async Task<IReadOnlyList<NotificationLogModel>> GetNotificationLogsAsync(int limit = 250)
+        {
+            await InitializeAsync();
+
+            var take = Math.Clamp(limit, 1, 1000);
+            var rows = await Db.QueryAsync<NotificationLogRow>(
+                @"SELECT
+                      NotificationLogId AS NotificationLogId,
+                      ScheduleId        AS ScheduleId,
+                      CardId            AS CardId,
+                      CardTitle         AS CardTitle,
+                      Note              AS Note,
+                      Status            AS Status,
+                      CreatedAt         AS CreatedAt,
+                      ScheduledAt       AS ScheduledAt,
+                      ScheduleFor       AS ScheduleFor,
+                      SentAt            AS SentAt,
+                      UpdatedAt         AS UpdatedAt,
+                      Error             AS Error
+                  FROM NotificationLog
+                  ORDER BY datetime(ScheduleFor) DESC, NotificationLogId DESC
+                  LIMIT ?;",
+                take);
+
+            return rows.Select(NotificationLogMapper.ToDomain).ToList();
+        }
+
+        public async Task<NotificationLogModel> UpsertNotificationLogCreatedAsync(
+            CardSchedule schedule,
+            string? cardTitle,
+            DateTime scheduleFor,
+            DateTime createdAt)
+        {
+            await InitializeAsync();
+
+            var scheduleForIso = ToIso(scheduleFor);
+            var existing = (await Db.QueryAsync<NotificationLogRow>(
+                @"SELECT *
+                  FROM NotificationLog
+                  WHERE ScheduleId = ?
+                    AND ScheduleFor = ?
+                  LIMIT 1;",
+                schedule.ScheduleId,
+                scheduleForIso)).FirstOrDefault();
+
+            if (existing == null)
+            {
+                await Db.ExecuteAsync(
+                    @"INSERT INTO NotificationLog
+                      (ScheduleId, CardId, CardTitle, Note, Status, CreatedAt, ScheduleFor, UpdatedAt)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+                    schedule.ScheduleId,
+                    schedule.CardId,
+                    cardTitle ?? "",
+                    schedule.Note ?? "",
+                    NotificationLogStatuses.Created,
+                    ToIso(createdAt),
+                    scheduleForIso,
+                    ToIso(createdAt));
+
+                var id = await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                return await GetNotificationLogByIdAsync(id)
+                    ?? throw new InvalidOperationException("Notification log row was inserted but could not be read.");
+            }
+
+            await Db.ExecuteAsync(
+                @"UPDATE NotificationLog
+                  SET CardId = ?,
+                      CardTitle = ?,
+                      Note = ?,
+                      UpdatedAt = ?
+                  WHERE NotificationLogId = ?;",
+                schedule.CardId,
+                cardTitle ?? "",
+                schedule.Note ?? "",
+                ToIso(createdAt),
+                existing.NotificationLogId);
+
+            return await GetNotificationLogByIdAsync(existing.NotificationLogId)
+                ?? throw new InvalidOperationException("Notification log row could not be read.");
+        }
+
+        public async Task MarkNotificationLogScheduledAsync(long notificationLogId, DateTime scheduledAt)
+        {
+            await InitializeAsync();
+
+            await Db.ExecuteAsync(
+                @"UPDATE NotificationLog
+                  SET Status = ?,
+                      ScheduledAt = ?,
+                      UpdatedAt = ?,
+                      Error = NULL
+                  WHERE NotificationLogId = ?
+                    AND Status <> ?;",
+                NotificationLogStatuses.Scheduled,
+                ToIso(scheduledAt),
+                ToIso(scheduledAt),
+                notificationLogId,
+                NotificationLogStatuses.Sent);
+        }
+
+        public async Task MarkNotificationLogScheduleErrorAsync(long notificationLogId, string error, DateTime updatedAt)
+        {
+            await InitializeAsync();
+
+            await Db.ExecuteAsync(
+                @"UPDATE NotificationLog
+                  SET Error = ?,
+                      UpdatedAt = ?
+                  WHERE NotificationLogId = ?;",
+                error,
+                ToIso(updatedAt),
+                notificationLogId);
+        }
+
+        public async Task MarkNotificationLogSentAsync(
+            CardSchedule schedule,
+            string? cardTitle,
+            DateTime firedAt,
+            DateTime sentAt)
+        {
+            await InitializeAsync();
+
+            var matchCutoff = firedAt.Add(NotificationSentMatchWindow);
+            var existing = (await Db.QueryAsync<NotificationLogRow>(
+                @"SELECT *
+                  FROM NotificationLog
+                  WHERE ScheduleId = ?
+                    AND Status IN (?, ?, ?)
+                    AND datetime(ScheduleFor) <= datetime(?)
+                  ORDER BY datetime(ScheduleFor) DESC, NotificationLogId DESC
+                  LIMIT 1;",
+                schedule.ScheduleId,
+                NotificationLogStatuses.Created,
+                NotificationLogStatuses.Scheduled,
+                NotificationLogStatuses.Missed,
+                ToIso(matchCutoff))).FirstOrDefault();
+
+            var logId = existing?.NotificationLogId;
+            if (logId == null)
+            {
+                var created = await UpsertNotificationLogCreatedAsync(schedule, cardTitle, firedAt, sentAt);
+                logId = created.NotificationLogId;
+            }
+
+            await Db.ExecuteAsync(
+                @"UPDATE NotificationLog
+                  SET CardId = ?,
+                      CardTitle = ?,
+                      Note = ?,
+                      Status = ?,
+                      SentAt = ?,
+                      UpdatedAt = ?,
+                      Error = NULL
+                  WHERE NotificationLogId = ?;",
+                schedule.CardId,
+                cardTitle ?? "",
+                schedule.Note ?? "",
+                NotificationLogStatuses.Sent,
+                ToIso(sentAt),
+                ToIso(sentAt),
+                logId.Value);
+        }
+
+        public async Task MarkOverdueNotificationLogsMissedAsync(DateTime now, TimeSpan gracePeriod)
+        {
+            await InitializeAsync();
+
+            var cutoff = now.Subtract(gracePeriod);
+            await Db.ExecuteAsync(
+                @"UPDATE NotificationLog
+                  SET Status = ?,
+                      UpdatedAt = ?
+                  WHERE SentAt IS NULL
+                    AND Status IN (?, ?)
+                    AND datetime(ScheduleFor) < datetime(?);",
+                NotificationLogStatuses.Missed,
+                ToIso(now),
+                NotificationLogStatuses.Created,
+                NotificationLogStatuses.Scheduled,
+                ToIso(cutoff));
+        }
+
+        private async Task<NotificationLogModel?> GetNotificationLogByIdAsync(long notificationLogId)
+        {
+            var row = (await Db.QueryAsync<NotificationLogRow>(
+                @"SELECT *
+                  FROM NotificationLog
+                  WHERE NotificationLogId = ?
+                  LIMIT 1;",
+                notificationLogId)).FirstOrDefault();
+
+            return row == null ? null : NotificationLogMapper.ToDomain(row);
+        }
+
+        public sealed class NotificationLogRow
+        {
+            public long NotificationLogId { get; set; }
+            public long ScheduleId { get; set; }
+            public long CardId { get; set; }
+            public string CardTitle { get; set; } = "";
+            public string Note { get; set; } = "";
+            public string Status { get; set; } = "";
+            public string CreatedAt { get; set; } = "";
+            public string? ScheduledAt { get; set; }
+            public string ScheduleFor { get; set; } = "";
+            public string? SentAt { get; set; }
+            public string UpdatedAt { get; set; } = "";
+            public string? Error { get; set; }
+        }
+
+        public static class NotificationLogMapper
+        {
+            public static NotificationLogModel ToDomain(NotificationLogRow row)
+            {
+                return new NotificationLogModel
+                {
+                    NotificationLogId = row.NotificationLogId,
+                    ScheduleId = row.ScheduleId,
+                    CardId = row.CardId,
+                    CardTitle = row.CardTitle ?? "",
+                    Note = row.Note ?? "",
+                    Status = row.Status ?? NotificationLogStatuses.Created,
+                    CreatedAt = ParseIso(row.CreatedAt),
+                    ScheduledAt = string.IsNullOrWhiteSpace(row.ScheduledAt) ? null : ParseIso(row.ScheduledAt!),
+                    ScheduleFor = ParseIso(row.ScheduleFor),
+                    SentAt = string.IsNullOrWhiteSpace(row.SentAt) ? null : ParseIso(row.SentAt!),
+                    UpdatedAt = ParseIso(row.UpdatedAt),
+                    Error = row.Error
+                };
+            }
         }
 
         #endregion

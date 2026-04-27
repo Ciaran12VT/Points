@@ -14,7 +14,8 @@ namespace Points.Services.Sqlite.Interfaces
         ILockService,
         IPlannerService,
         IShortcutService,
-        IReportService
+        IReportService,
+        INotificationLogService
     {
         #region Initialization / Lifecycle
 
@@ -32,6 +33,7 @@ namespace Points.Services.Sqlite.Interfaces
         Task<HomeSeedData> GetHomeSeedDataAsync(DateTime rangeStart, DateTime rangeEnd);
         Task<List<IActiveCardModel>> GetMainQuestModelsDataAsync(DateTime rangeStart, DateTime rangeEnd);
 
+        Task<List<CardSchedule>> GetEnabledCardSchedulesAsync();
         Task<CardSchedule?> GetCardScheduleByIdAsync(long scheduleId);
         Task<string?> GetCardTitleByIdAsync(long cardId);
 

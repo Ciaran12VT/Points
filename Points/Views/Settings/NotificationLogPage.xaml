@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Settings.NotificationLogPage"
+             Title="Notifications Log">
+
+    <Grid RowDefinitions="Auto,*" Padding="12" RowSpacing="12">
+
+        <Button Grid.Row="0"
+                Text="Refresh"
+                Command="{Binding RefreshCommand}"
+                HeightRequest="44"
+                HorizontalOptions="End" />
+
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding Rows}"
+                        SelectionMode="None">
+
+            <CollectionView.EmptyView>
+                <VerticalStackLayout Padding="8" Spacing="6">
+                    <Label Text="No notifications logged yet."
+                           FontAttributes="Bold" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Padding="12"
+                           Margin="0,0,0,10"
+                           CornerRadius="8"
+                           HasShadow="False"
+                           BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
+
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                              RowSpacing="8"
+                              ColumnDefinitions="*,Auto"
+                              ColumnSpacing="12">
+
+                            <Label Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="{Binding TitleText}"
+                                   FontAttributes="Bold"
+                                   LineBreakMode="TailTruncation" />
+
+                            <Label Grid.Row="0"
+                                   Grid.Column="1"
+                                   Text="{Binding Status}"
+                                   TextColor="{Binding StatusColor}"
+                                   FontAttributes="Bold"
+                                   HorizontalOptions="End" />
+
+                            <Label Grid.Row="1"
+                                   Grid.ColumnSpan="2"
+                                   Text="{Binding NoteText}"
+                                   IsVisible="{Binding HasNote}"
+                                   FontSize="12"
+                                   Opacity="0.75"
+                                   LineBreakMode="TailTruncation" />
+
+                            <Grid Grid.Row="2"
+                                  Grid.ColumnSpan="2"
+                                  RowDefinitions="Auto,Auto"
+                                  ColumnDefinitions="*,*"
+                                  ColumnSpacing="12"
+                                  RowSpacing="6">
+
+                                <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="2">
+                                    <Label Text="CreatedAt"
+                                           FontSize="11"
+                                           Opacity="0.65" />
+                                    <Label Text="{Binding CreatedAtText}"
+                                           FontSize="13"
+                                           LineBreakMode="NoWrap" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Row="0" Grid.Column="1" Spacing="2">
+                                    <Label Text="ScheduledAt"
+                                           FontSize="11"
+                                           Opacity="0.65" />
+                                    <Label Text="{Binding ScheduledAtText}"
+                                           FontSize="13"
+                                           LineBreakMode="NoWrap" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Row="1" Grid.Column="0" Spacing="2">
+                                    <Label Text="ScheduleFor"
+                                           FontSize="11"
+                                           Opacity="0.65" />
+                                    <Label Text="{Binding ScheduleForText}"
+                                           FontSize="13"
+                                           LineBreakMode="NoWrap" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="2">
+                                    <Label Text="SentAt"
+                                           FontSize="11"
+                                           Opacity="0.65" />
+                                    <Label Text="{Binding SentAtText}"
+                                           FontSize="13"
+                                           LineBreakMode="NoWrap" />
+                                </VerticalStackLayout>
+
+                            </Grid>
+
+                            <Label Grid.Row="3"
+                                   Grid.ColumnSpan="2"
+                                   Text="{Binding ErrorText}"
+                                   IsVisible="{Binding HasError}"
+                                   TextColor="#B00020"
+                                   FontSize="12"
+                                   LineBreakMode="TailTruncation" />
+
+                        </Grid>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+        </CollectionView>
+
+    </Grid>
+</ContentPage>

@@ -4,6 +4,7 @@ using Points.Helpers;
 using Points.Interfaces;
 using Points.Models;
 using Points.Services;
+using Points.Services.Scheduling;
 using Points.Services.Sqlite;
 using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
@@ -32,12 +33,15 @@ namespace Points
 #if ANDROID
             builder.Services.AddSingleton<IAudioFeedback, AndroidAudioFeedback>();
             builder.Services.AddSingleton<IActiveCardNotificationService, Points.Platforms.Android.ActiveCardNotificationService>();
-            builder.Services.AddSingleton<IAlarmScheduler, Points.Platforms.Android.AlarmScheduler>();
+            builder.Services.AddSingleton<IDeviceAlarmScheduler, Points.Platforms.Android.AndroidDeviceAlarmScheduler>();
+            builder.Services.AddSingleton<IScheduleNotificationPresenter, Points.Platforms.Android.AndroidScheduleNotificationPresenter>();
 #else
             builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
             builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
-            builder.Services.AddSingleton<IAlarmScheduler, NullAlarmScheduler>();
+            builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
+            builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
 #endif
+            builder.Services.AddSingleton<INotificationScheduleCoordinator, NotificationScheduleCoordinator>();
 
             builder.Services.AddTransient<HomePage>();      // <-- add this
             builder.Services.AddTransient<HomeViewModel>();
@@ -59,24 +63,22 @@ namespace Points
         public void Clack() { }
     }
 
-    public class NullAlarmScheduler : IAlarmScheduler
+    public class NullDeviceAlarmScheduler : IDeviceAlarmScheduler
     {
-        public Task CancelAllAsync(IEnumerable<long> scheduleIds)
+        public Task CancelAsync(long scheduleId)
         {
             return Task.CompletedTask;
         }
 
-        public Task CancelOneAsync(long scheduleId)
+        public Task ScheduleExactAsync(long scheduleId, DateTime scheduleFor, CancellationToken ct = default)
         {
             return Task.CompletedTask;
         }
+    }
 
-        public Task ScheduleAllAsync(IEnumerable<CardSchedule> schedules, CancellationToken ct = default)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task ScheduleOneAsync(CardSchedule schedule, CancellationToken ct = default)
+    public class NullScheduleNotificationPresenter : IScheduleNotificationPresenter
+    {
+        public Task ShowScheduleFiredAsync(CardSchedule schedule, string? title, CancellationToken ct = default)
         {
             return Task.CompletedTask;
         }

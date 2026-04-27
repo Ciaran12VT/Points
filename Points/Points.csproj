@@ -213,6 +213,9 @@
 	  <MauiXaml Update="Views\Settings\ModulesAndFeaturesSettingsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Views\Settings\NotificationLogPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Views\Settings\MultiplierSettingsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
@@ -241,6 +244,9 @@
 	    <Generator>MSBuild:Compile</Generator>
 	  </None>
 	  <None Update="Views\Settings\ModulesAndFeaturesSettingsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </None>
+	  <None Update="Views\Settings\NotificationLogPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </None>
 	  <None Update="Views\Settings\MultiplierSettingsPage.xaml">

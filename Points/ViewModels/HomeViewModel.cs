@@ -14,6 +14,7 @@ using System.Windows.Input;
 using System.Text.Json;
 using Points.Views.Shared;
 using Points.Services.Locks;
+using Points.Services.Scheduling;
 using CommunityToolkit.Maui.Views;
 using Points.Views.Popups;
 using Points.Evaluators;
@@ -27,7 +28,7 @@ namespace Points.ViewModels
 
         private readonly IActiveCardNotificationService _activeCardNotificationService;
         private IDbService _db;
-        private IAlarmScheduler _alarmScheduler;
+        private readonly INotificationScheduleCoordinator _scheduleCoordinator;
 
         private readonly SemaphoreSlim _achievementTickGate = new(1, 1);
         private int _tickSuppressionCount;
@@ -355,11 +356,11 @@ namespace Points.ViewModels
 
         #endregion
 
-        public HomeViewModel(IDbService db, IActiveCardNotificationService activeCardNotificationService, IAlarmScheduler alarmScheduler)
+        public HomeViewModel(IDbService db, IActiveCardNotificationService activeCardNotificationService, INotificationScheduleCoordinator scheduleCoordinator)
         {
             _activeCardNotificationService = activeCardNotificationService;
             _db = db;
-            _alarmScheduler = alarmScheduler;
+            _scheduleCoordinator = scheduleCoordinator;
 
             // Commands
             ActivateCardCommand = new Command<IActiveCardModel>(RequestActivate);
@@ -646,19 +647,7 @@ namespace Points.ViewModels
 
             });
 
-            var scheduleables =
-                seed.MainQuestCards
-                    .OfType<IScheduleable>()
-                    .Concat(seed.ValueTrackers.OfType<IScheduleable>())
-                    .Concat(seed.MissionCards.OfType<IScheduleable>()) // if applicable
-                    .ToList();
-
-            var schedules = scheduleables
-                .SelectMany(x => x.Schedules)
-                .Where(s => s.IsEnabled)
-                .ToList();
-
-            await _alarmScheduler.ScheduleAllAsync(schedules);
+            await _scheduleCoordinator.SyncEnabledSchedulesAsync();
 
             // Start on Main Quest
             Position = 0;

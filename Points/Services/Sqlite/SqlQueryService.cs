@@ -256,6 +256,22 @@ namespace Points.Services.Sqlite
                     ToDateTime     TEXT    NULL      -- ISO-8601 or NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS NotificationLog (
+                    NotificationLogId INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ScheduleId        INTEGER NOT NULL,
+                    CardId            INTEGER NOT NULL,
+                    CardTitle         TEXT    NOT NULL DEFAULT '',
+                    Note              TEXT    NOT NULL DEFAULT '',
+                    Status            TEXT    NOT NULL DEFAULT 'Created',
+                    CreatedAt         TEXT    NOT NULL,
+                    ScheduledAt       TEXT    NULL,
+                    ScheduleFor       TEXT    NOT NULL,
+                    SentAt            TEXT    NULL,
+                    UpdatedAt         TEXT    NOT NULL,
+                    Error             TEXT    NULL,
+                    CHECK (Status IN ('Created', 'Scheduled', 'Sent', 'Missed'))
+                );
+
                 -- =========================
                 -- Planner
                 -- =========================
@@ -387,6 +403,15 @@ namespace Points.Services.Sqlite
 
                 CREATE INDEX IF NOT EXISTS IX_CardSchedule_CardId ON CardSchedule(CardId);
 
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_NotificationLog_ScheduleOccurrence
+                ON NotificationLog(ScheduleId, ScheduleFor);
+
+                CREATE INDEX IF NOT EXISTS IX_NotificationLog_StatusScheduleFor
+                ON NotificationLog(Status, ScheduleFor);
+
+                CREATE INDEX IF NOT EXISTS IX_NotificationLog_ScheduleId
+                ON NotificationLog(ScheduleId);
+
                 CREATE INDEX IF NOT EXISTS IX_PlannerGoal_CardID       ON PlannerGoal(CardID);
                 CREATE INDEX IF NOT EXISTS IX_PlannerGoal_Enabled ON PlannerGoal(Enabled);
 
@@ -432,6 +457,7 @@ namespace Points.Services.Sqlite
         {
             // Wipes data only (keeps tables + indexes). Uses FK OFF to avoid delete-order constraints.
             return @"
+                    DELETE FROM NotificationLog;
                     DELETE FROM Shortcut;
                 ";
         }
