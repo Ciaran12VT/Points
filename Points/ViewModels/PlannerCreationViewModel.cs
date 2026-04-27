@@ -95,11 +95,8 @@ namespace Points.ViewModels
                         pprvms.Add(row);
                     }
 
-                    var maxValue = pprvms.Max(x => Math.Max(x.TotalValue, (x.CurrentValue.HasValue ? x.CurrentValue.Value : 0)));
-
                     foreach (var pprvm in pprvms)
                     {
-                        pprvm.MaxValue = maxValue;
                         Rows.Add(pprvm);
                     }
 
@@ -147,10 +144,11 @@ namespace Points.ViewModels
         public string RightBottomText { get; init; } = "";
 
         // Values
-        public double MaxValue { get; set; } = 100;
+        private double _maxValue = 100;
+        public double MaxValue { get => _maxValue; set => SetProperty(ref _maxValue, value); }
 
         private double _totalValue;
-        public double TotalValue { get => _totalValue; set { _totalValue = value; RaisePropertyChanged(nameof(TotalValue)); } }
+        public double TotalValue { get => _totalValue; set { if (SetProperty(ref _totalValue, value)) MaxValue = value; } }
         public double? CurrentValue { get; init; }
 
         private double? _expectedValue;
@@ -276,14 +274,13 @@ namespace Points.ViewModels
             {
                 var pts = GetTotalGoalPoints(card, plannerGoalDetailsModel.GoalHrs);
                 var pcTotalTime = GetPercentOfTotalTime(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel, DateTime.Now);
-                var maxHrs = GetMaxHours(plannerGoalDetailsModel, DateTime.Now);
                 var currentHrs = GetTotalCurrentHoursSpent(card, plannerGoalDetailsModel, DateTime.Now);
                 var expectedByNowHrs = GetTotalExpectedByNowHoursSpent(plannerGoalDetailsModel.GoalHrs, plannerGoalDetailsModel.TimeScope, DateTime.Now);
 
                 LeftText = card.Title;
                 RightTopText = Math.Round(pts, 1) + "pts";
                 RightBottomText = Math.Round(pcTotalTime, 1) + "%";
-                MaxValue = maxHrs;
+                MaxValue = plannerGoalDetailsModel.GoalHrs;
                 TotalValue = plannerGoalDetailsModel.GoalHrs;
                 CurrentValue = currentHrs;
                 ExpectedValue = expectedByNowHrs;
@@ -317,16 +314,6 @@ namespace Points.ViewModels
             var range = new TimeScopeRange(plannerGoalDetailsModel.TimeScope, now);
 
             return card.GetValue(range.Start, range.End);
-        }
-
-        private double GetMaxHours(PlannerGoalDetailsModel plannerGoalDetailsModel, DateTime now)
-        {
-            var range = new TimeScopeRange(plannerGoalDetailsModel.TimeScope, now);
-
-            if (plannerGoalDetailsModel.DeFactoStart.HasValue) range.Start = DateOnly.FromDateTime(range.Start).ToDateTime(plannerGoalDetailsModel.DeFactoStart.Value, range.Start.Kind);
-            if (plannerGoalDetailsModel.DeFactoEnd.HasValue) range.End = DateOnly.FromDateTime(range.End).ToDateTime(plannerGoalDetailsModel.DeFactoEnd.Value, range.End.Kind);
-
-            return (range.End - range.Start).TotalHours;
         }
 
         private double GetPercentOfTotalTime(double totalGoalHrs, PlannerGoalDetailsModel plannerGoalDetailsModel, DateTime now)

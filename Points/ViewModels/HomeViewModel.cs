@@ -635,15 +635,10 @@ namespace Points.ViewModels
                         if (rowVms.Count == 0)
                             continue;
 
-                        var maxValue = rowVms.Max(r => Math.Max(
-                            r.TotalValue,
-                            r.CurrentValue.HasValue ? r.CurrentValue.Value : 0));
-
                         CommitCardToPage(planners, new DateHeaderCardModel { Title = scope.ToString() }, noDb: true);
 
                         foreach (var row in rowVms)
                         {
-                            row.MaxValue = maxValue;
                             CommitCardToPage(planners, row, noDb: true);
                         }
                     }
@@ -724,14 +719,10 @@ namespace Points.ViewModels
 
                     if (rowVms.Count == 0) continue;
 
-                    var maxValue = rowVms.Max(r =>
-                        Math.Max(r.TotalValue, r.CurrentValue.HasValue ? r.CurrentValue.Value : 0));
-
                     planners.AllCards.Add(new DateHeaderCardModel { Title = scope.ToString() });
 
                     foreach (var row in rowVms)
                     {
-                        row.MaxValue = maxValue;
                         planners.AllCards.Add(row);
                     }
                 }
