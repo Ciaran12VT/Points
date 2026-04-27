@@ -1,4 +1,5 @@
 using Points.Models;
+using Points.Services;
 using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 using Points.Views.Shared;
@@ -84,10 +85,175 @@ public partial class BudgetTransactionLogPage : ContentPage
         if (sender is not Button { BindingContext: BudgetTransactionRow row })
             return;
 
-        if (string.IsNullOrWhiteSpace(row.MetadataSummary))
+        var metadata = await _db.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.BudgetTransaction, row.Id);
+        if (metadata.Count == 0)
             return;
 
-        await DisplayAlert("Metadata", row.MetadataSummary, "OK");
+        await Navigation.PushModalAsync(CreateMetadataViewerPage(metadata));
+    }
+
+    private ContentPage CreateMetadataViewerPage(IReadOnlyList<UdmdTransModel> metadata)
+    {
+        var stack = new VerticalStackLayout
+        {
+            Padding = 16,
+            Spacing = 12
+        };
+
+        foreach (var item in metadata)
+        {
+            stack.Children.Add(CreateMetadataRow(item));
+        }
+
+        var closeButton = new Button
+        {
+            Text = "Close",
+            BackgroundColor = Colors.Gray,
+            TextColor = Colors.White,
+            FontAttributes = FontAttributes.Bold,
+            HeightRequest = 48,
+            CornerRadius = 12
+        };
+
+        var page = new ContentPage
+        {
+            Title = "Metadata",
+            Content = new Grid
+            {
+                RowDefinitions =
+                {
+                    new RowDefinition { Height = GridLength.Star },
+                    new RowDefinition { Height = GridLength.Auto }
+                },
+                Children =
+                {
+                    new ScrollView { Content = stack },
+                    closeButton
+                }
+            }
+        };
+
+        Grid.SetRow(closeButton, 1);
+        closeButton.Clicked += async (_, __) => await page.Navigation.PopModalAsync();
+
+        return page;
+    }
+
+    private View CreateMetadataRow(UdmdTransModel item)
+    {
+        var fieldLabel = new Label
+        {
+            Text = item.FieldName,
+            FontAttributes = FontAttributes.Bold,
+            VerticalOptions = LayoutOptions.Center
+        };
+
+        if (item.FieldTypeKind == UdmdFieldType.Image)
+        {
+            var fileNameLabel = new Label
+            {
+                Text = item.FieldValue,
+                LineBreakMode = LineBreakMode.TailTruncation,
+                VerticalOptions = LayoutOptions.Center
+            };
+
+            var viewButton = new Button
+            {
+                Text = "View",
+                BackgroundColor = Colors.DodgerBlue,
+                TextColor = Colors.White,
+                FontAttributes = FontAttributes.Bold,
+                CornerRadius = 10,
+                WidthRequest = 90,
+                HeightRequest = 40,
+                IsEnabled = UdmdImageFileStore.ImageExists(item.CardID, item.FieldValue)
+            };
+
+            if (!viewButton.IsEnabled)
+                viewButton.BackgroundColor = Colors.Gray;
+
+            viewButton.Clicked += async (_, __) => await OpenImageMetadataAsync(item);
+
+            var imageRow = new Grid
+            {
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition { Width = GridLength.Star },
+                    new ColumnDefinition { Width = GridLength.Auto }
+                },
+                ColumnSpacing = 10,
+                Children = { fileNameLabel, viewButton }
+            };
+            Grid.SetColumn(viewButton, 1);
+
+            return new VerticalStackLayout
+            {
+                Spacing = 4,
+                Children = { fieldLabel, imageRow }
+            };
+        }
+
+        return new VerticalStackLayout
+        {
+            Spacing = 4,
+            Children =
+            {
+                fieldLabel,
+                new Label
+                {
+                    Text = UdmdValueFormatter.ToDisplayString(item),
+                    LineBreakMode = LineBreakMode.WordWrap
+                }
+            }
+        };
+    }
+
+    private async Task OpenImageMetadataAsync(UdmdTransModel item)
+    {
+        if (!UdmdImageFileStore.ImageExists(item.CardID, item.FieldValue))
+        {
+            await DisplayAlert("Image not found", "The stored metadata image could not be found.", "OK");
+            return;
+        }
+
+        var path = UdmdImageFileStore.GetImagePath(item.CardID, item.FieldValue);
+        var closeButton = new Button
+        {
+            Text = "Close",
+            BackgroundColor = Colors.Gray,
+            TextColor = Colors.White,
+            FontAttributes = FontAttributes.Bold,
+            HeightRequest = 48,
+            CornerRadius = 12
+        };
+
+        var page = new ContentPage
+        {
+            Title = item.FieldName,
+            Content = new Grid
+            {
+                RowDefinitions =
+                {
+                    new RowDefinition { Height = GridLength.Star },
+                    new RowDefinition { Height = GridLength.Auto }
+                },
+                Padding = 12,
+                Children =
+                {
+                    new Image
+                    {
+                        Source = ImageSource.FromFile(path),
+                        Aspect = Aspect.AspectFit
+                    },
+                    closeButton
+                }
+            }
+        };
+
+        Grid.SetRow(closeButton, 1);
+        closeButton.Clicked += async (_, __) => await page.Navigation.PopModalAsync();
+
+        await Navigation.PushModalAsync(page);
     }
 
     private Func<BudgetTransactionRow, Task<DateTime?>> CreatePickDateTimeDelegate()
