@@ -53,7 +53,11 @@
                FontSize="30"
                VerticalOptions="End"
                HorizontalOptions="End"
-               TextColor="{Binding TopRightValue, Converter={StaticResource GlobalValueColorConverter}}" />
+               TextColor="{Binding TopRightValue, Converter={StaticResource GlobalValueColorConverter}}">
+                <Label.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding OpenLeaderboardCommand}" />
+                </Label.GestureRecognizers>
+            </Label>
         </Grid>
     </Shell.TitleView>
 

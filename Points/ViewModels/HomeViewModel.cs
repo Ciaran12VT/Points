@@ -68,6 +68,7 @@ namespace Points.ViewModels
         public Command OpenGoalViewCommand { get; }
         public Command OpenSettingsCommand { get; }
         public Command OpenReportsCommand { get; }
+        public Command OpenLeaderboardCommand { get; }
 
         public Command ScrollToDashboardCommand { get; }
 
@@ -377,6 +378,7 @@ namespace Points.ViewModels
             OpenGoalViewCommand = new Command(async () => await OpenGoalViewAsync());
             OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
             OpenReportsCommand = new Command(async () => await OpenReportsAsync());
+            OpenLeaderboardCommand = new Command(async () => await OpenLeaderboardAsync());
             OpenShortcutDetailsCommand = new Command<ShortcutModel>(async shortcut => await OpenShortcutDetailsAsync(shortcut));
             ScrollToDashboardCommand = new Command(() =>
             {
@@ -1961,6 +1963,18 @@ namespace Points.ViewModels
         private async Task OpenReportsAsync()
         {
             await Shell.Current.Navigation.PushAsync(new Points.Views.Reports.ReportPage(_db));
+        }
+
+        private async Task OpenLeaderboardAsync()
+        {
+            if (Initialization != null)
+                await Initialization;
+
+            var page = Shell.Current?.CurrentPage;
+            if (page == null)
+                return;
+
+            await page.ShowPopupAsync(new LeaderboardPopup(new LeaderboardViewModel(_db)));
         }
 
         private async Task OpenShortcutDetailsAsync(ShortcutModel? shortcut)
