@@ -49,14 +49,14 @@ public partial class AchievementCardView : ContentView
                 {
                     var achievementsPage = vm.Pages.First(p => p.Name == "Achievements");
                     var metaAchievementsPage = vm.Pages.First(p => p.Name == "Meta-Achievements");
-                    var page = saved.GoalType == AchievementGoalType.Achievements ? metaAchievementsPage : achievementsPage;
+                    var page = saved.TargetType == AchievementTargetType.Achievements ? metaAchievementsPage : achievementsPage;
                     await vm.CommitCardToPage(page, saved, false);
                 },
                 deleted =>
                 {
                     var achievementsPage = vm.Pages.First(p => p.Name == "Achievements");
                     var metaAchievementsPage = vm.Pages.First(p => p.Name == "Meta-Achievements");
-                    var page = deleted.GoalType == AchievementGoalType.Achievements ? metaAchievementsPage : achievementsPage;
+                    var page = deleted.TargetType == AchievementTargetType.Achievements ? metaAchievementsPage : achievementsPage;
                     vm.RemoveCardFromPage(page, deleted);
                     vm.DeleteCardFromDb(deleted);
                 }

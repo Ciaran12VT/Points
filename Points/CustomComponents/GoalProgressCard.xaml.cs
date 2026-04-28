@@ -1,8 +1,8 @@
 namespace Points.CustomComponents;
 
-public partial class PlannerProgressCard : ContentView
+public partial class GoalProgressCard : ContentView
 {
-	public PlannerProgressCard()
+	public GoalProgressCard()
 	{
 		InitializeComponent();
 	}

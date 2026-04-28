@@ -1,13 +1,11 @@
-﻿namespace Points.Models
+namespace Points.Models
 {
-    public enum AchievementGoalType
+    public enum AchievementTargetType
     {
         ActiveTime,
         Value,
         Steps,
         Achievements,
         Custom
-        // (You mentioned “Achievements” in target logic later — we can add that when you implement meta-achievements)
     }
 }
-

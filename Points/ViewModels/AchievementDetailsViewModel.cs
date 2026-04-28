@@ -1,4 +1,4 @@
-﻿using Points.Global;
+using Points.Global;
 using Points.Models;
 using System;
 using System.Collections.Generic;
@@ -201,7 +201,7 @@ namespace Points.ViewModels
             IsPinned = _model.IsPinned;
             Tags = _model.Tags;
 
-            GoalType = _model.GoalType;
+            TargetType = _model.TargetType;
             DifficultyLevel = _model.Difficulty;
 
             TargetValueText = _model.TargetValue.ToString("0.##", CultureInfo.InvariantCulture);
@@ -269,13 +269,13 @@ namespace Points.ViewModels
 
         public string Status => _model.Status; // read-only
 
-        private AchievementGoalType _goalType;
-        public AchievementGoalType GoalType
+        private AchievementTargetType _targetType;
+        public AchievementTargetType TargetType
         {
-            get => _goalType;
+            get => _targetType;
             set
             {
-                if (!SetProperty(ref _goalType, value)) return;
+                if (!SetProperty(ref _targetType, value)) return;
 
                 RaisePropertyChanged(nameof(IsActiveTimeTargetVisible));
                 RaisePropertyChanged(nameof(IsValueTargetVisible));
@@ -444,10 +444,10 @@ namespace Points.ViewModels
                 }
             }
 
-            if (GoalType == AchievementGoalType.Value ||
-                GoalType == AchievementGoalType.Steps ||
-                GoalType == AchievementGoalType.Achievements ||
-                GoalType == AchievementGoalType.Custom)
+            if (TargetType == AchievementTargetType.Value ||
+                TargetType == AchievementTargetType.Steps ||
+                TargetType == AchievementTargetType.Achievements ||
+                TargetType == AchievementTargetType.Custom)
             {
                 if (!double.TryParse(TargetValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var targetVal) || targetVal <= 0)
                 {
@@ -459,17 +459,17 @@ namespace Points.ViewModels
             ValidationMessage = "";
         }
 
-        // ===== Goal-type-specific target visibility =====
+        // ===== Target-type-specific target visibility =====
 
-        public bool IsActiveTimeTargetVisible => GoalType == AchievementGoalType.ActiveTime;
+        public bool IsActiveTimeTargetVisible => TargetType == AchievementTargetType.ActiveTime;
 
-        public bool IsValueTargetVisible => GoalType == AchievementGoalType.Value;
+        public bool IsValueTargetVisible => TargetType == AchievementTargetType.Value;
 
-        public bool IsStepTargetVisible => GoalType == AchievementGoalType.Steps;
+        public bool IsStepTargetVisible => TargetType == AchievementTargetType.Steps;
 
-        public bool IsAchievementTargetVisible => GoalType == AchievementGoalType.Achievements;
+        public bool IsAchievementTargetVisible => TargetType == AchievementTargetType.Achievements;
 
-        public bool IsCustomReportTargetVisible => GoalType == AchievementGoalType.Custom;
+        public bool IsCustomReportTargetVisible => TargetType == AchievementTargetType.Custom;
 
 
         // ===== Completion-type visibility =====
@@ -481,9 +481,9 @@ namespace Points.ViewModels
 
         // ===== Picker data =====
 
-        public IReadOnlyList<AchievementGoalType> GoalTypeOptions { get; }
-            = Enum.GetValues(typeof(AchievementGoalType))
-                  .Cast<AchievementGoalType>()
+        public IReadOnlyList<AchievementTargetType> TargetTypeOptions { get; }
+            = Enum.GetValues(typeof(AchievementTargetType))
+                  .Cast<AchievementTargetType>()
                   .ToList();
 
         private async Task OnCancelAsync()
@@ -536,7 +536,7 @@ namespace Points.ViewModels
             _model.IsPinned = IsPinned;
             _model.Tags = Tags;
 
-            _model.GoalType = GoalType;
+            _model.TargetType = TargetType;
             _model.Difficulty = DifficultyLevel;
             _model.ActiveTimeTargetText = ActiveTimeTargetText;
             _model.TargetValue = targetVal;

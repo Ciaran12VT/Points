@@ -2,21 +2,21 @@ using Points.Models;
 using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 
-namespace Points.Views.Planners;
+namespace Points.Views.Goals;
 
-public partial class PlannerCreationPage : ContentPage
+public partial class GoalCreationPage : ContentPage
 {
-	public PlannerCreationPage(IDbService db)
+	public GoalCreationPage(IDbService db)
 	{
 		InitializeComponent();
 
-		BindingContext = new PlannerCreationViewModel(db);
+		BindingContext = new GoalCreationViewModel(db);
 
     }
 
     private async void RowsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        var selected = e.CurrentSelection?.FirstOrDefault() as PlannerProgressRowVm;
+        var selected = e.CurrentSelection?.FirstOrDefault() as GoalProgressRowVm;
         if (selected is null) return;
 
         RowsList.SelectedItem = null;

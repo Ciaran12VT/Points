@@ -1,4 +1,4 @@
-﻿using Points.Models;
+using Points.Models;
 using Points.ViewModels;
 using System;
 using System.Formats.Tar;
@@ -31,13 +31,13 @@ public partial class AchievementDetailsPage : ContentPage
 
         var tagEntry = this.FindByName<Entry>("TagsEntry");
         //var difficultyLevelPicker = this.FindByName<Picker>("DifficultyLevelPicker");
-        //var goalTypePicker = this.FindByName<Picker>("GoalTypePicker");
+        //var targetTypePicker = this.FindByName<Picker>("TargetTypePicker");
         //var completionTypePicker = this.FindByName<Picker>("CompletionTypePicker");
         //var rangeUnitPicker = this.FindByName<Picker>("RangeUnitPicker");
         var stepPicker = this.FindByName<Picker>("StepPicker");
         var reportPicker = this.FindByName<Picker>("CustomReportPicker");
 
-        //goalTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementGoalType)).Cast<AchievementGoalType>().ToList();
+        //targetTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementTargetType)).Cast<AchievementTargetType>().ToList();
         //completionTypePicker.ItemsSource = Enum.GetValues(typeof(AchievementCompletionType)).Cast<AchievementCompletionType>().ToList();
         //rangeUnitPicker.ItemsSource = Enum.GetValues(typeof(AchievementRangeUnit)).Cast<AchievementRangeUnit>().ToList();
         //difficultyLevelPicker.ItemsSource = Enum.GetValues(typeof(AchievementDifficultyLevels)).Cast<AchievementDifficultyLevels>().ToList();

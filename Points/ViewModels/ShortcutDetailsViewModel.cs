@@ -11,7 +11,7 @@ public enum TargetCardType
     Budget,
     Achievement,
     Arc,
-    Planner
+    Goal
 }
 
 public sealed class CardOption

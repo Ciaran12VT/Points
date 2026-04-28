@@ -1,4 +1,4 @@
-﻿using Points.Global;
+using Points.Global;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
 using System;
@@ -54,7 +54,7 @@ namespace Points.ViewModels
                 Title = "New Achievement",
                 Status = "In-Progress",
                 Tags = "",
-                GoalType = AchievementGoalType.ActiveTime,
+                TargetType = AchievementTargetType.ActiveTime,
                 TargetValue = 0,
                 CompletionType = AchievementCompletionType.Range,
                 RangeUnit = AchievementRangeUnit.Days,
@@ -79,14 +79,14 @@ namespace Points.ViewModels
                     {
                         var achievementsPage = Pages.First(p => p.Name == "Achievements");
                         var metaAchievementsPage = Pages.First(p => p.Name == "Meta-Achievements");
-                        var page = saved.GoalType == AchievementGoalType.Achievements ? metaAchievementsPage : achievementsPage;
+                        var page = saved.TargetType == AchievementTargetType.Achievements ? metaAchievementsPage : achievementsPage;
                         await CommitCardToPage(page, saved, false);
                     },
                     deleted =>
                     {
                         var achievementsPage = Pages.First(p => p.Name == "Achievements");
                         var metaAchievementsPage = Pages.First(p => p.Name == "Meta-Achievements");
-                        var page = deleted.GoalType == AchievementGoalType.Achievements ? metaAchievementsPage : achievementsPage;
+                        var page = deleted.TargetType == AchievementTargetType.Achievements ? metaAchievementsPage : achievementsPage;
                         RemoveCardFromPage(page, deleted);
                         DeleteCardFromDb(deleted);
                     }
@@ -145,8 +145,8 @@ namespace Points.ViewModels
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                var regularAchievements = achievements.Where(x => x.GoalType != AchievementGoalType.Achievements).ToList();
-                var metaAchievements = achievements.Where(x => x.GoalType == AchievementGoalType.Achievements).ToList();
+                var regularAchievements = achievements.Where(x => x.TargetType != AchievementTargetType.Achievements).ToList();
+                var metaAchievements = achievements.Where(x => x.TargetType == AchievementTargetType.Achievements).ToList();
 
                 var achievementsPage = Pages.First(p => p.Name == "Achievements");
                 var metaAchievementsPage = Pages.First(p => p.Name == "Meta-Achievements");

@@ -1,4 +1,4 @@
-﻿//using Points.Models;
+//using Points.Models;
 //using Points.Models.DbModels;
 //using Points.Services.Mappers;
 //using System;
@@ -85,10 +85,10 @@
 //            {
 //                cardsById.TryGetValue(a.CardID, out var card);
 
-//                // GoalType from ProgressType (fallback ActiveTime)
-//                var goalType = AchievementGoalType.ActiveTime;
+//                // TargetType from ProgressType (fallback ActiveTime)
+//                var targetType = AchievementTargetType.ActiveTime;
 //                if (!string.IsNullOrWhiteSpace(a.ProgressType))
-//                    Enum.TryParse(a.ProgressType, ignoreCase: true, out goalType);
+//                    Enum.TryParse(a.ProgressType, ignoreCase: true, out targetType);
 
 //                // Difficulty from SubType (fallback Easy)
 //                var difficulty = AchievementDifficultyLevels.Easy;
@@ -109,7 +109,7 @@
 //                    Status = a.Status ?? "",
 //                    Difficulty = difficulty,
 
-//                    GoalType = goalType,
+//                    TargetType = targetType,
 //                    TargetValue = a.RangeAmount ?? 1,              // best available numeric field right now
 //                    Deadline = a.Deadline,
 //                    CompletionType = completionType,
@@ -1038,7 +1038,7 @@
 //                    Description = m.Description ?? "",
 
 //                    SubType = m.Difficulty.ToString(),
-//                    ProgressType = m.GoalType.ToString(),
+//                    ProgressType = m.TargetType.ToString(),
 
 //                    RangeAmount = m.RangeAmount,
 //                    Deadline = m.Deadline,

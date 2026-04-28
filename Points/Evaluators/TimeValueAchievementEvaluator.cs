@@ -1,4 +1,4 @@
-﻿using Points.Models;
+using Points.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,18 +22,18 @@ namespace Points.Evaluators
                 double prog = 0;
 
                 double valueToIncrement = 0;
-                if (eval.AchievementCard.GoalType == AchievementGoalType.ActiveTime) valueToIncrement = additionalTime;
-                else if(eval.AchievementCard.GoalType == AchievementGoalType.Value) valueToIncrement = additionalValue;
+                if (eval.AchievementCard.TargetType == AchievementTargetType.ActiveTime) valueToIncrement = additionalTime;
+                else if(eval.AchievementCard.TargetType == AchievementTargetType.Value) valueToIncrement = additionalValue;
 
                 prog = eval.IncrementAndGetValue(valueToIncrement);
 
                 if(prog > 0)
                 {
-                    if (eval.AchievementCard.GoalType == AchievementGoalType.ActiveTime)
+                    if (eval.AchievementCard.TargetType == AchievementTargetType.ActiveTime)
                     {
                         prog = prog / eval.AchievementCard.GetTargetSecondsSpent();
                     }
-                    else if (eval.AchievementCard.GoalType == AchievementGoalType.Value)
+                    else if (eval.AchievementCard.TargetType == AchievementTargetType.Value)
                     {
                         prog = prog / eval.AchievementCard.TargetValue;
                     }

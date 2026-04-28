@@ -1,4 +1,4 @@
-﻿using Points.ViewModels;
+using Points.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,9 +44,9 @@ namespace Points.Models
         public LockDependencyMetricType MetricType { get; set; }
         public TimeScope TimeScope { get; set; }
 
-        public double GoalValue { get; set; } // You’ll almost certainly need this; spec text implies it.
+        public double TargetValue { get; set; }
 
-        public GoalValence GoalValence { get; set; } = GoalValence.MustBeGreaterThan;
+        public TargetValence TargetValence { get; set; } = TargetValence.MustBeGreaterThan;
     }
 
     public enum LockDependencyMetricType
@@ -55,7 +55,7 @@ namespace Points.Models
         Points = 1
     }
 
-    public enum GoalValence
+    public enum TargetValence
     {
         MustBeGreaterThan = 0,
         MustBeLessThan = 1

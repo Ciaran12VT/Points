@@ -1,4 +1,4 @@
-﻿//using Points.Global;
+//using Points.Global;
 //using Points.Models;
 //using Points.ViewModels;
 //using System;
@@ -293,7 +293,7 @@
 //                Title = "Super Nerd",
 //                Status = "In-Progress",
 //                Tags = "#Study, #Consistency",
-//                GoalType = AchievementGoalType.ActiveTime,
+//                TargetType = AchievementTargetType.ActiveTime,
 //                Target = 600, // minutes
 //                CurrentValue = 245
 //            },
@@ -302,7 +302,7 @@
 //                Title = "Gym Rat",
 //                Status = "Completed",
 //                Tags = "#Fitness",
-//                GoalType = AchievementGoalType.Value,
+//                TargetType = AchievementTargetType.Value,
 //                Target = 1000,
 //                CurrentValue = 1000,
 //                CompletedAt = DateTime.Now.AddDays(-2),

@@ -94,7 +94,7 @@
                          HeightRequest="18"
                          Progress="{Binding Progress}" />
 
-            <!-- Row 4: Active Time (L) + Goal Type (R) -->
+            <!-- Row 4: Active Time (L) + Target Type (R) -->
             <Label Grid.Row="4" Grid.Column="0"
                    Text="{Binding ActiveTimeText}"
                    FontSize="14"

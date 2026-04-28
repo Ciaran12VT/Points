@@ -1,4 +1,4 @@
-﻿using Points.Evaluators;
+using Points.Evaluators;
 using Points.Global;
 using Points.Models;
 
@@ -12,7 +12,7 @@ namespace Points.Services.Sqlite.Interfaces
         IActivityService,
         IAchievementService,
         ILockService,
-        IPlannerService,
+        IGoalService,
         IShortcutService,
         IReportService,
         INotificationLogService,
@@ -83,10 +83,10 @@ namespace Points.Services.Sqlite.Interfaces
 
         #endregion
 
-        #region Planner
+        #region Goals
 
-        Task<List<PlannerGoalDetailsModel>> GetPlannerModelsDataAsync();
-        Task SavePlannerModelsDataAsync(List<PlannerGoalDetailsModel> plannerModelsToSave);
+        Task<List<GoalDetailsModel>> GetGoalModelsDataAsync();
+        Task SaveGoalModelsDataAsync(List<GoalDetailsModel> goalModelsToSave);
 
         #endregion
 

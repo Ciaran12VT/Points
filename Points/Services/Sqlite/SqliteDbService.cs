@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Maui.Core.Extensions;
+using CommunityToolkit.Maui.Core.Extensions;
 using Points.Evaluators;
 using Points.Global;
 using Points.Models;
@@ -73,6 +73,7 @@ namespace Points.Services.Sqlite
                     }
                 });
 
+                await EnsureGoalSchemaAsync();
                 await EnsureAchievementCardSchemaAsync();
                 await SaveBuiltInSettingDefinitionsAsync();
             }
@@ -145,6 +146,96 @@ namespace Points.Services.Sqlite
             );
 
             await _db.ExecuteAsync("PRAGMA foreign_keys = ON;");
+        }
+
+        private async Task EnsureGoalSchemaAsync()
+        {
+            if (_db == null)
+                throw new InvalidOperationException("Database must be initialized before schema migration.");
+
+            await MigrateGoalTableAsync();
+            await RenameColumnIfNeededAsync("AchievementCard", "GoalType", "TargetType");
+            await RenameColumnIfNeededAsync("LockTaskDependency", "GoalValue", "TargetValue");
+            await RenameColumnIfNeededAsync("LockTaskDependency", "GoalValence", "TargetValence");
+            await MigrateSettingKeyAsync("PlannersActive", "GoalsActive");
+            await MigrateSettingKeyAsync("PlannersScreenOrder", "GoalsScreenOrder");
+        }
+
+        private async Task MigrateGoalTableAsync()
+        {
+            if (!await TableExistsAsync("PlannerGoal"))
+                return;
+
+            await Db.ExecuteAsync(@"
+                INSERT OR IGNORE INTO Goal
+                    (GoalID, CardID, TimeScope, GoalHrs, Enabled, DeFactoStart, DeFactoEnd)
+                SELECT
+                    PlannerGoalID, CardID, TimeScope, GoalHrs, Enabled, DeFactoStart, DeFactoEnd
+                FROM PlannerGoal;
+            ");
+
+            await Db.ExecuteAsync("DROP TABLE PlannerGoal;");
+            await Db.ExecuteAsync("DROP INDEX IF EXISTS IX_PlannerGoal_CardID;");
+            await Db.ExecuteAsync("DROP INDEX IF EXISTS IX_PlannerGoal_Enabled;");
+            await Db.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_Goal_CardID ON Goal(CardID);");
+            await Db.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_Goal_Enabled ON Goal(Enabled);");
+        }
+
+        private async Task RenameColumnIfNeededAsync(string tableName, string oldColumnName, string newColumnName)
+        {
+            var cols = await Db.QueryAsync<PragmaTableInfo>($"PRAGMA table_info({tableName});");
+            var existing = cols
+                .Select(c => c.name)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (!existing.Contains(oldColumnName) || existing.Contains(newColumnName))
+                return;
+
+            await Db.ExecuteAsync($"ALTER TABLE {tableName} RENAME COLUMN {oldColumnName} TO {newColumnName};");
+        }
+
+        private async Task<bool> TableExistsAsync(string tableName)
+        {
+            var count = await Db.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?;",
+                tableName);
+
+            return count > 0;
+        }
+
+        private async Task MigrateSettingKeyAsync(string oldKey, string newKey)
+        {
+            var oldExists = await Db.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM Setting WHERE SettingKey = ?;",
+                oldKey);
+
+            if (oldExists == 0)
+                return;
+
+            var newExists = await Db.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM Setting WHERE SettingKey = ?;",
+                newKey);
+
+            if (newExists == 0)
+            {
+                await Db.ExecuteAsync(
+                    "UPDATE Setting SET SettingKey = ? WHERE SettingKey = ?;",
+                    newKey,
+                    oldKey);
+                return;
+            }
+
+            var oldValue = await Db.ExecuteScalarAsync<string?>(
+                "SELECT SettingValue FROM Setting WHERE SettingKey = ?;",
+                oldKey);
+
+            await Db.ExecuteAsync(
+                "UPDATE Setting SET SettingValue = ? WHERE SettingKey = ?;",
+                oldValue ?? "",
+                newKey);
+
+            await Db.ExecuteAsync("DELETE FROM Setting WHERE SettingKey = ?;", oldKey);
         }
 
         private async Task EnsureAchievementCardSchemaAsync()
@@ -231,7 +322,7 @@ namespace Points.Services.Sqlite
 
                     a.Status                    AS Status,
                     a.Description               AS Description,
-                    a.GoalType                  AS GoalType,
+                    a.TargetType                  AS TargetType,
                     a.DifficultyLevel           AS DifficultyLevel,
 
                     a.CreatedDate               AS CreatedDate,
@@ -281,7 +372,7 @@ namespace Points.Services.Sqlite
 
                     a.Status                    AS Status,
                     a.Description               AS Description,
-                    a.GoalType                  AS GoalType,
+                    a.TargetType                  AS TargetType,
                     a.DifficultyLevel           AS DifficultyLevel,
 
                     a.CreatedDate               AS CreatedDate,
@@ -341,9 +432,9 @@ namespace Points.Services.Sqlite
             if (!string.IsNullOrWhiteSpace(row.DifficultyLevel))
                 Enum.TryParse(row.DifficultyLevel, out difficulty);
 
-            var goalType = AchievementGoalType.ActiveTime;
-            if (!string.IsNullOrWhiteSpace(row.GoalType))
-                Enum.TryParse(row.GoalType, out goalType);
+            var targetType = AchievementTargetType.ActiveTime;
+            if (!string.IsNullOrWhiteSpace(row.TargetType))
+                Enum.TryParse(row.TargetType, out targetType);
 
             var completionType = AchievementCompletionType.Range;
             if (!string.IsNullOrWhiteSpace(row.CompletionType))
@@ -365,7 +456,7 @@ namespace Points.Services.Sqlite
                 Description = row.Description ?? "",
 
                 Difficulty = difficulty,
-                GoalType = goalType,
+                TargetType = targetType,
                 CompletionType = completionType,
                 RangeUnit = rangeUnit,
 
@@ -432,7 +523,7 @@ namespace Points.Services.Sqlite
             public string? Status { get; set; }
             public string? Description { get; set; }
 
-            public string? GoalType { get; set; }
+            public string? TargetType { get; set; }
             public string? DifficultyLevel { get; set; }
 
             public string CreatedDate { get; set; } = "";
@@ -574,11 +665,11 @@ namespace Points.Services.Sqlite
                         .ToList()
                         ?? new List<TimeValueAchievementEvaluation>();
 
-                    if (ach.GoalType == AchievementGoalType.Value)
+                    if (ach.TargetType == AchievementTargetType.Value)
                     {
                         ach.CurrentValue = relevantEvaluations.Sum(x => x.CurrentValue);
                     }
-                    else if (ach.GoalType == AchievementGoalType.ActiveTime)
+                    else if (ach.TargetType == AchievementTargetType.ActiveTime)
                     {
                         ach.CurrentValue = relevantEvaluations.Sum(x => x.CurrentValue);
                     }
@@ -640,20 +731,20 @@ namespace Points.Services.Sqlite
 
             var summary = await GetTagValueSummaryAsync(card.Tags, windowStart, windowEnd);
 
-            return card.GoalType switch
+            return card.TargetType switch
             {
-                AchievementGoalType.ActiveTime => new TimeValueAchievementEvaluation
+                AchievementTargetType.ActiveTime => new TimeValueAchievementEvaluation
                 {
                     AchievementCard = card,
                     CurrentValue = summary.CurrentTotalActiveTimeInSeconds
                 },
-                AchievementGoalType.Value => new TimeValueAchievementEvaluation
+                AchievementTargetType.Value => new TimeValueAchievementEvaluation
                 {
                     AchievementCard = card,
                     CurrentValue = summary.CurrentValue
                 },
                 _ => throw new NotSupportedException(
-                    $"Unsupported GoalType '{card.GoalType}' for AchievementCard '{card}'.")
+                    $"Unsupported TargetType '{card.TargetType}' for AchievementCard '{card}'.")
             };
         }
 
@@ -2534,9 +2625,9 @@ namespace Points.Services.Sqlite
 
         #endregion
 
-        #region Planner Goals
+        #region Goals
 
-        public async Task<List<PlannerGoalDetailsModel>> GetPlannerModelsDataAsync()
+        public async Task<List<GoalDetailsModel>> GetGoalModelsDataAsync()
         {
             await InitializeAsync();
 
@@ -2548,16 +2639,16 @@ namespace Points.Services.Sqlite
                     Enabled      AS Enabled,
                     DeFactoStart AS DeFactoStart,
                     DeFactoEnd   AS DeFactoEnd
-                FROM PlannerGoal
+                FROM Goal
                 ORDER BY CardID, TimeScope;
             ";
 
 
-            var rows = await Db.QueryAsync<PlannerGoalRow>(sql);
+            var rows = await Db.QueryAsync<GoalRow>(sql);
             if (rows.Count == 0)
-                return new List<PlannerGoalDetailsModel>();
+                return new List<GoalDetailsModel>();
 
-            return rows.Select(r => new PlannerGoalDetailsModel
+            return rows.Select(r => new GoalDetailsModel
             {
                 CardId = r.CardID,
                 TimeScope = Enum.TryParse<TimeScope>(r.TimeScope, out var ts) ? ts : TimeScope.Daily,
@@ -2568,7 +2659,7 @@ namespace Points.Services.Sqlite
             }).ToList();
         }
 
-        private sealed class PlannerGoalRow
+        private sealed class GoalRow
         {
             public long CardID { get; set; }
             public string TimeScope { get; set; } = "";
@@ -3268,13 +3359,13 @@ namespace Points.Services.Sqlite
             var now = DateTime.Now;
 
             // Map enums to TEXT
-            var goalTypeText = acm.GoalType.ToString();
+            var targetTypeText = acm.TargetType.ToString();
             var difficultyText = acm.Difficulty.ToString();
             var completionTypeText = acm.CompletionType.ToString();
 
-            // Target active time (only for ActiveTime goal)
+            // Target active time (only for ActiveTime target)
             int? targetActiveTimeSeconds = null;
-            if (acm.GoalType == AchievementGoalType.ActiveTime)
+            if (acm.TargetType == AchievementTargetType.ActiveTime)
             {
                 // Uses your helper that parses ActiveTimeTargetText "hh:mm:ss" to seconds
                 var seconds = acm.GetTargetSecondsSpent();
@@ -3283,10 +3374,10 @@ namespace Points.Services.Sqlite
 
             // Target value (only for Value / Steps / etc); safe to store whenever
             double? targetValue = null;
-            if (acm.GoalType == AchievementGoalType.Value ||
-                acm.GoalType == AchievementGoalType.Steps ||
-                acm.GoalType == AchievementGoalType.Achievements ||
-                acm.GoalType == AchievementGoalType.Custom)
+            if (acm.TargetType == AchievementTargetType.Value ||
+                acm.TargetType == AchievementTargetType.Steps ||
+                acm.TargetType == AchievementTargetType.Achievements ||
+                acm.TargetType == AchievementTargetType.Custom)
             {
                 targetValue = acm.TargetValue;
             }
@@ -3327,7 +3418,7 @@ namespace Points.Services.Sqlite
                       (CardID,
                        Status,
                        Description,
-                       GoalType,
+                       TargetType,
                        DifficultyLevel,
                        CreatedDate,
                        LastEarnedAt,
@@ -3348,13 +3439,13 @@ namespace Points.Services.Sqlite
                     cardId,
                     acm.Status ?? "",
                     acm.Description ?? "",
-                    goalTypeText,
+                    targetTypeText,
                     difficultyText,
                     (acm.CreatedDate == default ? now : acm.CreatedDate).ToString("o"),
                     lastEarnedAtText,
                     targetActiveTimeSeconds,
                     targetValue,
-                    null,                       // ScCardStepID – model doesn’t expose a step ID yet
+                    null,                       // ScCardStepID - model does not expose a step ID yet
                     completionTypeText,
                     rangeUnitText,
                     rangeAmount,
@@ -3370,12 +3461,12 @@ namespace Points.Services.Sqlite
             }
             else
             {
-                // UPDATE – leave CreatedDate alone
+                // UPDATE - leave CreatedDate alone
                 await Db.ExecuteAsync(
                     @"UPDATE AchievementCard
                       SET Status                   = ?,
                           Description              = ?,
-                          GoalType                 = ?,
+                          TargetType                 = ?,
                           DifficultyLevel          = ?,
                           LastEarnedAt             = ?,
                           TargetActiveTimeInSeconds= ?,
@@ -3393,7 +3484,7 @@ namespace Points.Services.Sqlite
                       WHERE CardID = ?;",
                     acm.Status ?? "",
                     acm.Description ?? "",
-                    goalTypeText,
+                    targetTypeText,
                     difficultyText,
                     lastEarnedAtText,
                     targetActiveTimeSeconds,
@@ -3689,16 +3780,16 @@ namespace Points.Services.Sqlite
 
             double currentValue;
 
-            switch (card.GoalType)
+            switch (card.TargetType)
             {
-                case AchievementGoalType.Value:
+                case AchievementTargetType.Value:
                     {
                         var summary = await GetTagValueSummaryAsync(card.Tags, windowStart, windowEnd);
                         currentValue = summary.CurrentValue;
                         break;
                     }
 
-                case AchievementGoalType.ActiveTime:
+                case AchievementTargetType.ActiveTime:
                     {
                         var summary = await GetTagValueSummaryAsync(card.Tags, windowStart, windowEnd);
                         currentValue = summary.CurrentTotalActiveTimeInSeconds;
@@ -4930,17 +5021,17 @@ namespace Points.Services.Sqlite
 
         #endregion
 
-        #region Planner Goals
+        #region Goals
 
-        public async Task SavePlannerModelsDataAsync(List<PlannerGoalDetailsModel> plannerModelsToSave)
+        public async Task SaveGoalModelsDataAsync(List<GoalDetailsModel> goalModelsToSave)
         {
             await InitializeAsync();
 
-            if (plannerModelsToSave == null)
-                throw new ArgumentNullException(nameof(plannerModelsToSave));
+            if (goalModelsToSave == null)
+                throw new ArgumentNullException(nameof(goalModelsToSave));
 
             // normalize + de-dupe by (CardId, TimeScope)
-            var normalized = plannerModelsToSave
+            var normalized = goalModelsToSave
                 .Where(x => x != null)
                 .GroupBy(x => new { x.CardId, x.TimeScope })
                 .Select(g => g.First())
@@ -4954,7 +5045,7 @@ namespace Points.Services.Sqlite
             // Expect a single TimeScope per save call (your described behavior)
             var scope = normalized[0].TimeScope;
             if (normalized.Any(x => x.TimeScope != scope))
-                throw new InvalidOperationException("SavePlannerModelsDataAsync expects a single TimeScope per call.");
+                throw new InvalidOperationException("SaveGoalModelsDataAsync expects a single TimeScope per call.");
 
             await Db.RunInTransactionAsync(conn =>
             {
@@ -4962,34 +5053,34 @@ namespace Points.Services.Sqlite
                 // remove rows in DB for (TimeScope == scope) whose CardID is no longer present in the incoming set.
                 // If you do NOT want deletions at all, delete this whole block.
                 {
-                    conn.Execute("DROP TABLE IF EXISTS _PlannerGoalCardKeys;");
+                    conn.Execute("DROP TABLE IF EXISTS _GoalCardKeys;");
                     conn.Execute(@"
-                                CREATE TEMP TABLE _PlannerGoalCardKeys
+                                CREATE TEMP TABLE _GoalCardKeys
                                 (
                                     CardID INTEGER NOT NULL PRIMARY KEY
                                 );
                         ");
 
-                    const string insertKeySql = @"INSERT OR IGNORE INTO _PlannerGoalCardKeys (CardID) VALUES (?);";
+                    const string insertKeySql = @"INSERT OR IGNORE INTO _GoalCardKeys (CardID) VALUES (?);";
                     foreach (var m in normalized)
                         conn.Execute(insertKeySql, m.CardId);
 
                     conn.Execute(@"
-                        DELETE FROM PlannerGoal
+                        DELETE FROM Goal
                         WHERE TimeScope = ?
                           AND NOT EXISTS (
                               SELECT 1
-                              FROM _PlannerGoalCardKeys k
-                              WHERE k.CardID = PlannerGoal.CardID
+                              FROM _GoalCardKeys k
+                              WHERE k.CardID = Goal.CardID
                           );
                     ", scope.ToString());
 
-                    conn.Execute("DROP TABLE IF EXISTS _PlannerGoalCardKeys;");
+                    conn.Execute("DROP TABLE IF EXISTS _GoalCardKeys;");
                 }
 
                 // Upsert (CardID, TimeScope)
                 const string upsertSql = @"
-                    INSERT INTO PlannerGoal (CardID, TimeScope, GoalHrs, Enabled, DeFactoStart, DeFactoEnd)
+                    INSERT INTO Goal (CardID, TimeScope, GoalHrs, Enabled, DeFactoStart, DeFactoEnd)
                     VALUES (?, ?, ?, ?, ?, ?)
                     ON CONFLICT(CardID, TimeScope) DO UPDATE SET
                         GoalHrs = excluded.GoalHrs,
@@ -5465,8 +5556,8 @@ namespace Points.Services.Sqlite
             public long TaskDependencyCardId { get; set; }
             public int MetricType { get; set; }  // stored as int
             public int TimeScope { get; set; }   // stored as int
-            public double GoalValue { get; set; } // stored as REAL
-            public int GoalValence { get; set; }
+            public double TargetValue { get; set; } // stored as REAL
+            public int TargetValence { get; set; }
         }
 
         #endregion
@@ -5519,8 +5610,8 @@ namespace Points.Services.Sqlite
                     TaskDependencyCardId = row.TaskDependencyCardId,
                     MetricType = (LockDependencyMetricType)row.MetricType,
                     TimeScope = (TimeScope)row.TimeScope,
-                    GoalValue = row.GoalValue,
-                    GoalValence = (GoalValence)row.GoalValence
+                    TargetValue = row.TargetValue,
+                    TargetValence = (TargetValence)row.TargetValence
                 };
             }
         }
@@ -5557,7 +5648,7 @@ namespace Points.Services.Sqlite
                 tableName: "LockTaskDependency",
                 idColumn: "LockId",
                 ids: lockIds,
-                selectColumns: "LockTaskDependencyId, LockId, TaskDependencyCardId, MetricType, TimeScope, GoalValue, GoalValence",
+                selectColumns: "LockTaskDependencyId, LockId, TaskDependencyCardId, MetricType, TimeScope, TargetValue, TargetValence",
                 orderBy: "LockId ASC, LockTaskDependencyId ASC");
 
             // 4) Group them for fast assembly
@@ -5657,14 +5748,14 @@ namespace Points.Services.Sqlite
                         {
                             conn.Execute(
                                 @"INSERT INTO LockTaskDependency
-                                    (LockId, TaskDependencyCardId, MetricType, TimeScope, GoalValue, GoalValence)
+                                    (LockId, TaskDependencyCardId, MetricType, TimeScope, TargetValue, TargetValence)
                                   VALUES (?, ?, ?, ?, ?, ?);",
                                 newLockId,
                                 d.TaskDependencyCardId,
                                 (int)d.MetricType,
                                 (int)d.TimeScope,
-                                d.GoalValue,
-                                (int)d.GoalValence
+                                d.TargetValue,
+                                (int)d.TargetValence
                             );
 
                             d.LockId = newLockId; // optional

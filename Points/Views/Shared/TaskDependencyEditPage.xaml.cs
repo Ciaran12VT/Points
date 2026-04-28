@@ -20,7 +20,7 @@ public partial class TaskDependencyEditPage : ContentPage
         _tcs = tcs;
         _tasks = tasks.ToList();
 
-        // Work on a copy so Cancel/back doesn’t mutate caller state
+        // Work on a copy so Cancel/back doesnï¿½t mutate caller state
         _working = initial == null
             ? new LockTaskDependencyModel()
             : Clone(initial);
@@ -37,7 +37,7 @@ public partial class TaskDependencyEditPage : ContentPage
             "Must Be Less Than"
         };
 
-        ValencePicker.SelectedIndex = _working.GoalValence == GoalValence.MustBeLessThan ? 1 : 0;
+        ValencePicker.SelectedIndex = _working.TargetValence == TargetValence.MustBeLessThan ? 1 : 0;
 
         // Initial selections
         if (_working.TaskDependencyCardId != 0)
@@ -51,7 +51,7 @@ public partial class TaskDependencyEditPage : ContentPage
 
 
 
-        GoalEntry.Text = _working.GoalValue.ToString("0.##", CultureInfo.InvariantCulture);
+        TargetEntry.Text = _working.TargetValue.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
     private async void OnDoneClicked(object sender, EventArgs e)
@@ -74,15 +74,15 @@ public partial class TaskDependencyEditPage : ContentPage
             return;
         }
 
-        if (!double.TryParse(GoalEntry.Text?.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var goal))
+        if (!double.TryParse(TargetEntry.Text?.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var target))
         {
-            await DisplayAlert("Invalid Goal", "Goal must be a number (e.g. 8 or 5.2).", "OK");
+            await DisplayAlert("Invalid Target", "Target must be a number (e.g. 8 or 5.2).", "OK");
             return;
         }
 
-        if (goal <= 0)
+        if (target <= 0)
         {
-            await DisplayAlert("Invalid Goal", "Goal must be greater than 0.", "OK");
+            await DisplayAlert("Invalid Target", "Target must be greater than 0.", "OK");
             return;
         }
 
@@ -100,12 +100,12 @@ public partial class TaskDependencyEditPage : ContentPage
             : LockDependencyMetricType.ActiveTime;
 
         _working.TimeScope = (TimeScope)TimeScopePicker.SelectedIndex;
-        _working.GoalValue = goal;
+        _working.TargetValue = target;
 
-        _working.GoalValence =
+        _working.TargetValence =
             ValencePicker.SelectedIndex == 1
-                ? GoalValence.MustBeLessThan
-                : GoalValence.MustBeGreaterThan;
+                ? TargetValence.MustBeLessThan
+                : TargetValence.MustBeGreaterThan;
 
         _tcs.TrySetResult(_working);
         await Navigation.PopAsync();
@@ -124,8 +124,8 @@ public partial class TaskDependencyEditPage : ContentPage
         TaskDependencyCardId = d.TaskDependencyCardId,
         MetricType = d.MetricType,
         TimeScope = d.TimeScope,
-        GoalValue = d.GoalValue,
-        GoalValence = d.GoalValence,
+        TargetValue = d.TargetValue,
+        TargetValence = d.TargetValence,
     };
 }
 

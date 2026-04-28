@@ -1,4 +1,4 @@
-﻿using Points.Models;
+using Points.Models;
 using Points.Views.Shared;
 using System;
 using System.Collections.Generic;
@@ -187,10 +187,10 @@ namespace Points.ViewModels
         private string BuildSummary()
         {
             var metricText = Model.MetricType == LockDependencyMetricType.ActiveTime
-                ? $"{Model.GoalValue:0.#}h"
-                : $"{Model.GoalValue:0.#}pts";
+                ? $"{Model.TargetValue:0.#}h"
+                : $"{Model.TargetValue:0.#}pts";
 
-            var valenceText = Model.GoalValence == GoalValence.MustBeGreaterThan
+            var valenceText = Model.TargetValence == TargetValence.MustBeGreaterThan
                 ? "≥"
                 : "≤";
 

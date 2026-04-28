@@ -20,9 +20,9 @@
         <Label Grid.Row="2" Grid.Column="0" Text="TimeScope:" VerticalTextAlignment="Center"/>
         <Picker Grid.Row="2" Grid.Column="1" x:Name="TimeScopePicker"/>
 
-        <Label Grid.Row="3" Grid.Column="0" Text="Goal:" VerticalTextAlignment="Center"/>
+        <Label Grid.Row="3" Grid.Column="0" Text="Target:" VerticalTextAlignment="Center"/>
         <Entry Grid.Row="3" Grid.Column="1"
-               x:Name="GoalEntry"
+               x:Name="TargetEntry"
                Keyboard="Numeric"
                HorizontalTextAlignment="End"
                Placeholder="e.g. 8 or 5.2"/>

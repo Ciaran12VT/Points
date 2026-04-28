@@ -1,4 +1,4 @@
-﻿using Points.Global;
+using Points.Global;
 using Points.Services.Sqlite.Interfaces;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -129,20 +129,20 @@ namespace Points.ViewModels
             }
         }
 
-        private bool _plannersActive;
-        public bool PlannersActive
+        private bool _goalsActive;
+        public bool GoalsActive
         {
-            get => _plannersActive;
-            set => SetProperty(ref _plannersActive, value);
+            get => _goalsActive;
+            set => SetProperty(ref _goalsActive, value);
         }
 
-        private string _plannersScreenOrderText = "7";
-        public string PlannersScreenOrderText
+        private string _goalsScreenOrderText = "7";
+        public string GoalsScreenOrderText
         {
-            get => _plannersScreenOrderText;
+            get => _goalsScreenOrderText;
             set
             {
-                if (SetProperty(ref _plannersScreenOrderText, value))
+                if (SetProperty(ref _goalsScreenOrderText, value))
                     RaisePropertyChanged(nameof(HasInvalidScreenOrder));
             }
         }
@@ -182,7 +182,7 @@ namespace Points.ViewModels
             !IsValidInt(BudgetsScreenOrderText) ||
             !IsValidInt(AchievementsScreenOrderText) ||
             !IsValidInt(ArcsScreenOrderText) ||
-            !IsValidInt(PlannersScreenOrderText);
+            !IsValidInt(GoalsScreenOrderText);
 
         private async Task InitializeAsync()
         {
@@ -211,8 +211,8 @@ namespace Points.ViewModels
             ArcsActive = GetBool(settings, SettingKeys.ArcsActive, true);
             ArcsScreenOrderText = GetInt(settings, SettingKeys.ArcsScreenOrder, 6).ToString();
 
-            PlannersActive = GetBool(settings, SettingKeys.PlannersActive, true);
-            PlannersScreenOrderText = GetInt(settings, SettingKeys.PlannersScreenOrder, 7).ToString();
+            GoalsActive = GetBool(settings, SettingKeys.GoalsActive, true);
+            GoalsScreenOrderText = GetInt(settings, SettingKeys.GoalsScreenOrder, 7).ToString();
 
             LocksActive = GetBool(settings, SettingKeys.LocksActive, true);
             SchedulesActive = GetBool(settings, SettingKeys.SchedulesActive, true);
@@ -242,8 +242,8 @@ namespace Points.ViewModels
             await _db.SetBoolSettingAsync(SettingKeys.ArcsActive, ArcsActive);
             await _db.SetIntSettingAsync(SettingKeys.ArcsScreenOrder, ParseInt(ArcsScreenOrderText, 6));
 
-            await _db.SetBoolSettingAsync(SettingKeys.PlannersActive, PlannersActive);
-            await _db.SetIntSettingAsync(SettingKeys.PlannersScreenOrder, ParseInt(PlannersScreenOrderText, 7));
+            await _db.SetBoolSettingAsync(SettingKeys.GoalsActive, GoalsActive);
+            await _db.SetIntSettingAsync(SettingKeys.GoalsScreenOrder, ParseInt(GoalsScreenOrderText, 7));
 
             await _db.SetBoolSettingAsync(SettingKeys.LocksActive, LocksActive);
             await _db.SetBoolSettingAsync(SettingKeys.SchedulesActive, SchedulesActive);
@@ -268,8 +268,8 @@ namespace Points.ViewModels
             SettingsProvider.UpdateArcsActive(ArcsActive);
             SettingsProvider.UpdateArcsScreenOrder(ParseInt(ArcsScreenOrderText, 6));
 
-            SettingsProvider.UpdatePlannersActive(PlannersActive);
-            SettingsProvider.UpdatePlannersScreenOrder(ParseInt(PlannersScreenOrderText, 7));
+            SettingsProvider.UpdateGoalsActive(GoalsActive);
+            SettingsProvider.UpdateGoalsScreenOrder(ParseInt(GoalsScreenOrderText, 7));
 
             SettingsProvider.UpdateLocksEnabled(LocksActive);
             SettingsProvider.UpdateSchedulesEnabled(SchedulesActive);

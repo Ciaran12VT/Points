@@ -98,12 +98,12 @@
                 </Grid>
 
 
-                <!-- Goal Type -->
-                <Label Text="Goal Type" FontAttributes="Bold"/>
-                <Picker x:Name="GoalTypePicker"
-                    Title="Select goal type"
-                    ItemsSource="{Binding GoalTypeOptions}"
-                    SelectedItem="{Binding GoalType}" 
+                <!-- Target Type -->
+                <Label Text="Target Type" FontAttributes="Bold"/>
+                <Picker x:Name="TargetTypePicker"
+                    Title="Select target type"
+                    ItemsSource="{Binding TargetTypeOptions}"
+                    SelectedItem="{Binding TargetType}"
                     IsEnabled="{Binding CanEdit}"/>
 
                 <!-- Difficulty Level -->

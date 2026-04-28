@@ -1,12 +1,12 @@
 using Points.ViewModels;
 
-namespace Points.Views.Planners;
+namespace Points.Views.Goals;
 
 public partial class EditGoalPage : ContentPage
 {
-    private readonly PlannerProgressRowVm _row;
+    private readonly GoalProgressRowVm _row;
 
-    public EditGoalPage(PlannerProgressRowVm row)
+    public EditGoalPage(GoalProgressRowVm row)
 	{
         try
         {

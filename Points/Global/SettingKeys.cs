@@ -1,4 +1,4 @@
-﻿using Points.Models.DbModels;
+using Points.Models.DbModels;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -28,8 +28,8 @@ namespace Points.Global
         public const string AchievementsScreenOrder = "AchievementsScreenOrder";
         public const string ArcsActive = "ArcsActive";
         public const string ArcsScreenOrder = "ArcsScreenOrder";
-        public const string PlannersActive = "PlannersActive";
-        public const string PlannersScreenOrder = "PlannersScreenOrder";
+        public const string GoalsActive = "GoalsActive";
+        public const string GoalsScreenOrder = "GoalsScreenOrder";
 
         public const string LocksActive = "LocksActive";
         public const string SchedulesActive = "SchedulesActive";
@@ -234,23 +234,23 @@ namespace Points.Global
                 },
                 new SettingDefinition
                 {
-                    SettingKey = SettingKeys.PlannersActive,
+                    SettingKey = SettingKeys.GoalsActive,
                     DefaultValue = "true",
                     ValueType = SettingValueTypes.Bool,
                     Category = "ModulesAndFeatures",
-                    DisplayName = "Planners Active",
-                    Description = "Whether the Planners module is enabled.",
+                    DisplayName = "Goals Active",
+                    Description = "Whether the Goals module is enabled.",
                     IsUserEditable = true,
                     SortOrder = 130
                 },
                 new SettingDefinition
                 {
-                    SettingKey = SettingKeys.PlannersScreenOrder,
+                    SettingKey = SettingKeys.GoalsScreenOrder,
                     DefaultValue = "7",
                     ValueType = SettingValueTypes.Int,
                     Category = "ModulesAndFeatures",
-                    DisplayName = "Planners Screen Order",
-                    Description = "Display order for the Planners module.",
+                    DisplayName = "Goals Screen Order",
+                    Description = "Display order for the Goals module.",
                     IsUserEditable = true,
                     SortOrder = 140
                 },
@@ -418,8 +418,8 @@ namespace Points.Global
         public static bool ArcsActive => GetBool(SettingKeys.ArcsActive, true);
         public static int ArcsScreenOrder => GetInt(SettingKeys.ArcsScreenOrder, 6);
 
-        public static bool PlannersActive => GetBool(SettingKeys.PlannersActive, true);
-        public static int PlannersScreenOrder => GetInt(SettingKeys.PlannersScreenOrder, 7);
+        public static bool GoalsActive => GetBool(SettingKeys.GoalsActive, true);
+        public static int GoalsScreenOrder => GetInt(SettingKeys.GoalsScreenOrder, 7);
 
         // -----------------------
         // Feature flags
@@ -580,8 +580,8 @@ namespace Points.Global
         public static void UpdateArcsActive(bool value) => UpdateBool(SettingKeys.ArcsActive, value);
         public static void UpdateArcsScreenOrder(int value) => UpdateInt(SettingKeys.ArcsScreenOrder, value);
 
-        public static void UpdatePlannersActive(bool value) => UpdateBool(SettingKeys.PlannersActive, value);
-        public static void UpdatePlannersScreenOrder(int value) => UpdateInt(SettingKeys.PlannersScreenOrder, value);
+        public static void UpdateGoalsActive(bool value) => UpdateBool(SettingKeys.GoalsActive, value);
+        public static void UpdateGoalsScreenOrder(int value) => UpdateInt(SettingKeys.GoalsScreenOrder, value);
 
         public static void UpdateLocksEnabled(bool value) => UpdateBool(SettingKeys.LocksActive, value);
         public static void UpdateSchedulesEnabled(bool value) => UpdateBool(SettingKeys.SchedulesActive, value);

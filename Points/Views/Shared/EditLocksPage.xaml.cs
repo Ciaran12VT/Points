@@ -1,4 +1,4 @@
-﻿using Points.Models;
+using Points.Models;
 using Points.Services.Sqlite.Interfaces;
 using Points.ViewModels;
 
@@ -229,8 +229,8 @@ public partial class EditLocksPage : ContentPage
                 depToEdit.TaskDependencyCardId = updated.TaskDependencyCardId;
                 depToEdit.MetricType = updated.MetricType;
                 depToEdit.TimeScope = updated.TimeScope;
-                depToEdit.GoalValue = updated.GoalValue;
-                depToEdit.GoalValence = updated.GoalValence;   // 🔴 REQUIRED
+                depToEdit.TargetValue = updated.TargetValue;
+                depToEdit.TargetValence = updated.TargetValence;   // 🔴 REQUIRED
             }
         }
         catch (TaskCanceledException) { }
@@ -286,8 +286,8 @@ public partial class EditLocksPage : ContentPage
             TaskDependencyCardId = d.TaskDependencyCardId,
             MetricType = d.MetricType,
             TimeScope = d.TimeScope,
-            GoalValue = d.GoalValue,
-            GoalValence = d.GoalValence
+            TargetValue = d.TargetValue,
+            TargetValence = d.TargetValence
         }).ToList() ?? new()
     };
 }

@@ -110,9 +110,9 @@
                 BackgroundColor="Black"
                 VerticalOptions="Center"/>-->
 
-                <!-- Planners -->
+                <!-- Goals -->
                 <Button Text="🎯"
-                Command="{Binding OpenPlannerViewCommand}"
+                Command="{Binding OpenGoalViewCommand}"
                 WidthRequest="36"
                 HeightRequest="36"
                 CornerRadius="18"
@@ -401,11 +401,11 @@
                     </DataTemplate>
                 </cards:CardTemplateSelector.BudgetTemplate>
 
-                <cards:CardTemplateSelector.PlannerTemplate>
+                <cards:CardTemplateSelector.GoalTemplate>
                     <DataTemplate>
-                        <customComponents:PlannerProgressCard />
+                        <customComponents:GoalProgressCard />
                     </DataTemplate>
-                </cards:CardTemplateSelector.PlannerTemplate>
+                </cards:CardTemplateSelector.GoalTemplate>
 
                 <cards:CardTemplateSelector.DateHeaderCardTemplate>
                     <DataTemplate>

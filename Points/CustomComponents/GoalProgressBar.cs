@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,108 +8,108 @@ using Microsoft.Maui.Graphics;
 
 namespace Points.CustomComponents
 {
-    public sealed class PlannerProgressBar : GraphicsView
+    public sealed class GoalProgressBar : GraphicsView
     {
         // --- Values ---
         public static readonly BindableProperty MaxValueProperty =
-            BindableProperty.Create(nameof(MaxValue), typeof(double), typeof(PlannerProgressBar), 100.0,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(MaxValue), typeof(double), typeof(GoalProgressBar), 100.0,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty TotalValueProperty =
-            BindableProperty.Create(nameof(TotalValue), typeof(double), typeof(PlannerProgressBar), 0.0,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(TotalValue), typeof(double), typeof(GoalProgressBar), 0.0,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty CurrentValueProperty =
-            BindableProperty.Create(nameof(CurrentValue), typeof(double?), typeof(PlannerProgressBar), null,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(CurrentValue), typeof(double?), typeof(GoalProgressBar), null,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty ExpectedValueProperty =
-            BindableProperty.Create(nameof(ExpectedValue), typeof(double?), typeof(PlannerProgressBar), null,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(ExpectedValue), typeof(double?), typeof(GoalProgressBar), null,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
 
         // --- Appearance ---
         public static readonly BindableProperty ThicknessProperty =
-            BindableProperty.Create(nameof(Thickness), typeof(float), typeof(PlannerProgressBar), 14f,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(Thickness), typeof(float), typeof(GoalProgressBar), 14f,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty CornerRadiusProperty =
-            BindableProperty.Create(nameof(CornerRadius), typeof(float), typeof(PlannerProgressBar), 10f,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(CornerRadius), typeof(float), typeof(GoalProgressBar), 10f,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty TrackColorProperty =
-            BindableProperty.Create(nameof(TrackColor), typeof(Color), typeof(PlannerProgressBar), Colors.DimGray,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(TrackColor), typeof(Color), typeof(GoalProgressBar), Colors.DimGray,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty TotalColorProperty =
-            BindableProperty.Create(nameof(TotalColor), typeof(Color), typeof(PlannerProgressBar), Colors.DodgerBlue,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(TotalColor), typeof(Color), typeof(GoalProgressBar), Colors.DodgerBlue,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty CurrentColorProperty =
-            BindableProperty.Create(nameof(CurrentColor), typeof(Color), typeof(PlannerProgressBar), Colors.LimeGreen,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(CurrentColor), typeof(Color), typeof(GoalProgressBar), Colors.LimeGreen,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty ExpectedLineColorProperty =
-            BindableProperty.Create(nameof(ExpectedLineColor), typeof(Color), typeof(PlannerProgressBar), Colors.White,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(ExpectedLineColor), typeof(Color), typeof(GoalProgressBar), Colors.White,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty ExpectedLineThicknessProperty =
-            BindableProperty.Create(nameof(ExpectedLineThickness), typeof(float), typeof(PlannerProgressBar), 2f,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(ExpectedLineThickness), typeof(float), typeof(GoalProgressBar), 2f,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         // --- Wavy edge tuning ---
         public static readonly BindableProperty WaveAmplitudeProperty =
-            BindableProperty.Create(nameof(WaveAmplitude), typeof(float), typeof(PlannerProgressBar), 5f,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(WaveAmplitude), typeof(float), typeof(GoalProgressBar), 5f,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty WaveWavelengthProperty =
-            BindableProperty.Create(nameof(WaveWavelength), typeof(float), typeof(PlannerProgressBar), 14f,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(WaveWavelength), typeof(float), typeof(GoalProgressBar), 14f,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty ShowCurrentOverlayProperty =
-            BindableProperty.Create(nameof(ShowCurrentOverlay), typeof(bool), typeof(PlannerProgressBar), true,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(ShowCurrentOverlay), typeof(bool), typeof(GoalProgressBar), true,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         public static readonly BindableProperty ShowExpectedMarkerProperty =
-            BindableProperty.Create(nameof(ShowExpectedMarker), typeof(bool), typeof(PlannerProgressBar), true,
-                propertyChanged: (_, __, ___) => ((PlannerProgressBar)_).Invalidate());
+            BindableProperty.Create(nameof(ShowExpectedMarker), typeof(bool), typeof(GoalProgressBar), true,
+                propertyChanged: (_, __, ___) => ((GoalProgressBar)_).Invalidate());
 
         // --- Labels ---
         public static readonly BindableProperty ShowLabelsProperty =
-            BindableProperty.Create(nameof(ShowLabels), typeof(bool), typeof(PlannerProgressBar), true,
-                propertyChanged: (b, o, n) => ((PlannerProgressBar)b).Invalidate());
+            BindableProperty.Create(nameof(ShowLabels), typeof(bool), typeof(GoalProgressBar), true,
+                propertyChanged: (b, o, n) => ((GoalProgressBar)b).Invalidate());
 
         public static readonly BindableProperty LabelTextColorProperty =
-            BindableProperty.Create(nameof(LabelTextColor), typeof(Color), typeof(PlannerProgressBar), Colors.White,
-                propertyChanged: (b, o, n) => ((PlannerProgressBar)b).Invalidate());
+            BindableProperty.Create(nameof(LabelTextColor), typeof(Color), typeof(GoalProgressBar), Colors.White,
+                propertyChanged: (b, o, n) => ((GoalProgressBar)b).Invalidate());
 
         public static readonly BindableProperty LabelBackgroundColorProperty =
-            BindableProperty.Create(nameof(LabelBackgroundColor), typeof(Color), typeof(PlannerProgressBar), Colors.Black.WithAlpha(0.65f),
-                propertyChanged: (b, o, n) => ((PlannerProgressBar)b).Invalidate());
+            BindableProperty.Create(nameof(LabelBackgroundColor), typeof(Color), typeof(GoalProgressBar), Colors.Black.WithAlpha(0.65f),
+                propertyChanged: (b, o, n) => ((GoalProgressBar)b).Invalidate());
 
         public static readonly BindableProperty LabelFontSizeProperty =
-            BindableProperty.Create(nameof(LabelFontSize), typeof(float), typeof(PlannerProgressBar), 12f,
-                propertyChanged: (b, o, n) => ((PlannerProgressBar)b).Invalidate());
+            BindableProperty.Create(nameof(LabelFontSize), typeof(float), typeof(GoalProgressBar), 12f,
+                propertyChanged: (b, o, n) => ((GoalProgressBar)b).Invalidate());
 
         public static readonly BindableProperty LabelPaddingXProperty =
-            BindableProperty.Create(nameof(LabelPaddingX), typeof(float), typeof(PlannerProgressBar), 6f,
-                propertyChanged: (b, o, n) => ((PlannerProgressBar)b).Invalidate());
+            BindableProperty.Create(nameof(LabelPaddingX), typeof(float), typeof(GoalProgressBar), 6f,
+                propertyChanged: (b, o, n) => ((GoalProgressBar)b).Invalidate());
 
         public static readonly BindableProperty LabelPaddingYProperty =
-            BindableProperty.Create(nameof(LabelPaddingY), typeof(float), typeof(PlannerProgressBar), 3f,
-                propertyChanged: (b, o, n) => ((PlannerProgressBar)b).Invalidate());
+            BindableProperty.Create(nameof(LabelPaddingY), typeof(float), typeof(GoalProgressBar), 3f,
+                propertyChanged: (b, o, n) => ((GoalProgressBar)b).Invalidate());
 
         public static readonly BindableProperty LabelCornerRadiusProperty =
-            BindableProperty.Create(nameof(LabelCornerRadius), typeof(float), typeof(PlannerProgressBar), 8f,
-                propertyChanged: (b, o, n) => ((PlannerProgressBar)b).Invalidate());
+            BindableProperty.Create(nameof(LabelCornerRadius), typeof(float), typeof(GoalProgressBar), 8f,
+                propertyChanged: (b, o, n) => ((GoalProgressBar)b).Invalidate());
 
         public static readonly BindableProperty LabelOffsetProperty =
-            BindableProperty.Create(nameof(LabelOffset), typeof(float), typeof(PlannerProgressBar), 6f,
-                propertyChanged: (b, o, n) => ((PlannerProgressBar)b).Invalidate());
+            BindableProperty.Create(nameof(LabelOffset), typeof(float), typeof(GoalProgressBar), 6f,
+                propertyChanged: (b, o, n) => ((GoalProgressBar)b).Invalidate());
 
         public static readonly BindableProperty LabelFormatProperty =
-            BindableProperty.Create(nameof(LabelFormat), typeof(string), typeof(PlannerProgressBar), "0",
-                propertyChanged: (b, o, n) => ((PlannerProgressBar)b).Invalidate());
+            BindableProperty.Create(nameof(LabelFormat), typeof(string), typeof(GoalProgressBar), "0",
+                propertyChanged: (b, o, n) => ((GoalProgressBar)b).Invalidate());
 
         public double MaxValue { get => (double)GetValue(MaxValueProperty); set => SetValue(MaxValueProperty, value); }
         public double TotalValue { get => (double)GetValue(TotalValueProperty); set => SetValue(TotalValueProperty, value); }
@@ -142,7 +142,7 @@ namespace Points.CustomComponents
         public float LabelOffset { get => (float)GetValue(LabelOffsetProperty); set => SetValue(LabelOffsetProperty, value); }
         public string LabelFormat { get => (string)GetValue(LabelFormatProperty); set => SetValue(LabelFormatProperty, value); }
 
-        public PlannerProgressBar()
+        public GoalProgressBar()
         {
             Drawable = new BarDrawable(this);
             HeightRequest = Thickness;
@@ -150,8 +150,8 @@ namespace Points.CustomComponents
 
         private sealed class BarDrawable : IDrawable
         {
-            private readonly PlannerProgressBar _b;
-            public BarDrawable(PlannerProgressBar b) => _b = b;
+            private readonly GoalProgressBar _b;
+            public BarDrawable(GoalProgressBar b) => _b = b;
 
             public void Draw(ICanvas canvas, RectF dirtyRect)
             {

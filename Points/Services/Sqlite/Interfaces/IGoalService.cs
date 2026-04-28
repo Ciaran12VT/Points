@@ -1,10 +1,10 @@
-﻿using Points.Models;
+using Points.Models;
 namespace Points.Services.Sqlite.Interfaces
 {
-    public interface IPlannerService
+    public interface IGoalService
     {
-        Task<List<PlannerGoalDetailsModel>> GetPlannerModelsDataAsync();
-        Task SavePlannerModelsDataAsync(List<PlannerGoalDetailsModel> plannerModelsToSave);
+        Task<List<GoalDetailsModel>> GetGoalModelsDataAsync();
+        Task SaveGoalModelsDataAsync(List<GoalDetailsModel> goalModelsToSave);
     }
 
 

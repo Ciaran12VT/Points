@@ -105,16 +105,16 @@
                                    Placeholder="Order" />
                         </Grid>
 
-                        <!-- Planners -->
+                        <!-- Goals -->
                         <Grid ColumnDefinitions="*,Auto,Auto"
                               ColumnSpacing="10">
-                            <Label Text="Planners"
+                            <Label Text="Goals"
                                    VerticalOptions="Center" />
                             <Switch Grid.Column="1"
-                                    IsToggled="{Binding PlannersActive}" />
+                                    IsToggled="{Binding GoalsActive}" />
                             <Entry Grid.Column="2"
                                    WidthRequest="70"
-                                   Text="{Binding PlannersScreenOrderText}"
+                                   Text="{Binding GoalsScreenOrderText}"
                                    Keyboard="Numeric"
                                    Placeholder="Order" />
                         </Grid>

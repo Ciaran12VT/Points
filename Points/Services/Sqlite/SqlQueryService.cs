@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -144,19 +144,19 @@ namespace Points.Services.Sqlite
 
                     Status             TEXT    NOT NULL DEFAULT '',
                     Description        TEXT    NOT NULL DEFAULT '',
-                    GoalType           TEXT    NOT NULL DEFAULT '',
+                    TargetType           TEXT    NOT NULL DEFAULT '',
                     DifficultyLevel    TEXT    NOT NULL DEFAULT 'Easy', 
 
                     CreatedDate        TEXT    NOT NULL, -- ISO-8601 datetime
                     LastEarnedAt       TEXT    NULL,     -- ISO-8601 datetime
 
-                    -- Only For GoalType = ActiveTime
+                    -- Only For TargetType = ActiveTime
                     TargetActiveTimeInSeconds  INTEGER NULL, 
 
-                    -- Only for GoalType = Value
+                    -- Only for TargetType = Value
                     TargetValue        INTEGER NULL, 
 
-                    -- Only for GoalType = Step
+                    -- Only for TargetType = Step
                     ScCardStepID       INTEGER NULL,    
 
                     CompletionType     TEXT    NOT NULL DEFAULT 'Range',
@@ -307,12 +307,12 @@ namespace Points.Services.Sqlite
                 );
 
                 -- =========================
-                -- Planner
+                -- Goals
                 -- =========================
-                -- Stores per-card goal configuration used by the planner UI.
+                -- Stores per-card goal configuration used by the goals UI.
                 -- One row per (CardID, TimeScope).
-                CREATE TABLE IF NOT EXISTS PlannerGoal (
-                    PlannerGoalID INTEGER PRIMARY KEY,
+                CREATE TABLE IF NOT EXISTS Goal (
+                    GoalID INTEGER PRIMARY KEY,
                     CardID        INTEGER NOT NULL,
                     TimeScope     TEXT    NOT NULL, -- enum as string, e.g. Daily/Weekly/Monthly
                     GoalHrs       REAL    NOT NULL,
@@ -349,8 +349,8 @@ namespace Points.Services.Sqlite
                     TaskDependencyCardId INTEGER NOT NULL,
                     MetricType           INTEGER NOT NULL DEFAULT 0, -- 0=ActiveTime,1=Points
                     TimeScope            INTEGER NOT NULL DEFAULT 0,  -- 0=Daily,1=Weekly,2=Monthly
-                    GoalValue            REAL NOT NULL DEFAULT 0,
-                    GoalValence          INTEGER NOT NULL DEFAULT 0  -- 0=MustBeGreaterThan, 1=MustBeLessThan
+                    TargetValue            REAL NOT NULL DEFAULT 0,
+                    TargetValence          INTEGER NOT NULL DEFAULT 0  -- 0=MustBeGreaterThan, 1=MustBeLessThan
                 );
 
 
@@ -459,8 +459,8 @@ namespace Points.Services.Sqlite
                 CREATE INDEX IF NOT EXISTS IX_NotificationLog_ScheduleId
                 ON NotificationLog(ScheduleId);
 
-                CREATE INDEX IF NOT EXISTS IX_PlannerGoal_CardID       ON PlannerGoal(CardID);
-                CREATE INDEX IF NOT EXISTS IX_PlannerGoal_Enabled ON PlannerGoal(Enabled);
+                CREATE INDEX IF NOT EXISTS IX_Goal_CardID       ON Goal(CardID);
+                CREATE INDEX IF NOT EXISTS IX_Goal_Enabled ON Goal(Enabled);
 
                 -- Lookup locks by card
                 CREATE INDEX IF NOT EXISTS IX_Lock_CardId ON Lock(CardId);

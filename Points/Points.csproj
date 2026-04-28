@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFrameworks>net8.0-android;net8.0-ios;net8.0-maccatalyst</TargetFrameworks>
@@ -114,7 +114,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <MauiXaml Update="CustomComponents\PlannerProgressCard.xaml">
+	  <MauiXaml Update="CustomComponents\GoalProgressCard.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Views\Achievements\TrophyRoomPage.xaml">
@@ -192,10 +192,10 @@
 	  <MauiXaml Update="Views\HomePage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
-	  <MauiXaml Update="Views\Planners\EditGoalPage.xaml">
+	  <MauiXaml Update="Views\Goals\EditGoalPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
-	  <MauiXaml Update="Views\Planners\PlannerCreationPage.xaml">
+	  <MauiXaml Update="Views\Goals\GoalCreationPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Views\Reports\ReportPage.xaml">

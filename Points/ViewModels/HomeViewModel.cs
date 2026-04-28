@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -65,7 +65,7 @@ namespace Points.ViewModels
         public Command OpenAchievementsCommand { get; }
 
         public Command OpenDateRangePickerViewCommand { get; }
-        public Command OpenPlannerViewCommand { get; }
+        public Command OpenGoalViewCommand { get; }
         public Command OpenSettingsCommand { get; }
         public Command OpenReportsCommand { get; }
 
@@ -249,7 +249,7 @@ namespace Points.ViewModels
 
                 SetSelectedPageIcon();
 
-                if (Pages[value].Name == "Planners") _ = ReloadPlannersAsync();
+                if (Pages[value].Name == "Goals") _ = ReloadGoalsAsync();
 
                 if (Pages[value].IsDashboard) _ = ReloadDashboardAsync();
             }
@@ -374,7 +374,7 @@ namespace Points.ViewModels
             FilterByTagCommand = new Command(async () => await FilterCardsByTag());
             OpenAchievementsCommand = new Command(async () => await OpenAchievementsAsync());
             OpenDateRangePickerViewCommand = new Command(async () => await OpenDateRangePickerViewAsync());
-            OpenPlannerViewCommand = new Command(async () => await OpenPlannerViewAsync());
+            OpenGoalViewCommand = new Command(async () => await OpenGoalViewAsync());
             OpenSettingsCommand = new Command(async () => await OpenSettingsAsync());
             OpenReportsCommand = new Command(async () => await OpenReportsAsync());
             OpenShortcutDetailsCommand = new Command<ShortcutModel>(async shortcut => await OpenShortcutDetailsAsync(shortcut));
@@ -580,7 +580,7 @@ namespace Points.ViewModels
             // Get seed data (mock now, sqlite later)
             var now = DateTime.Now;
             var seed = await _db.GetHomeSeedDataAsync(new TimeScopeRange(TimeScope.Daily, now).Start, new TimeScopeRange(TimeScope.Monthly, now).End);
-            var allPlannerModels = await _db.GetPlannerModelsDataAsync();
+            var allGoalModels = await _db.GetGoalModelsDataAsync();
             var openActivity = await _db.GetCurrentActiveActivityAsync();
             var shortcuts = await _db.GetDashboardShortcutsAsync();
 
@@ -593,7 +593,7 @@ namespace Points.ViewModels
                 var budgets = Pages.FirstOrDefault(p => p.Name == "Budgets");
                 var achievements = Pages.FirstOrDefault(p => p.Name == "Challenges & Pinned Achievements");
                 var trackers = Pages.FirstOrDefault(p => p.Name == "Arcs");
-                var planners = Pages.FirstOrDefault(p => p.Name == "Planners");
+                var goals = Pages.FirstOrDefault(p => p.Name == "Goals");
 
                 if(dashboard != null) RebuildDashboardCells(dashboard, shortcuts);
 
@@ -674,31 +674,31 @@ namespace Points.ViewModels
                 OnPropertyChanged(nameof(ActivePhaseName));
                 OnPropertyChanged(nameof(ActivePhaseColor));
 
-                // Load planner progress rows — separate DB calls since these
+                // Load goal progress rows - separate DB calls since these
                 // are not part of the home seed data
                 
                 var allCards = seed.MainQuestCards;
-                var enabledPlannerModels = allPlannerModels.Where(p => p.Enabled).ToList();
+                var enabledGoalModels = allGoalModels.Where(p => p.Enabled).ToList();
 
-                if (planners != null)
+                if (goals != null)
                 {
                     foreach (var scope in new[] { TimeScope.Daily, TimeScope.Weekly, TimeScope.Monthly })
                     {
-                        var modelsForScope = enabledPlannerModels
+                        var modelsForScope = enabledGoalModels
                             .Where(p => p.TimeScope == scope)
                             .ToList();
 
                         if (modelsForScope.Count == 0)
                             continue;
 
-                        var rowVms = new List<PlannerProgressRowVm>();
-                        foreach (var plannerModel in modelsForScope)
+                        var rowVms = new List<GoalProgressRowVm>();
+                        foreach (var goalModel in modelsForScope)
                         {
-                            var card = allCards.FirstOrDefault(c => c.CardID == plannerModel.CardId);
+                            var card = allCards.FirstOrDefault(c => c.CardID == goalModel.CardId);
                             if (card is null)
                                 continue;
 
-                            var row = new PlannerProgressRowVm(card, plannerModel)
+                            var row = new GoalProgressRowVm(card, goalModel)
                             {
                                 EnableCheckbox = false
                             };
@@ -709,11 +709,11 @@ namespace Points.ViewModels
                         if (rowVms.Count == 0)
                             continue;
 
-                        CommitCardToPage(planners, new DateHeaderCardModel { Title = scope.ToString() }, noDb: true);
+                        CommitCardToPage(goals, new DateHeaderCardModel { Title = scope.ToString() }, noDb: true);
 
                         foreach (var row in rowVms)
                         {
-                            CommitCardToPage(planners, row, noDb: true);
+                            CommitCardToPage(goals, row, noDb: true);
                         }
                     }
                 }
@@ -728,10 +728,10 @@ namespace Points.ViewModels
             //SortMissionCards();
         }
 
-        private async Task ReloadPlannersAsync()
+        private async Task ReloadGoalsAsync()
         {
             var now = DateTime.Now;
-            var planners = Pages.First(p => p.Name == "Planners");
+            var goals = Pages.First(p => p.Name == "Goals");
 
             List<DateTime> startDates = new()
             {
@@ -750,28 +750,28 @@ namespace Points.ViewModels
                 startDates.Min(),
                 endDates.Max());
 
-            var allPlannerModels = await _db.GetPlannerModelsDataAsync();
-            var enabledPlannerModels = allPlannerModels.Where(p => p.Enabled).ToList();
+            var allGoalModels = await _db.GetGoalModelsDataAsync();
+            var enabledGoalModels = allGoalModels.Where(p => p.Enabled).ToList();
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                planners.AllCards.Clear();
+                goals.AllCards.Clear();
 
                 foreach (var scope in new[] { TimeScope.Daily, TimeScope.Weekly, TimeScope.Monthly })
                 {
-                    var modelsForScope = enabledPlannerModels
+                    var modelsForScope = enabledGoalModels
                         .Where(p => p.TimeScope == scope)
                         .ToList();
 
                     if (modelsForScope.Count == 0) continue;
 
-                    var rowVms = new List<PlannerProgressRowVm>();
-                    foreach (var plannerModel in modelsForScope)
+                    var rowVms = new List<GoalProgressRowVm>();
+                    foreach (var goalModel in modelsForScope)
                     {
-                        var card = allCards.FirstOrDefault(c => c.CardID == plannerModel.CardId);
+                        var card = allCards.FirstOrDefault(c => c.CardID == goalModel.CardId);
                         if (card is null) continue;
 
-                        var row = new PlannerProgressRowVm(card, plannerModel)
+                        var row = new GoalProgressRowVm(card, goalModel)
                         {
                             EnableCheckbox = false
                         };
@@ -780,15 +780,15 @@ namespace Points.ViewModels
 
                     if (rowVms.Count == 0) continue;
 
-                    planners.AllCards.Add(new DateHeaderCardModel { Title = scope.ToString() });
+                    goals.AllCards.Add(new DateHeaderCardModel { Title = scope.ToString() });
 
                     foreach (var row in rowVms)
                     {
-                        planners.AllCards.Add(row);
+                        goals.AllCards.Add(row);
                     }
                 }
 
-                planners.ResetVisible();
+                goals.ResetVisible();
             });
         }
 
@@ -1220,7 +1220,7 @@ namespace Points.ViewModels
             var budgetsPage = Pages.FirstOrDefault(p => p.Name == "Budgets");
             var achPage = Pages.FirstOrDefault(p => p.Name == "Challenges & Pinned Achievements");
             var arcsPage = Pages.FirstOrDefault(p => p.Name == "Arcs");
-            var plannersPage = Pages.FirstOrDefault(p => p.Name == "Planners");
+            var goalsPage = Pages.FirstOrDefault(p => p.Name == "Goals");
 
             if (mainQuestPage != null)
                 dict[TargetCardType.MainQuest] = ToOptions(mainQuestPage.AllCards);
@@ -1237,8 +1237,8 @@ namespace Points.ViewModels
             if (arcsPage != null)
                 dict[TargetCardType.Arc] = ToOptions(arcsPage.AllCards);
 
-            if (plannersPage != null)
-                dict[TargetCardType.Planner] = ToOptions(plannersPage.AllCards);
+            if (goalsPage != null)
+                dict[TargetCardType.Goal] = ToOptions(goalsPage.AllCards);
 
             // Ensure all enum values exist (so pickers don’t explode if a page is empty)
             foreach (TargetCardType t in Enum.GetValues(typeof(TargetCardType)))
@@ -1451,11 +1451,11 @@ namespace Points.ViewModels
                     cardsFactory: () => Enumerable.Empty<ICardModel>()),
 
                 new(
-                    title: "Planners",
+                    title: "Goals",
                     icon: "☰",
                     defaultOrder: 7,
-                    activeSettingKey: SettingKeys.PlannersActive,
-                    orderSettingKey: SettingKeys.PlannersScreenOrder,
+                    activeSettingKey: SettingKeys.GoalsActive,
+                    orderSettingKey: SettingKeys.GoalsScreenOrder,
                     cardsFactory: () => Enumerable.Empty<ICardModel>())
             };
 
@@ -1946,11 +1946,11 @@ namespace Points.ViewModels
             await Shell.Current.Navigation.PushAsync(new Points.Views.Shared.DateRangePickerPage(_db));
         }
 
-        private async Task OpenPlannerViewAsync()
+        private async Task OpenGoalViewAsync()
         {
             var mainQuest = Pages.First(p => p.Name == "Main Quest");
             var cards = mainQuest.AllCards.OfType<IActiveCardModel>().ToList();
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Planners.PlannerCreationPage(_db));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Goals.GoalCreationPage(_db));
         }
 
         private async Task OpenSettingsAsync()

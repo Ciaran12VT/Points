@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="Points.Views.Planners.PlannerCreationPage"
+             x:Class="Points.Views.Goals.GoalCreationPage"
              xmlns:controls="clr-namespace:Points.CustomComponents"
-             Title="Planners">
+             Title="Goals">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
@@ -19,7 +19,7 @@
 
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <controls:PlannerProgressCard />
+                    <controls:GoalProgressCard />
                 </DataTemplate>
             </CollectionView.ItemTemplate>
 

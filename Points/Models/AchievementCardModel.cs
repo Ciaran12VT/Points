@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Globalization;
 
 namespace Points.Models
@@ -38,15 +38,15 @@ namespace Points.Models
         private string _tags = "";
         public string Tags { get => _tags; set => SetProperty(ref _tags, value); }
 
-        private AchievementGoalType _goalType = AchievementGoalType.ActiveTime;
-        public AchievementGoalType GoalType
+        private AchievementTargetType _targetType = AchievementTargetType.ActiveTime;
+        public AchievementTargetType TargetType
         {
-            get => _goalType;
+            get => _targetType;
             set
             {
-                if (SetProperty(ref _goalType, value))
+                if (SetProperty(ref _targetType, value))
                 {
-                    RaisePropertyChanged(nameof(GoalTypeText));
+                    RaisePropertyChanged(nameof(TargetTypeText));
                     RaisePropertyChanged(nameof(TargetText));
                     RaisePropertyChanged(nameof(ActiveTimeText));
                 }
@@ -291,13 +291,13 @@ namespace Points.Models
         {
             get
             {
-                return GoalType switch
+                return TargetType switch
                 {
-                    AchievementGoalType.Value => string.IsNullOrWhiteSpace(Tags) ? "" : $"Tag: {Tags}",
-                    AchievementGoalType.ActiveTime => string.IsNullOrWhiteSpace(Tags) ? "" : $"Tag: {Tags}",
-                    AchievementGoalType.Steps => string.IsNullOrWhiteSpace(StepName) ? "" : $"Step: {StepName}",
-                    AchievementGoalType.Achievements => string.IsNullOrWhiteSpace(AchievementTitle) ? "" : $"Achievement: {AchievementTitle}",
-                    AchievementGoalType.Custom => "Report: " + (string.IsNullOrWhiteSpace("Report") ? "(none)" : "Report"),
+                    AchievementTargetType.Value => string.IsNullOrWhiteSpace(Tags) ? "" : $"Tag: {Tags}",
+                    AchievementTargetType.ActiveTime => string.IsNullOrWhiteSpace(Tags) ? "" : $"Tag: {Tags}",
+                    AchievementTargetType.Steps => string.IsNullOrWhiteSpace(StepName) ? "" : $"Step: {StepName}",
+                    AchievementTargetType.Achievements => string.IsNullOrWhiteSpace(AchievementTitle) ? "" : $"Achievement: {AchievementTitle}",
+                    AchievementTargetType.Custom => "Report: " + (string.IsNullOrWhiteSpace("Report") ? "(none)" : "Report"),
                     _ => string.IsNullOrWhiteSpace(Tags) ? "" : $"Tag: {Tags}"
                 };
             }
@@ -639,13 +639,13 @@ namespace Points.Models
         {
             get
             {
-                double target = GoalType switch
+                double target = TargetType switch
                 {
-                    AchievementGoalType.ActiveTime => GetTargetSecondsSpent(),
-                    AchievementGoalType.Value => TargetValue,
-                    AchievementGoalType.Steps => TargetValue,
-                    AchievementGoalType.Achievements => TargetValue,
-                    AchievementGoalType.Custom => TargetValue,
+                    AchievementTargetType.ActiveTime => GetTargetSecondsSpent(),
+                    AchievementTargetType.Value => TargetValue,
+                    AchievementTargetType.Steps => TargetValue,
+                    AchievementTargetType.Achievements => TargetValue,
+                    AchievementTargetType.Custom => TargetValue,
                     _ => TargetValue
                 };
 
@@ -696,7 +696,7 @@ namespace Points.Models
         {
             get
             {
-                if (GoalType != AchievementGoalType.ActiveTime)
+                if (TargetType != AchievementTargetType.ActiveTime)
                     return "Active: --:--:--";
 
                 var hours = EffectiveCurrentValue / 3600.0;
@@ -704,14 +704,14 @@ namespace Points.Models
             }
         }
 
-        public bool IsActiveTimeTextVisible => GoalType == AchievementGoalType.ActiveTime;
+        public bool IsActiveTimeTextVisible => TargetType == AchievementTargetType.ActiveTime;
 
-        public string GoalTypeText => GoalType switch
+        public string TargetTypeText => TargetType switch
         {
-            AchievementGoalType.ActiveTime => "Goal: Active Time",
-            AchievementGoalType.Value => "Goal: Value",
-            AchievementGoalType.Steps => "Goal: Steps",
-            _ => "Goal: ?"
+            AchievementTargetType.ActiveTime => "Target: Active Time",
+            AchievementTargetType.Value => "Target: Value",
+            AchievementTargetType.Steps => "Target: Steps",
+            _ => "Target: ?"
         };
 
         public string CurrentValueText
@@ -720,18 +720,18 @@ namespace Points.Models
             {
                 var v = EffectiveCurrentValue.ToString("0.##", CultureInfo.InvariantCulture);
 
-                return GoalType switch
+                return TargetType switch
                 {
-                    AchievementGoalType.Value => $"Current Pts: {v}",
-                    AchievementGoalType.Steps => $"Current Reps: {v}",
-                    AchievementGoalType.Achievements => $"Current: {v}",
-                    AchievementGoalType.Custom => $"Current: {v}",
+                    AchievementTargetType.Value => $"Current Pts: {v}",
+                    AchievementTargetType.Steps => $"Current Reps: {v}",
+                    AchievementTargetType.Achievements => $"Current: {v}",
+                    AchievementTargetType.Custom => $"Current: {v}",
                     _ => $"Current: {v}"
                 };
             }
         }
 
-        public bool IsCurrentValueTextVisible => GoalType == AchievementGoalType.Value;
+        public bool IsCurrentValueTextVisible => TargetType == AchievementTargetType.Value;
 
         public string TargetText
         {
@@ -739,11 +739,11 @@ namespace Points.Models
             {
                 var v = TargetValue.ToString("0.##", CultureInfo.InvariantCulture);
 
-                return GoalType switch
+                return TargetType switch
                 {
-                    AchievementGoalType.ActiveTime => $"Target Hrs: {ActiveTimeTargetText}",
-                    AchievementGoalType.Value => $"Target Pts: {v}",
-                    AchievementGoalType.Steps => $"Target Reps: {v}",
+                    AchievementTargetType.ActiveTime => $"Target Hrs: {ActiveTimeTargetText}",
+                    AchievementTargetType.Value => $"Target Pts: {v}",
+                    AchievementTargetType.Steps => $"Target Reps: {v}",
                     _ => $"Target: {v}"
                 };
             }
@@ -825,7 +825,7 @@ namespace Points.Models
             RaisePropertyChanged(nameof(ShouldUseFrozenCurrentValue));
             RaisePropertyChanged(nameof(EffectiveCurrentValue));
             RaisePropertyChanged(nameof(ActiveTimeText));
-            RaisePropertyChanged(nameof(GoalTypeText));
+            RaisePropertyChanged(nameof(TargetTypeText));
             RaisePropertyChanged(nameof(CurrentValueText));
             RaisePropertyChanged(nameof(TargetText));
             RaisePropertyChanged(nameof(CompletionTimeText));
@@ -884,23 +884,23 @@ namespace Points.Models
                 .ToList()
                 ?? new List<Evaluators.TimeValueAchievementEvaluation>();
 
-            switch (GoalType)
+            switch (TargetType)
             {
-                case AchievementGoalType.ActiveTime:
+                case AchievementTargetType.ActiveTime:
                     CurrentValue = relevantEvaluations.Sum(x => x.CurrentValue);
                     break;
 
-                case AchievementGoalType.Value:
+                case AchievementTargetType.Value:
                     CurrentValue = relevantEvaluations.Sum(x => x.CurrentValue);
                     break;
 
-                case AchievementGoalType.Steps:
+                case AchievementTargetType.Steps:
                     break;
 
-                case AchievementGoalType.Achievements:
+                case AchievementTargetType.Achievements:
                     break;
 
-                case AchievementGoalType.Custom:
+                case AchievementTargetType.Custom:
                     break;
 
                 default:

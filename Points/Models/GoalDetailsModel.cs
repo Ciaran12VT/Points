@@ -1,8 +1,8 @@
-﻿using Points.ViewModels;
+using Points.ViewModels;
 
 namespace Points.Models
 {
-    public class PlannerGoalDetailsModel
+    public class GoalDetailsModel
     {
         public int Id { get; set; }
 

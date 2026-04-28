@@ -1,4 +1,4 @@
-﻿using Points.Models;
+using Points.Models;
 using Points.ViewModels;
 using System.Globalization;
 
@@ -285,10 +285,10 @@ namespace Points.Services.Locks
                     return false;
             }
 
-            return dep.GoalValence switch
+            return dep.TargetValence switch
             {
-                GoalValence.MustBeGreaterThan => actual > dep.GoalValue,
-                GoalValence.MustBeLessThan => actual < dep.GoalValue,
+                TargetValence.MustBeGreaterThan => actual > dep.TargetValue,
+                TargetValence.MustBeLessThan => actual < dep.TargetValue,
                 _ => false
             };
         }
