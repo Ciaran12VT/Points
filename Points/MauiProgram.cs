@@ -7,6 +7,7 @@ using Points.Services;
 using Points.Services.Scheduling;
 using Points.Services.Sqlite;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using Points.ViewModels;
 using Points.Views;
 
@@ -41,6 +42,8 @@ namespace Points
             builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
 #endif
+            builder.Services.AddSingleton<IClock, SystemClock>();
+            builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
             builder.Services.AddSingleton<INotificationScheduleCoordinator, NotificationScheduleCoordinator>();
 
             builder.Services.AddTransient<HomePage>();      // <-- add this

@@ -15,7 +15,7 @@ public partial class ValueTrackerCardModel : TrackerCardModel, IScheduleable
 
     public void AddValue(double value)
     {
-        Values.Add(new TrackerValueModel() { Timestamp = DateTime.Now, Value = value });
+        Values.Add(new TrackerValueModel() { Timestamp = ActivityTimeMath.UtcNow, Value = value });
     }
 
     public void SetValues(List<double> values)

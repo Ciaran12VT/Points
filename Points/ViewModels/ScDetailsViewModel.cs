@@ -2,6 +2,7 @@
 using Points.Global;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,6 +19,7 @@ namespace Points.ViewModels
         private ScCardModel _model;
         private Action<ScCardModel> _onSaved;
         private Action<ScCardModel> _onDelete;
+        private readonly IClock _clock;
 
         public Command CancelCommand { get; }
         public List<string> AvailableTagList { get; }
@@ -28,9 +30,10 @@ namespace Points.ViewModels
 
         private double initalTotalValue = 0;
 
-        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, IDbService db)
+        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, IDbService db, IClock clock)
         {
             _db = db;
+            _clock = clock;
             ToggleSignCommand = new Command(ToggleSign);
             AddStepCommand = new Command(AddStep);
             SaveCommand = new Command(async () => await SaveAsync());
@@ -247,7 +250,7 @@ namespace Points.ViewModels
 
             // Gather earned achievements, safely handling null returns, and dedupe by Id
             var earned = model.TimeValueAchievementEvaluators
-                .SelectMany(e => e.CheckForEarnedAchievements(0, amountToAdd) ?? Enumerable.Empty<AchievementCardModel>())
+                .SelectMany(e => e.CheckForEarnedAchievements(0, amountToAdd, _clock.LocalNow) ?? Enumerable.Empty<AchievementCardModel>())
                 .GroupBy(a => a.Id)
                 .Select(g => g.First())
                 .ToList();
@@ -256,7 +259,7 @@ namespace Points.ViewModels
                 return;
 
             // 1) Persist (DB)
-            var now = DateTime.Now;
+            var now = _clock.UtcNow;
             foreach (var ach in earned)
             {
                 await _db.MarkAchievementEarnedAsync(ach.Id, now);

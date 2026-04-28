@@ -1,6 +1,8 @@
 using System.Globalization;
+using Points.Helpers;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using Points.Views.Schedules;
 
 namespace Points.Views.Details;
@@ -30,9 +32,11 @@ public partial class ValueTrackerDetailsPage : ContentPage
 
         BindingContext = _model;
 
+        var clock = ServiceHelper.GetService<IClock>();
+
         // Defaults
         if (_model.CreatedDate == default)
-            _model.CreatedDate = DateTime.Today;
+            _model.CreatedDate = clock.LocalNow.Date;
 
         // Schedule picker options
         //UnitPicker.ItemsSource = new List<string> { "Minute", "Hour", "Day", "Week", "Month", "Year" };
@@ -180,7 +184,7 @@ public partial class ValueTrackerDetailsPage : ContentPage
 
             MetadataHistoryStack.Children.Add(new Label
             {
-                Text = $"{value.Timestamp:MMM-dd HH:mm}: {FormatMetadata(metadata)}",
+                Text = $"{FormatTimestamp(value.Timestamp)}: {FormatMetadata(metadata)}",
                 FontSize = 13,
                 Opacity = 0.8
             });
@@ -195,6 +199,11 @@ public partial class ValueTrackerDetailsPage : ContentPage
     {
         return string.Join("  |  ", metadata.Select(x =>
             $"{x.FieldName}: {UdmdValueFormatter.ToDisplayString(x)}"));
+    }
+
+    private static string FormatTimestamp(DateTime timestamp)
+    {
+        return TimeDisplayFormatter.FormatInstant(timestamp, "MMM-dd HH:mm");
     }
 
 

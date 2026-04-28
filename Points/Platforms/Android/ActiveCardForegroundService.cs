@@ -12,6 +12,7 @@ using am = Android.Media;
 using System.Threading;
 using Points.Helpers;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 
 // Namespace: use your actual root namespace
 namespace Points.Platforms.Android
@@ -105,7 +106,8 @@ namespace Points.Platforms.Android
 
                             cardTitle = acm.Title;
                             _activeCard = acm;
-                            _startDate = DateTime.Today;
+                            var clock = ServiceHelper.GetService<IClock>();
+                            _startDate = clock.LocalNow.Date;
 
                             if (_cts == null)
                             {
@@ -208,7 +210,9 @@ namespace Points.Platforms.Android
                     if (_activeCard is not null)
                     {
                         //Update notification time
-                        var elapsed = _activeCard.GetActiveTime(_startDate, DateTime.Now);
+                        var clock = ServiceHelper.GetService<IClock>();
+                        var nowLocal = clock.LocalNow;
+                        var elapsed = _activeCard.GetActiveTime(_startDate, nowLocal);
                         string formatted = $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
                         UpdateNotification(formatted);
 
@@ -234,7 +238,7 @@ namespace Points.Platforms.Android
                         {
                             foreach (var evaluator in _activeCard.TimeValueAchievementEvaluators)
                             {
-                                var earnedAchievements = evaluator.CheckForEarnedAchievements(1, _activeCard.ValuePerMinute / 60);
+                                var earnedAchievements = evaluator.CheckForEarnedAchievements(1, _activeCard.ValuePerMinute / 60, nowLocal);
 
                                 if(earnedAchievements != null && earnedAchievements.Count > 0)
                                 {
@@ -505,7 +509,7 @@ namespace Points.Platforms.Android
         private async Task PersistEarnedAchievementsAsync(IEnumerable<AchievementCardModel> earned)
         {
             var db = ServiceHelper.GetService<IDbService>();
-            var now = DateTime.Now;
+            var now = ServiceHelper.GetService<IClock>().UtcNow;
 
             foreach (var ach in earned)
             {

@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Microsoft.Maui.Controls;
 using Points.Helpers;
 using Points.Models;
+using Points.Services.Time;
 using Points.ViewModels;
 
 namespace Points.Views.Cards;
@@ -258,8 +259,10 @@ public partial class TrackerCardView : ContentView
         LatestValueText = $"{last:0.###}{unitText}";
         TrendArrow = ComputeTrendArrow(numeric, avg);
 
-        var first = FirstRecordedDate ?? series.Min(s => s.BucketStart);
-        PeriodText = BuildOverTheLastText(first, DateTime.Now);
+        var first = FirstRecordedDate.HasValue
+            ? TimeDisplayFormatter.ToLocalInstant(FirstRecordedDate.Value)
+            : series.Min(s => s.BucketStart);
+        PeriodText = BuildOverTheLastText(first, TimeDisplayFormatter.ToLocalInstant(DateTime.UtcNow));
     }
 
 
@@ -429,7 +432,7 @@ public partial class TrackerCardView : ContentView
         {
             return vals
                 .OrderBy(v => v.Timestamp)
-                .Select(v => new SeriesPoint(v.Timestamp, v.Value))
+                .Select(v => new SeriesPoint(ToDisplayLocal(v.Timestamp), v.Value))
                 .ToList();
         }
 
@@ -451,13 +454,18 @@ public partial class TrackerCardView : ContentView
         }
 
         var grouped = vals
-            .GroupBy(v => Bucket(v.Timestamp))
+            .GroupBy(v => Bucket(ToDisplayLocal(v.Timestamp)))
             .Select(g => new SeriesPoint(g.Key, g.Count())) // each event counts as 1
             .OrderBy(p => p.BucketStart)
             .ToList();
 
         // Optional but nice: fill gaps so sparkline doesn’t “jump” over empty periods
         return FillGaps(grouped, period);
+    }
+
+    private static DateTime ToDisplayLocal(DateTime timestamp)
+    {
+        return TimeDisplayFormatter.ToLocalInstant(timestamp);
     }
 
     private static DateTime StartOfWeek(DateTime date, DayOfWeek startOfWeek)

@@ -1,4 +1,5 @@
 ﻿using Points.Models;
+using Points.Services.Time;
 using System.Collections.ObjectModel;
 using System.Globalization;
 
@@ -53,7 +54,7 @@ public sealed class BudgetTransactionRow : BindableObject
 
     public string TypeText => Type == BudgetTransactionType.Spend ? "Spend" : "CashIn";
 
-    public string TimestampText => Timestamp.ToString("MMM-dd HH:mm");
+    public string TimestampText => TimeDisplayFormatter.FormatLocal(Timestamp, "MMM-dd HH:mm");
 
     public string MetadataSummary
     {

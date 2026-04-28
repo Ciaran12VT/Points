@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
@@ -28,6 +29,7 @@ namespace Points.ViewModels
         private string sqlText = "";
 
         private readonly IDbService _db;
+        private readonly IClock _clock;
 
         // Each string = "col1|col2|..."
         public ObservableCollection<string> Results { get; } = new();
@@ -41,12 +43,13 @@ namespace Points.ViewModels
         // 🔹 Fire this when the results set is ready
         public event Action? ResultsUpdated;
 
-        public ReportDetailsViewModel(ReportModel report, IDbService db, Func<ReportModel, Task>? onSaved = null, Func<ReportModel, Task>? onDeleted = null)
+        public ReportDetailsViewModel(ReportModel report, IDbService db, IClock clock, Func<ReportModel, Task>? onSaved = null, Func<ReportModel, Task>? onDeleted = null)
         {
             Report = report;
             TitleText = report.Title;
             SqlText = report.SQLQuery;
             _db = db;
+            _clock = clock;
 
 
             _onSaved = onSaved ?? (_ => Task.CompletedTask);
@@ -66,7 +69,7 @@ namespace Points.ViewModels
                 // Persist edits back into the shared model
                 Report.Title = TitleText.Trim();
                 Report.SQLQuery = SqlText;
-                Report.LastRunOn = DateTime.UtcNow;
+                Report.LastRunOn = _clock.UtcNow;
 
                 // DB persistence (to implement later)
                 await _db.UpsertReportAsync(Report);

@@ -1,5 +1,3 @@
-using Points.ViewModels;
-
 namespace Points.Models
 {
     public class GoalDetailsModel

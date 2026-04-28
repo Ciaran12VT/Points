@@ -1,6 +1,8 @@
 using Points.Global;
+using Points.Helpers;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -32,6 +34,7 @@ namespace Points.ViewModels
 
         public List<string> AvailableTagsList;
         private IDbService _db;
+        private readonly IClock _clock;
 
         public Command AddAchievementCommand { get; }
         public Command OpenTrophyRoomCommand { get; }
@@ -47,7 +50,7 @@ namespace Points.ViewModels
         {
             var page = CurrentPage;
 
-            var now = DateTime.Now;
+            var now = _clock.LocalNow;
 
             var model = new AchievementCardModel
             {
@@ -114,9 +117,10 @@ namespace Points.ViewModels
         private readonly SemaphoreSlim _deadlineRefreshGate = new(1, 1);
         private readonly IDispatcherTimer _deadlineRefreshTimer;
 
-        public AchievementsViewModel(List<string> availableTagsList, IDbService db)
+        public AchievementsViewModel(List<string> availableTagsList, IDbService db, IClock? clock = null)
         {
             _db = db;
+            _clock = clock ?? ServiceHelper.GetService<IClock>();
 
             Pages.Add(CreateAchievementsPage());
             Pages.Add(CreateMetaAchievementsPage());

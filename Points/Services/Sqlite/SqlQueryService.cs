@@ -435,6 +435,11 @@ namespace Points.Services.Sqlite
                     SortOrder       INTEGER NOT NULL DEFAULT 0
                 );
 
+                CREATE TABLE IF NOT EXISTS SchemaMigration (
+                    MigrationKey TEXT PRIMARY KEY,
+                    AppliedAtUtc TEXT NOT NULL
+                );
+
                 -- =========================
                 -- Helpful indexes
                 -- =========================

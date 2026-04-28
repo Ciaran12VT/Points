@@ -1,5 +1,6 @@
 ﻿using Points.Global;
 using Points.Models;
+using Points.Services.Time;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -14,6 +15,7 @@ namespace Points.ViewModels
     {
         private readonly MissionCardModel _model;
         private readonly Action<MissionCardModel> _onSaved;
+        private readonly ITimeZoneService _timeZoneService;
 
         private readonly Action<MissionCardModel> _onDelete;
         private readonly Action<MissionCardModel> _onFail;
@@ -29,12 +31,19 @@ namespace Points.ViewModels
         private readonly IDispatcherTimer _timer;
         public void StopTimer() => _timer?.Stop();
 
-        public MissionDetailsViewModel(MissionCardModel model, Action<MissionCardModel> onSaved, Action<MissionCardModel> onDelete, Action<MissionCardModel> onFail, List<string> availableTagsList)
+        public MissionDetailsViewModel(
+            MissionCardModel model,
+            Action<MissionCardModel> onSaved,
+            Action<MissionCardModel> onDelete,
+            Action<MissionCardModel> onFail,
+            List<string> availableTagsList,
+            ITimeZoneService? timeZoneService = null)
         {
             _model = model;
             _onSaved = onSaved;
             _onDelete = onDelete;
             _onFail = onFail;
+            _timeZoneService = timeZoneService ?? new TimeZoneService();
             AvailableTagList = availableTagsList;
 
             // Tick every second
@@ -50,8 +59,17 @@ namespace Points.ViewModels
             CancelCommand = new Command(async () => await OnCancelAsync());
 
             // Read-only
-            CreatedDateText = _model.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-            CompletedDateText = _model.CompletedDate.HasValue ? _model.CompletedDate.Value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) : "--";
+            CreatedDateText = TimeDisplayFormatter.FormatInstant(
+                _model.CreatedDate,
+                "yyyy-MM-dd HH:mm:ss",
+                _timeZoneService,
+                CultureInfo.InvariantCulture);
+            CompletedDateText = TimeDisplayFormatter.FormatNullableInstant(
+                _model.CompletedDate,
+                "yyyy-MM-dd HH:mm:ss",
+                "--",
+                _timeZoneService,
+                CultureInfo.InvariantCulture);
 
             EstimatedTimeText = _model.EstCompletionTimeText;
             EstimatedTimeTs = _model.EstCompletionTime.HasValue ? _model.EstCompletionTime.Value : TimeSpan.Zero;

@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui.Views;
+using Points.Services.Time;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,7 +37,7 @@ namespace Points.Views.Popups
 
             _selectedTimeLabel = new Label
             {
-                Text = selectedTime.ToString("MMM-dd HH:mm"),
+                Text = TimeDisplayFormatter.FormatLocal(selectedTime, "MMM-dd HH:mm"),
                 FontSize = 16,
                 HorizontalTextAlignment = TextAlignment.End,
                 VerticalOptions = LayoutOptions.Center
@@ -63,7 +64,7 @@ namespace Points.Views.Popups
             _slider.ValueChanged += (_, __) =>
             {
                 var dt = minTime.AddMinutes(_slider.Value);
-                _selectedTimeLabel.Text = dt.ToString("MMM-dd HH:mm");
+                _selectedTimeLabel.Text = TimeDisplayFormatter.FormatLocal(dt, "MMM-dd HH:mm");
                 _relativeTimeLabel.Text = FormatRelativeTime(dt);
             };
 

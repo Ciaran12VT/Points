@@ -1,3 +1,5 @@
+using Points.Helpers;
+using Points.Services.Time;
 using Points.ViewModels;
 
 namespace Points.Views.Reports;
@@ -17,6 +19,6 @@ After:
 	{
 		InitializeComponent();
 
-        BindingContext = new ReportsViewModel(_db);
+        BindingContext = new ReportsViewModel(_db, ServiceHelper.GetService<IClock>());
     }
 }

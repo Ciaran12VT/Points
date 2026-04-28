@@ -26,9 +26,14 @@ namespace Points.Models
     public sealed class PlannerModel
     {
         public long PlannerId { get; set; }
-        public DateTime PlannerDate { get; set; } = DateTime.Today;
+        public DateTime PlannerDate { get; set; } = LocalToday();
         public List<PlannerTaskModel> Tasks { get; set; } = new();
         public List<PlannerEventModel> Events { get; set; } = new();
+
+        private static DateTime LocalToday()
+        {
+            return DateTime.SpecifyKind(ActivityTimeMath.LocalNow.Date, DateTimeKind.Unspecified);
+        }
     }
 
     public sealed class PlannerTaskModel

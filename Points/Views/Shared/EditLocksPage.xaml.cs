@@ -1,5 +1,8 @@
 using Points.Models;
+using Points.Helpers;
+using Points.Services.Scheduling;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using Points.ViewModels;
 
 namespace Points.Views.Shared;
@@ -76,7 +79,7 @@ public partial class EditLocksPage : ContentPage
         {
             FrequencyType = FrequencyType.Once,
             FrequencyValue = 0,
-            FromDateTime = DateTime.Now,
+            FromDateTime = WallClockScheduleTime.NormalizeLocal(ServiceHelper.GetService<IClock>().LocalNow),
             ToDateTime = null,
             // If your LockScheduleModel has these:
             // IsEnabled = true,
@@ -277,7 +280,9 @@ public partial class EditLocksPage : ContentPage
             FrequencyType = s.FrequencyType,
             FrequencyValue = s.FrequencyValue,
             FromDateTime = s.FromDateTime,
-            ToDateTime = s.ToDateTime
+            ToDateTime = s.ToDateTime,
+            IsEnabled = s.IsEnabled,
+            Note = s.Note
         }).ToList() ?? new(),
         Dependencies = l.Dependencies?.Select(d => new LockTaskDependencyModel
         {

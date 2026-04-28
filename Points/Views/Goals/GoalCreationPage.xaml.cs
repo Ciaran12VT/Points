@@ -1,16 +1,17 @@
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using Points.ViewModels;
 
 namespace Points.Views.Goals;
 
 public partial class GoalCreationPage : ContentPage
 {
-	public GoalCreationPage(IDbService db)
+	public GoalCreationPage(IDbService db, IClock? clock = null)
 	{
 		InitializeComponent();
 
-		BindingContext = new GoalCreationViewModel(db);
+		BindingContext = new GoalCreationViewModel(db, clock);
 
     }
 

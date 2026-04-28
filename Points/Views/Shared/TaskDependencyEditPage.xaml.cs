@@ -1,5 +1,4 @@
 using Points.Models;
-using Points.ViewModels;
 using System.Globalization;
 
 namespace Points.Views.Shared;

@@ -1,5 +1,6 @@
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using System.Collections.ObjectModel;
 
 namespace Points.ViewModels
@@ -7,10 +8,12 @@ namespace Points.ViewModels
     public sealed class NotificationLogRowViewModel
     {
         private readonly NotificationLogModel _model;
+        private readonly ITimeZoneService _timeZoneService;
 
-        public NotificationLogRowViewModel(NotificationLogModel model)
+        public NotificationLogRowViewModel(NotificationLogModel model, ITimeZoneService timeZoneService)
         {
             _model = model;
+            _timeZoneService = timeZoneService;
         }
 
         public string TitleText => string.IsNullOrWhiteSpace(_model.CardTitle)
@@ -36,10 +39,13 @@ namespace Points.ViewModels
         public string ErrorText => _model.Error ?? "";
         public bool HasError => !string.IsNullOrWhiteSpace(_model.Error);
 
-        private static string Format(DateTime value) => value.ToString("MMM-dd HH:mm");
+        private string Format(DateTime value)
+        {
+            return TimeDisplayFormatter.FormatInstant(value, "MMM-dd HH:mm", _timeZoneService);
+        }
 
-        private static string Format(DateTime? value) => value.HasValue
-            ? Format(value.Value)
+        private string Format(DateTime? value) => value.HasValue
+            ? TimeDisplayFormatter.FormatInstant(value.Value, "MMM-dd HH:mm", _timeZoneService)
             : "N/A";
     }
 
@@ -48,6 +54,8 @@ namespace Points.ViewModels
         private static readonly TimeSpan MissedGracePeriod = TimeSpan.FromMinutes(15);
 
         private readonly IDbService _db;
+        private readonly IClock _clock;
+        private readonly ITimeZoneService _timeZoneService;
         private bool _isBusy;
 
         public ObservableCollection<NotificationLogRowViewModel> Rows { get; } = new();
@@ -67,9 +75,11 @@ namespace Points.ViewModels
 
         public bool IsEmpty => !IsBusy && Rows.Count == 0;
 
-        public NotificationLogViewModel(IDbService db)
+        public NotificationLogViewModel(IDbService db, IClock clock, ITimeZoneService? timeZoneService = null)
         {
             _db = db;
+            _clock = clock;
+            _timeZoneService = timeZoneService ?? new TimeZoneService();
             RefreshCommand = new Command(async () => await LoadAsync());
         }
 
@@ -80,12 +90,12 @@ namespace Points.ViewModels
             IsBusy = true;
             try
             {
-                await _db.MarkOverdueNotificationLogsMissedAsync(DateTime.Now, MissedGracePeriod);
+                await _db.MarkOverdueNotificationLogsMissedAsync(_clock.UtcNow, MissedGracePeriod);
                 var logs = await _db.GetNotificationLogsAsync();
 
                 Rows.Clear();
                 foreach (var log in logs)
-                    Rows.Add(new NotificationLogRowViewModel(log));
+                    Rows.Add(new NotificationLogRowViewModel(log, _timeZoneService));
 
                 OnPropertyChanged(nameof(IsEmpty));
             }

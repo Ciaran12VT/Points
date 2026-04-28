@@ -1,7 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Points.Helpers;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using System.Collections.ObjectModel;
 
 namespace Points.ViewModels
@@ -9,6 +11,7 @@ namespace Points.ViewModels
     public sealed partial class ReportsViewModel : Models.ObservableObject
     {
         private IDbService _db;
+        private readonly IClock _clock;
 
         public ObservableCollection<ReportsPageModel> Pages { get; } = new();
 
@@ -16,9 +19,10 @@ namespace Points.ViewModels
 
         public Task? Initialization { get; private set; }
 
-        public ReportsViewModel(IDbService db)
+        public ReportsViewModel(IDbService db, IClock? clock = null)
         {
             _db = db;
+            _clock = clock ?? ServiceHelper.GetService<IClock>();
 
             // Create empty page immediately so UI binds safely
             Pages.Add(new ReportsPageModel("Reports", new ObservableCollection<ReportModel>()));
@@ -57,6 +61,7 @@ namespace Points.ViewModels
             var vm = new ReportDetailsViewModel(
                 report,
                 _db,
+                _clock,
                 onSaved: r =>
                 {
                     // If later you allow editing Title and you sort/group, do it here.

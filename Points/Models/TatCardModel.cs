@@ -156,14 +156,19 @@ namespace Points.Models
 
         public TimeSpan GetActiveTime(DateTime start, DateTime end)
         {
+            start = ActivityTimeMath.ToUtcAssumingLocal(start);
+            end = ActivityTimeMath.ToUtcAssumingLocal(end);
+
             if (end <= start) return TimeSpan.Zero;
 
             double totalMinutes = 0;
 
             foreach (var period in Activity)
             {
-                var aStart = period.StartDate;
-                var aEnd = !period.EndDate.HasValue ? Min(end,DateTime.Now) : period.EndDate.Value;
+                var aStart = ActivityTimeMath.ToUtcAssumingLocal(period.StartDate);
+                var aEnd = !period.EndDate.HasValue
+                    ? Min(end, ActivityTimeMath.UtcNow)
+                    : ActivityTimeMath.ToUtcAssumingLocal(period.EndDate.Value);
 
                 var overlapStart = aStart > start ? aStart : start;
                 var overlapEnd = aEnd < end ? aEnd : end;
@@ -177,14 +182,19 @@ namespace Points.Models
 
         public virtual double GetValue(DateTime start, DateTime end)
         {
+            start = ActivityTimeMath.ToUtcAssumingLocal(start);
+            end = ActivityTimeMath.ToUtcAssumingLocal(end);
+
             if (end <= start) return 0;
 
             double totalValue = 0;
 
             foreach (var period in Activity)
             {
-                var aStart = period.StartDate;
-                var aEnd = !period.EndDate.HasValue ? Min(end, DateTime.Now) : period.EndDate.Value;
+                var aStart = ActivityTimeMath.ToUtcAssumingLocal(period.StartDate);
+                var aEnd = !period.EndDate.HasValue
+                    ? Min(end, ActivityTimeMath.UtcNow)
+                    : ActivityTimeMath.ToUtcAssumingLocal(period.EndDate.Value);
 
                 var overlapStart = aStart > start ? aStart : start;
                 var overlapEnd = aEnd < end ? aEnd : end;
@@ -208,11 +218,13 @@ namespace Points.Models
 
         public virtual DateTime GetLastActiveTime()
         {
-            if (IsActive) return DateTime.Now;
+            if (IsActive) return ActivityTimeMath.UtcNow;
 
             if (Activity.Count == 0) return DateTime.MinValue;
 
-            return Activity.Select(x => x.EndDate.HasValue ? x.EndDate.Value : DateTime.MinValue).Max();
+            return Activity
+                .Select(x => x.EndDate.HasValue ? ActivityTimeMath.ToUtcAssumingLocal(x.EndDate.Value) : DateTime.MinValue)
+                .Max();
         }
 
 

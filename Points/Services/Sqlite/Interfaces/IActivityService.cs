@@ -16,6 +16,10 @@ namespace Points.Services.Sqlite.Interfaces
             DateTime candidateStart,
             DateTime? candidateEnd);
 
+        Task<ActivityUpdateResult> UpsertActivitiesAsync(
+            List<ActivityModel> activities,
+            long? replaceCardId = null);
+
         Task<DateTime?> GetCurrentOpenActivityStartUtcAsync(long cardId);
         Task<DateTime?> GetLastClosedActivityEndUtcAsync();
 

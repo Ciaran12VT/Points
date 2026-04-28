@@ -11,9 +11,10 @@ namespace Points.Evaluators
     {
         public List<TimeValueAchievementEvaluation> Evaluations { get; set; }
 
-        public List<AchievementCardModel> CheckForEarnedAchievements(double additionalTime, double additionalValue)
+        public List<AchievementCardModel> CheckForEarnedAchievements(double additionalTime, double additionalValue, DateTime? evaluatedAt = null)
         {
             List<AchievementCardModel> earnedAchievements = new List<AchievementCardModel>();
+            var now = evaluatedAt ?? ActivityTimeMath.LocalNow;
 
             if(Evaluations is null || Evaluations.Count == 0) return earnedAchievements;
 
@@ -38,11 +39,11 @@ namespace Points.Evaluators
                         prog = prog / eval.AchievementCard.TargetValue;
                     }
 
-                    if (prog >= 1 && eval.MeetsConditionsForAchievement())
+                    if (prog >= 1 && eval.MeetsConditionsForAchievement(now))
                     {
                         earnedAchievements.Add(eval.AchievementCard);
                         eval.CurrentValue = 0;
-                        eval.AchievementCard.CompletedAt = DateTime.Now;
+                        eval.AchievementCard.CompletedAt = now;
                     }
                 }
             }
@@ -64,7 +65,7 @@ namespace Points.Evaluators
             return CurrentValue;
         }
 
-        public bool MeetsConditionsForAchievement()
+        public bool MeetsConditionsForAchievement(DateTime evaluatedAt)
         {
             if(AchievementCard.CompletionType == AchievementCompletionType.Range && AchievementCard.IsLockedThisRange)
             {
@@ -73,7 +74,7 @@ namespace Points.Evaluators
 
             if (AchievementCard.CompletionType == AchievementCompletionType.Deadline)
             {
-                if(AchievementCard.Deadline > DateTime.Now)
+                if(AchievementCard.Deadline > evaluatedAt)
                 {
                     return false;
                 }

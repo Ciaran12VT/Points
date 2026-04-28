@@ -27,7 +27,7 @@ namespace Points.Models
         private double _exchangeRate = 0.01;
         public double ExchangeRate { get => _exchangeRate; set => SetProperty(ref _exchangeRate, value); }
 
-        private DateTime _startDate = DateTime.Today;
+        private DateTime _startDate = ActivityTimeMath.LocalNow.Date;
         public DateTime StartDate { get => _startDate; set => SetProperty(ref _startDate, value); }
 
         private double _initialBalance = 0;
@@ -71,10 +71,17 @@ namespace Points.Models
 
         public double GetBalance(DateTime now)
         {
+            var nowUtc = ActivityTimeMath.ToUtcAssumingLocal(now);
+            var startDateUtc = ActivityTimeMath.ToUtcAssumingLocal(StartDate);
+
             // Balance = initial + all scheduled top-ups up to now - spends/cash-ins up to now
             var totalTopUps = GetTotalTopUpsApplied(now);
             var spent = Transactions
-                .Where(t => t.Timestamp <= now && t.Timestamp >= StartDate)
+                .Where(t =>
+                {
+                    var timestampUtc = ActivityTimeMath.ToUtcAssumingLocal(t.Timestamp);
+                    return timestampUtc <= nowUtc && timestampUtc >= startDateUtc;
+                })
                 .Sum(t => t.CurrencyAmount); // both Spend and CashIn subtract from balance
 
             return InitialBalance + totalTopUps - spent;
@@ -120,10 +127,17 @@ namespace Points.Models
         {
             if (end <= start) return 0;
 
+            var startUtc = ActivityTimeMath.ToUtcAssumingLocal(start);
+            var endUtc = ActivityTimeMath.ToUtcAssumingLocal(end);
+
             return Transactions
-                .Where(t => t.Type == BudgetTransactionType.CashIn
-                            && t.Timestamp >= start
-                            && t.Timestamp <= end)
+                .Where(t =>
+                {
+                    var timestampUtc = ActivityTimeMath.ToUtcAssumingLocal(t.Timestamp);
+                    return t.Type == BudgetTransactionType.CashIn
+                           && timestampUtc >= startUtc
+                           && timestampUtc <= endUtc;
+                })
                 .Sum(t => t.GlobalValueAmount);
         }
 
@@ -132,7 +146,8 @@ namespace Points.Models
         {
             double cashedInValue = GetCashedInValue(start, end);
 
-            double currentValue = GetGlobalValueRemaining(end > DateTime.Now ? DateTime.Now : end);
+            var now = ActivityTimeMath.LocalNow;
+            double currentValue = GetGlobalValueRemaining(end > now ? now : end);
 
             if(currentValue < 0)
             {
@@ -146,28 +161,30 @@ namespace Points.Models
 
         public void AddSpend(double currencyAmount)
         {
+            var now = ActivityTimeMath.LocalNow;
             Transactions.Add(new BudgetTransaction
             {
-                Timestamp = DateTime.Now,
+                Timestamp = ActivityTimeMath.UtcNow,
                 Type = BudgetTransactionType.Spend,
                 CurrencyAmount = currencyAmount,
                 GlobalValueAmount = 0
             });
 
-            NotifyTimeChanged(DateTime.Now);
+            NotifyTimeChanged(now);
         }
 
         public void AddCashIn(double currencyAmount)
         {
+            var now = ActivityTimeMath.LocalNow;
             Transactions.Add(new BudgetTransaction
             {
-                Timestamp = DateTime.Now,
+                Timestamp = ActivityTimeMath.UtcNow,
                 Type = BudgetTransactionType.CashIn,
                 CurrencyAmount = currencyAmount,
                 GlobalValueAmount = currencyAmount * ExchangeRate
             });
 
-            NotifyTimeChanged(DateTime.Now);
+            NotifyTimeChanged(now);
         }
 
         public double GetDailyTopUpTotal(DateTime day)

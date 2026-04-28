@@ -12,19 +12,22 @@ namespace Points.Services.Scheduling
             if (!schedule.IsEnabled)
                 return null;
 
-            if (schedule.ToDateTime.HasValue && now > schedule.ToDateTime.Value)
+            now = WallClockScheduleTime.NormalizeLocal(now);
+            var from = WallClockScheduleTime.NormalizeLocal(schedule.FromDateTime);
+            var to = WallClockScheduleTime.NormalizeLocal(schedule.ToDateTime);
+
+            if (to.HasValue && now > to.Value)
                 return null;
 
             if (schedule.FrequencyType == FrequencyType.Once)
-                return schedule.FromDateTime > now ? schedule.FromDateTime : null;
+                return from > now ? from : null;
 
-            var anchor = schedule.FromDateTime;
-            var candidate = GetRecurringCandidate(schedule, anchor, now);
+            var candidate = GetRecurringCandidate(schedule, from, now);
 
-            if (candidate.HasValue && candidate.Value < schedule.FromDateTime)
-                candidate = schedule.FromDateTime;
+            if (candidate.HasValue && candidate.Value < from)
+                candidate = from;
 
-            if (candidate.HasValue && schedule.ToDateTime.HasValue && candidate.Value > schedule.ToDateTime.Value)
+            if (candidate.HasValue && to.HasValue && candidate.Value > to.Value)
                 return null;
 
             return candidate;
@@ -122,7 +125,7 @@ namespace Points.Services.Scheduling
         private static DateTime MakeSafeDate(int year, int month, int day)
         {
             var daysInMonth = DateTime.DaysInMonth(year, month);
-            return new DateTime(year, month, Math.Min(day, daysInMonth));
+            return new DateTime(year, month, Math.Min(day, daysInMonth), 0, 0, 0, DateTimeKind.Unspecified);
         }
     }
 }

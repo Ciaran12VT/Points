@@ -1,4 +1,5 @@
 ﻿using Points.Models;
+using Points.Services.Time;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -47,11 +48,11 @@ namespace Points.ViewModels
         }
 
         // Display formatting per spec
-        public string StartText => Start.ToString("MMM-dd HH:mm");
+        public string StartText => TimeDisplayFormatter.FormatLocal(Start, "MMM-dd HH:mm");
 
         public string EndText =>
             End.HasValue
-                ? End.Value.ToString("MMM-dd HH:mm")
+                ? TimeDisplayFormatter.FormatLocal(End.Value, "MMM-dd HH:mm")
                 : "∞";
 
         public string HoursText

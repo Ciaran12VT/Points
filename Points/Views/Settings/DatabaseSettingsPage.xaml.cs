@@ -1,5 +1,7 @@
+using Points.Helpers;
 using Points.Services.Sqlite.Interfaces;
 using Points.Services.Backup;
+using Points.Services.Time;
 using Points.ViewModels;
 
 namespace Points.Views.Settings;
@@ -9,7 +11,7 @@ public partial class DatabaseSettingsPage : ContentPage
     public DatabaseSettingsPage(IDbService db)
     {
         InitializeComponent();
-        BindingContext = new DatabaseSettingsViewModel(db);
+        BindingContext = new DatabaseSettingsViewModel(db, ServiceHelper.GetService<IClock>());
     }
 
     private async void OnWipeDbClicked(object sender, EventArgs e)

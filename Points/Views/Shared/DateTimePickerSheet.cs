@@ -1,5 +1,6 @@
 ﻿using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
+using Points.Services.Time;
 
 namespace Points.Views.Shared;
 
@@ -225,6 +226,6 @@ public static class DateTimePickerSheet
     {
         if (dt == DateTime.MinValue) return "the beginning of time";
         if (dt == DateTime.MaxValue) return "the end of time";
-        return dt.ToString("MMM-dd HH:mm");
+        return TimeDisplayFormatter.FormatLocal(dt, "MMM-dd HH:mm");
     }
 }

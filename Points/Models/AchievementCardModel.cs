@@ -8,7 +8,7 @@ namespace Points.Models
     {
         public string DisplayName { get; set; } = "";
         public string LocalPath { get; set; } = "";
-        public DateTime AddedAt { get; set; } = DateTime.Now;
+        public DateTime AddedAt { get; set; } = ActivityTimeMath.LocalNow;
     }
 
     public enum AchievementDifficultyLevels
@@ -20,7 +20,7 @@ namespace Points.Models
     {
         public AchievementCardModel()
         {
-            _createdDate = DateTime.Now;
+            _createdDate = ActivityTimeMath.LocalNow;
             _trophies.CollectionChanged += OnTrophiesCollectionChanged;
         }
 
@@ -137,7 +137,7 @@ namespace Points.Models
                 if (!IsDeadlineAchievement)
                     return true;
 
-                var now = DateTime.Now;
+                var now = ActivityTimeMath.LocalNow;
                 return GetDeadlineWindowStart() <= now;
             }
         }
@@ -152,7 +152,7 @@ namespace Points.Models
                 if (!Deadline.HasValue)
                     return false;
 
-                return DateTime.Now > Deadline.Value;
+                return ActivityTimeMath.LocalNow > Deadline.Value;
             }
         }
 
@@ -171,7 +171,7 @@ namespace Points.Models
                 if (!IsDeadlineAchievement || IsFinalizedDeadline)
                     return false;
 
-                var now = DateTime.Now;
+                var now = ActivityTimeMath.LocalNow;
                 return GetDeadlineWindowStart() > now;
             }
         }
@@ -207,7 +207,7 @@ namespace Points.Models
                 if (!IsDeadlineAchievement || IsFinalizedDeadline)
                     return false;
 
-                var now = DateTime.Now;
+                var now = ActivityTimeMath.LocalNow;
                 var start = GetDeadlineWindowStart();
 
                 if (!Deadline.HasValue)
@@ -368,11 +368,12 @@ namespace Points.Models
                 if (LastEarnedAt is null)
                     return false;
 
-                var now = DateTime.Now;
+                var now = ActivityTimeMath.LocalNow;
                 var windowStart = GetRangeWindowStart(now);
+                var lastEarnedAtLocal = ToLocalWallClock(LastEarnedAt.Value);
 
                 // If it was earned within the window, it is locked.
-                return LastEarnedAt.Value >= windowStart && LastEarnedAt.Value <= now;
+                return lastEarnedAtLocal >= windowStart && lastEarnedAtLocal <= now;
             }
         }
 
@@ -390,25 +391,31 @@ namespace Points.Models
                 _ => now.AddDays(-amt)
             };
 
-            if (LastEarnedAt.HasValue && rangeStart < LastEarnedAt.Value)
-                return LastEarnedAt.Value;
+            if (LastEarnedAt.HasValue)
+            {
+                var lastEarnedAtLocal = ToLocalWallClock(LastEarnedAt.Value);
+                if (rangeStart < lastEarnedAtLocal)
+                    return lastEarnedAtLocal;
+            }
 
             return rangeStart;
         }
 
         public string GetAvailableIn(DateTime lastEarnedAt)
         {
+            lastEarnedAt = ToLocalWallClock(lastEarnedAt);
+
             // RangeAmount is int, RangeUnit is enum (you already have these).
             var amt = RangeAmount;
 
             return RangeUnit switch
             {
-                AchievementRangeUnit.Minutes => $"Available in {Math.Round((lastEarnedAt.AddMinutes(amt) - DateTime.Now).TotalMinutes,2)} mins",
-                AchievementRangeUnit.Hours => $"Available in {Math.Round((lastEarnedAt.AddHours(amt) - DateTime.Now).TotalHours, 2)} hrs",
-                AchievementRangeUnit.Days => $"Available in {Math.Round((lastEarnedAt.AddDays(amt) - DateTime.Now).TotalDays, 2)} days",
-                AchievementRangeUnit.Weeks => $"Available in {Math.Round((lastEarnedAt.AddDays(7 * amt) - DateTime.Now).TotalDays, 2)} days",
-                AchievementRangeUnit.Months => $"Available in {Math.Round((lastEarnedAt.AddMonths(amt) - DateTime.Now).TotalDays, 2)} days",
-                _ => $"Available in {Math.Round((lastEarnedAt.AddDays(amt) - DateTime.Now).TotalDays, 2)} days"
+                AchievementRangeUnit.Minutes => $"Available in {Math.Round((lastEarnedAt.AddMinutes(amt) - ActivityTimeMath.LocalNow).TotalMinutes,2)} mins",
+                AchievementRangeUnit.Hours => $"Available in {Math.Round((lastEarnedAt.AddHours(amt) - ActivityTimeMath.LocalNow).TotalHours, 2)} hrs",
+                AchievementRangeUnit.Days => $"Available in {Math.Round((lastEarnedAt.AddDays(amt) - ActivityTimeMath.LocalNow).TotalDays, 2)} days",
+                AchievementRangeUnit.Weeks => $"Available in {Math.Round((lastEarnedAt.AddDays(7 * amt) - ActivityTimeMath.LocalNow).TotalDays, 2)} days",
+                AchievementRangeUnit.Months => $"Available in {Math.Round((lastEarnedAt.AddMonths(amt) - ActivityTimeMath.LocalNow).TotalDays, 2)} days",
+                _ => $"Available in {Math.Round((lastEarnedAt.AddDays(amt) - ActivityTimeMath.LocalNow).TotalDays, 2)} days"
             };
         }
 
@@ -666,22 +673,23 @@ namespace Points.Models
                 if(!IsLockedThisRange) return 0;
                 if (LastEarnedAt is null) return 0;
 
-                var now = DateTime.Now;
+                var now = ActivityTimeMath.LocalNow;
+                var lastEarnedAtLocal = ToLocalWallClock(LastEarnedAt.Value);
 
                 var amt = RangeAmount;
 
                 var rangeEnd = RangeUnit switch
                 {
-                    AchievementRangeUnit.Minutes => LastEarnedAt.Value.AddMinutes(amt),
-                    AchievementRangeUnit.Hours => LastEarnedAt.Value.AddHours(amt),
-                    AchievementRangeUnit.Days => LastEarnedAt.Value.AddDays(amt),
-                    AchievementRangeUnit.Weeks => LastEarnedAt.Value.AddDays((7 * amt)),
-                    AchievementRangeUnit.Months => LastEarnedAt.Value.AddMonths(amt),
+                    AchievementRangeUnit.Minutes => lastEarnedAtLocal.AddMinutes(amt),
+                    AchievementRangeUnit.Hours => lastEarnedAtLocal.AddHours(amt),
+                    AchievementRangeUnit.Days => lastEarnedAtLocal.AddDays(amt),
+                    AchievementRangeUnit.Weeks => lastEarnedAtLocal.AddDays((7 * amt)),
+                    AchievementRangeUnit.Months => lastEarnedAtLocal.AddMonths(amt),
                     _ => now.AddDays(amt)
                 };
 
                 //"Now" as a position between LastEarnedAt and rangeEnd gives us lock progress.
-                var totalLockTime = (rangeEnd - LastEarnedAt.Value).TotalSeconds;
+                var totalLockTime = (rangeEnd - lastEarnedAtLocal).TotalSeconds;
                 if (totalLockTime <= 0) return 1;
                 var remainingLockTime = (rangeEnd - now).TotalSeconds;
                 var lockProgress = 1 - (remainingLockTime / totalLockTime);
@@ -759,7 +767,7 @@ namespace Points.Models
                         return "Completion: by (no deadline)";
 
                     var start = GetDeadlineWindowStart();
-                    var now = DateTime.Now;
+                    var now = ActivityTimeMath.LocalNow;
                     var remaining = Deadline.Value - now;
 
                     string remainingText = remaining.TotalSeconds >= 0
@@ -769,7 +777,7 @@ namespace Points.Models
                     return $"Completion: {start:yyyy-MM-dd} to {Deadline.Value:yyyy-MM-dd} [{remainingText}]";
                 }
 
-                return $"Completion: Over the last {RangeAmount} {RangeUnit} [{GetRangeWindowStart(DateTime.Now):MMM-dd}]";
+                return $"Completion: Over the last {RangeAmount} {RangeUnit} [{GetRangeWindowStart(ActivityTimeMath.LocalNow):MMM-dd}]";
             }
         }
 
@@ -955,7 +963,12 @@ namespace Points.Models
             var todayStart = now.Date;
             var tomorrowStart = todayStart.AddDays(1);
 
-            return FinalizedAt.Value >= todayStart && FinalizedAt.Value < tomorrowStart;
+            var finalizedAtLocal = ToLocalWallClock(FinalizedAt.Value);
+            return finalizedAtLocal >= todayStart && finalizedAtLocal < tomorrowStart;
         }
+
+        private static DateTime ToLocalWallClock(DateTime value) => value.Kind == DateTimeKind.Utc
+            ? value.ToLocalTime()
+            : value;
     }
 }

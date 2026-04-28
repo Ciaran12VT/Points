@@ -11,9 +11,9 @@ public sealed partial class LeaderboardViewModel
     private static readonly TimeSpan PlannerMatchTolerance = TimeSpan.FromMinutes(5);
     private static readonly double[] PlannerZoomLevels = { 0.6, 1.0, 1.75, 3.0, 5.0, 8.0 };
 
-    private PlannerModel _planner = new() { PlannerDate = DateTime.Today };
+    private PlannerModel _planner = new();
     private PlannerDayData? _plannerDayData;
-    private DateTime _plannerSelectedDate = DateTime.Today;
+    private DateTime _plannerSelectedDate = DateTime.MinValue;
     private bool _isPlannerBusy;
     private string _plannerErrorMessage = "";
     private int _plannerZoomIndex = 1;
@@ -36,7 +36,7 @@ public sealed partial class LeaderboardViewModel
         get => _plannerSelectedDate;
         set
         {
-            var date = value.Date;
+            var date = ToPlannerLocalWallClock(value).Date;
             if (_plannerSelectedDate == date) return;
 
             _plannerSelectedDate = date;
@@ -100,11 +100,18 @@ public sealed partial class LeaderboardViewModel
     public IReadOnlyList<PlannerStepOption> PlannerStepOptions => _plannerStepOptions;
     public IReadOnlyList<PlannerMissionOption> PlannerMissionOptions => _plannerMissionOptions;
 
+    private void InitializePlannerDefaults()
+    {
+        var today = PlannerToday();
+        _plannerSelectedDate = today;
+        _planner = new PlannerModel { PlannerDate = today };
+    }
+
     private void InitializePlannerCommands()
     {
         PlannerPreviousDateCommand = new Command(() => PlannerSelectedDate = PlannerSelectedDate.AddDays(-1));
         PlannerNextDateCommand = new Command(() => PlannerSelectedDate = PlannerSelectedDate.AddDays(1));
-        PlannerTodayCommand = new Command(() => PlannerSelectedDate = DateTime.Today);
+        PlannerTodayCommand = new Command(() => PlannerSelectedDate = PlannerToday());
         PlannerZoomInCommand = new Command(() => SetPlannerZoom(_plannerZoomIndex + 1));
         PlannerZoomOutCommand = new Command(() => SetPlannerZoom(_plannerZoomIndex - 1));
         PlannerZoomResetCommand = new Command(() => SetPlannerZoom(1));
@@ -491,8 +498,11 @@ public sealed partial class LeaderboardViewModel
         {
             foreach (var activity in card.Activity ?? Enumerable.Empty<ActivityModel>())
             {
-                var actualEnd = activity.EndDate ?? DateTime.Now;
-                var start = PlannerMax(activity.StartDate, dayStart);
+                var actualStart = ToPlannerLocalWallClock(activity.StartDate);
+                var actualEnd = activity.EndDate.HasValue
+                    ? ToPlannerLocalWallClock(activity.EndDate.Value)
+                    : LocalNow;
+                var start = PlannerMax(actualStart, dayStart);
                 var end = PlannerMin(actualEnd, dayEnd);
 
                 if (end <= start)
@@ -524,7 +534,7 @@ public sealed partial class LeaderboardViewModel
         {
             foreach (var step in card.Steps)
             {
-                foreach (var rep in step.Reps.Where(r => r >= dayStart && r < dayEnd))
+                foreach (var rep in step.Reps.Select(ToPlannerLocalWallClock).Where(r => r >= dayStart && r < dayEnd))
                 {
                     atoms.Add(new ActualEventAtom(
                         PlannerEventKind.ScStepRep,
@@ -541,7 +551,7 @@ public sealed partial class LeaderboardViewModel
             if (!mission.CompletedDate.HasValue)
                 continue;
 
-            var completedAt = mission.CompletedDate.Value;
+            var completedAt = ToPlannerLocalWallClock(mission.CompletedDate.Value);
             if (completedAt < dayStart || completedAt >= dayEnd)
                 continue;
 
@@ -645,12 +655,16 @@ public sealed partial class LeaderboardViewModel
     {
         var dayStart = PlannerSelectedDate.Date;
         var dayEnd = dayStart.AddDays(1).AddMinutes(-1);
-        var local = dayStart.Add(value.TimeOfDay);
+        var local = dayStart.Add(ToPlannerLocalWallClock(value).TimeOfDay);
 
         if (local < dayStart) return dayStart;
         if (local > dayEnd) return dayEnd;
-        return local;
+        return DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
     }
+
+    private DateTime PlannerToday() => LocalNow.Date;
+
+    private DateTime ToPlannerLocalWallClock(DateTime value) => ToLocalWallClock(value);
 
     private static PlannerTaskModel CloneTask(PlannerTaskModel task) =>
         new()

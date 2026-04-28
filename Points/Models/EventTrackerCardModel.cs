@@ -12,7 +12,7 @@ namespace Points.Models
 
         public void AddValue()
         {
-            Values.Add(new TrackerValueModel() { Timestamp = DateTime.Now, Value = 1 });
+            Values.Add(new TrackerValueModel() { Timestamp = ActivityTimeMath.UtcNow, Value = 1 });
         }
 
         public void SetValues(List<DateTime> values)

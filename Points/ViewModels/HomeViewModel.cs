@@ -20,6 +20,7 @@ using CommunityToolkit.Maui.Views;
 using Points.Views.Popups;
 using Points.Evaluators;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 
 namespace Points.ViewModels
 {
@@ -30,6 +31,8 @@ namespace Points.ViewModels
         private readonly IActiveCardNotificationService _activeCardNotificationService;
         private IDbService _db;
         private readonly INotificationScheduleCoordinator _scheduleCoordinator;
+        private readonly ITimeZoneService _timeZoneService;
+        private readonly IClock _clock;
 
         private readonly SemaphoreSlim _achievementTickGate = new(1, 1);
         private int _tickSuppressionCount;
@@ -106,7 +109,7 @@ namespace Points.ViewModels
         private HomePageModel CurrentPage => Pages[Math.Clamp(Position, 0, Pages.Count - 1)];
 
         //Returns the current time. Used for live updateding bound fields every second
-        public DateTime _now = DateTime.Now;
+        public DateTime _now = DateTime.MinValue;
         public DateTime Now
         {
             get => _now;
@@ -144,11 +147,11 @@ namespace Points.ViewModels
             {
                 if(GlobalVariables.RangeStart.Date == GlobalVariables.RangeEnd.Date)
                 {
-                    return GlobalVariables.RangeStart.Date.ToString("MMM-dd-yyyy");
+                    return TimeDisplayFormatter.FormatLocal(GlobalVariables.RangeStart.Date, "MMM-dd-yyyy");
                 }
                 else
                 {
-                    return $"{GlobalVariables.RangeStart.Date.ToString("MMM-dd")} - {GlobalVariables.RangeEnd.Date.ToString("MMM-dd")}";
+                    return $"{TimeDisplayFormatter.FormatLocal(GlobalVariables.RangeStart.Date, "MMM-dd")} - {TimeDisplayFormatter.FormatLocal(GlobalVariables.RangeEnd.Date, "MMM-dd")}";
                 }
             }
         }
@@ -216,7 +219,7 @@ namespace Points.ViewModels
         {
             get
             {
-                var now = DateTime.Now;
+                var now = _clock.LocalNow;
 
                 var missionPage = Pages.FirstOrDefault(p => p.Name == "Mission");
                 if (missionPage == null) return false;
@@ -358,11 +361,14 @@ namespace Points.ViewModels
 
         #endregion
 
-        public HomeViewModel(IDbService db, IActiveCardNotificationService activeCardNotificationService, INotificationScheduleCoordinator scheduleCoordinator)
+        public HomeViewModel(IDbService db, IActiveCardNotificationService activeCardNotificationService, INotificationScheduleCoordinator scheduleCoordinator, ITimeZoneService timeZoneService, IClock clock)
         {
             _activeCardNotificationService = activeCardNotificationService;
             _db = db;
             _scheduleCoordinator = scheduleCoordinator;
+            _timeZoneService = timeZoneService;
+            _clock = clock;
+            _now = _clock.LocalNow;
 
             // Commands
             ActivateCardCommand = new Command<IActiveCardModel>(RequestActivate);
@@ -439,7 +445,7 @@ namespace Points.ViewModels
 
                 var trackerValue = new TrackerValueModel
                 {
-                    Timestamp = DateTime.Now,
+                    Timestamp = _clock.UtcNow,
                     Value = value
                 };
 
@@ -455,7 +461,7 @@ namespace Points.ViewModels
 
                 var trackerValue = new TrackerValueModel
                 {
-                    Timestamp = DateTime.Now,
+                    Timestamp = _clock.UtcNow,
                     Value = 1
                 };
 
@@ -519,7 +525,7 @@ namespace Points.ViewModels
 
                 // UI-only placeholder bounds/initial for now:
                 // We will replace these with DB-derived min/max/initial later.
-                var nowLocal = DateTime.Now;
+                var nowLocal = _clock.LocalNow;
                 
                 var activationLabel = card.IsActive ? "Ends at" : "Starts at";
 
@@ -539,8 +545,9 @@ namespace Points.ViewModels
                     minUtc = lastEndUtc ?? DateTime.MinValue;
                 }
 
-                // Convert to local for UI
-                var minLocal = minUtc.ToLocalTime();
+                var minLocal = minUtc == DateTime.MinValue
+                    ? DateTime.MinValue
+                    : _timeZoneService.ToLocal(minUtc);
 
                 var maxLocal = nowLocal;              // typically Now (unless you want future times)
 
@@ -558,9 +565,7 @@ namespace Points.ViewModels
                 if (chosenObj is not DateTime chosenLocal)
                     return; // cancelled
 
-                // Convert to UTC for DB + activity system
-                // (Make sure Kind is Local before ToUniversalTime)
-                var chosenUtc = DateTime.SpecifyKind(chosenLocal, DateTimeKind.Local).ToUniversalTime();
+                var chosenUtc = _timeZoneService.ToUtcFromLocal(chosenLocal);
 
                 // Now execute the same toggle path, but at chosenUtc.
                 // Choose whether to prompt for TAT rate selection here:
@@ -579,9 +584,10 @@ namespace Points.ViewModels
 
             InitializePages(settings);
 
-            // Get seed data (mock now, sqlite later)
-            var now = DateTime.Now;
-            var seed = await _db.GetHomeSeedDataAsync(new TimeScopeRange(TimeScope.Daily, now).Start, new TimeScopeRange(TimeScope.Monthly, now).End);
+            var now = _clock.LocalNow;
+            var seedRangeStart = MinDateTime(GlobalVariables.RangeStart, new TimeScopeRange(TimeScope.Daily, now).Start);
+            var seedRangeEnd = MaxDateTime(GlobalVariables.RangeEnd, new TimeScopeRange(TimeScope.Monthly, now).End);
+            var seed = await _db.GetHomeSeedDataAsync(seedRangeStart, seedRangeEnd);
             var allGoalModels = await _db.GetGoalModelsDataAsync();
             var openActivity = await _db.GetCurrentActiveActivityAsync();
             var shortcuts = await _db.GetDashboardShortcutsAsync();
@@ -667,7 +673,7 @@ namespace Points.ViewModels
                     _activeCardNotificationService.UpdateActiveCardNotification(null);
                 }
 
-                var now = DateTime.Now;
+                var now = _clock.LocalNow;
 
                 RefreshBudgetCards(now);
                 SortMissionCards();
@@ -700,7 +706,7 @@ namespace Points.ViewModels
                             if (card is null)
                                 continue;
 
-                            var row = new GoalProgressRowVm(card, goalModel)
+                            var row = new GoalProgressRowVm(card, goalModel, () => _clock.LocalNow)
                             {
                                 EnableCheckbox = false
                             };
@@ -732,7 +738,7 @@ namespace Points.ViewModels
 
         private async Task ReloadGoalsAsync()
         {
-            var now = DateTime.Now;
+            var now = _clock.LocalNow;
             var goals = Pages.First(p => p.Name == "Goals");
 
             List<DateTime> startDates = new()
@@ -773,7 +779,7 @@ namespace Points.ViewModels
                         var card = allCards.FirstOrDefault(c => c.CardID == goalModel.CardId);
                         if (card is null) continue;
 
-                        var row = new GoalProgressRowVm(card, goalModel)
+                        var row = new GoalProgressRowVm(card, goalModel, () => _clock.LocalNow)
                         {
                             EnableCheckbox = false
                         };
@@ -1340,9 +1346,9 @@ namespace Points.ViewModels
             };
         }
 
-        private static MissionCardModel CreateDefaultMission()
+        private MissionCardModel CreateDefaultMission()
         {
-            var now = DateTime.Now;
+            var now = _clock.LocalNow;
 
             return new MissionCardModel
             {
@@ -1351,14 +1357,14 @@ namespace Points.ViewModels
                 Tags = "",
                 SubType = MissionSubType.Stable,
                 Value = 0,
-                CreatedDate = now,                      // auto-set to now
+                CreatedDate = _clock.UtcNow,            // auto-set as UTC instant
                 AvailableFromDate = now,                // default now
                 DueDate = now.AddDays(1),               // default now + 1 day
                 Description = ""
             };
         }
 
-        private static BudgetCardModel CreateDefaultBudget()
+        private BudgetCardModel CreateDefaultBudget()
         {
             return new BudgetCardModel
             {
@@ -1367,29 +1373,33 @@ namespace Points.ViewModels
                 Tags = "",
                 Currency = "Kcal",
                 ExchangeRate = 0.01,
-                StartDate = DateTime.Now,
+                StartDate = _clock.LocalNow,
                 InitialBalance = 0
             };
         }
 
-        private static ValueTrackerCardModel CreateDefaultValueTracker()
+        private ValueTrackerCardModel CreateDefaultValueTracker()
         {
+            var now = _clock.LocalNow;
+
             return new ValueTrackerCardModel
             {
-                CreatedDate = DateTime.Today,
+                CreatedDate = now.Date,
                 ScheduleEvery = 1,
                 ScheduleUnit = "Week",
                 Unit = "Values"
             };
         }
 
-        private static EventTrackerCardModel CreateDefaultEventTracker()
+        private EventTrackerCardModel CreateDefaultEventTracker()
         {
+            var now = _clock.LocalNow;
+
             return new EventTrackerCardModel
             {
-                CreatedDate = DateTime.Today,
+                CreatedDate = now.Date,
                 GroupByPeriod = "Day",
-                RangeStart = DateTime.Now,
+                RangeStart = now,
                 Unit = "Events"
             };
         }
@@ -1493,6 +1503,16 @@ namespace Points.ViewModels
             return settings.FirstOrDefault(x => x.SettingKey == key)?.IntValue ?? defaultValue;
         }
 
+        private static DateTime MinDateTime(DateTime left, DateTime right)
+        {
+            return left <= right ? left : right;
+        }
+
+        private static DateTime MaxDateTime(DateTime left, DateTime right)
+        {
+            return left >= right ? left : right;
+        }
+
         private sealed class PageDefinition
         {
             public string Title { get; }
@@ -1534,11 +1554,14 @@ namespace Points.ViewModels
 
             try
             {
-                DateTime nowUtcNonNull = nowUtc ?? DateTime.UtcNow;
+                DateTime nowUtcNonNull = nowUtc.HasValue
+                    ? StrictTimeSerializer.RequireUtcInstant(nowUtc.Value, nameof(nowUtc))
+                    : _clock.UtcNow;
+                var lockEvaluationNow = _timeZoneService.ToLocal(nowUtcNonNull);
 
-                if (LockEvaluator.IsLockedNow(card, nowUtcNonNull, GetActiveCardModels(), out var availableAt))
+                if (LockEvaluator.IsLockedNow(card, lockEvaluationNow, GetActiveCardModels(), out var availableAt))
                 {
-                    var rem = LockEvaluator.FormatRemaining(nowUtcNonNull, availableAt);
+                    var rem = LockEvaluator.FormatRemaining(lockEvaluationNow, availableAt);
 
                     // Choose your UX:
                     // 1) quick error label in page, or
@@ -1883,7 +1906,7 @@ namespace Points.ViewModels
                 {
                     var dateheadermodel = new DateHeaderCardModel()
                     {
-                        Title = $"{m.AvailableFromDate.Date.ToString("MMM-dd yyyy")} ({GetRelativeDateString(m.AvailableFromDate)})",
+                        Title = $"{TimeDisplayFormatter.FormatLocal(m.AvailableFromDate.Date, "MMM-dd yyyy")} ({GetRelativeDateString(m.AvailableFromDate)})",
                     };
                     missionPage.AllCards.Add(dateheadermodel);
                 }
@@ -1896,29 +1919,31 @@ namespace Points.ViewModels
 
         private string GetRelativeDateString(DateTime dt)
         {
-            if(dt.Date < DateTime.Today)
+            var today = _clock.LocalNow.Date;
+
+            if(dt.Date < today)
             {
-                if(dt.Date == DateTime.Today.AddDays(-1))
+                if(dt.Date == today.AddDays(-1))
                 {
                     return "Yesterday";
                 }
                 else
                 {
-                    return $"{(dt.Date - DateTime.Today).TotalDays * -1} Days Ago";
+                    return $"{(dt.Date - today).TotalDays * -1} Days Ago";
                 }
             }
 
-            if(dt.Date == DateTime.Today)
+            if(dt.Date == today)
             {
                 return "Today";
             }
-            else if(dt.Date == DateTime.Today.AddDays(1))
+            else if(dt.Date == today.AddDays(1))
             {
                 return "Tomorrow";
             }
             else
             {
-                return $"In {(dt.Date - DateTime.Today).TotalDays} Days"; 
+                return $"In {(dt.Date - today).TotalDays} Days"; 
             }
         }
 
@@ -1945,14 +1970,32 @@ namespace Points.ViewModels
 
         private async Task OpenDateRangePickerViewAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Shared.DateRangePickerPage(_db));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Shared.DateRangePickerPage(_db, ApplyGlobalDateRangeAsync));
+        }
+
+        private async Task ApplyGlobalDateRangeAsync(DateTime rangeStart, DateTime rangeEnd)
+        {
+            GlobalVariables.RangeStart = rangeStart;
+            GlobalVariables.RangeEnd = rangeEnd;
+
+            RangeStart = GlobalVariables.RangeStart;
+            RangeEnd = GlobalVariables.RangeEnd;
+
+            OnPropertyChanged(nameof(HeaderDate));
+            OnPropertyChanged(nameof(GlobalValueColor));
+            OnPropertyChanged(nameof(HasNegativeAvailableMission));
+
+            Initialization = LoadAsync();
+            await Initialization;
+
+            RunTickCore(_clock.LocalNow);
         }
 
         private async Task OpenGoalViewAsync()
         {
             var mainQuest = Pages.First(p => p.Name == "Main Quest");
             var cards = mainQuest.AllCards.OfType<IActiveCardModel>().ToList();
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Goals.GoalCreationPage(_db));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Goals.GoalCreationPage(_db, _clock));
         }
 
         private async Task OpenSettingsAsync()
@@ -1974,7 +2017,7 @@ namespace Points.ViewModels
             if (page == null)
                 return;
 
-            await page.ShowPopupAsync(new LeaderboardPopup(new LeaderboardViewModel(_db)));
+            await page.ShowPopupAsync(new LeaderboardPopup(new LeaderboardViewModel(_db, _clock, _timeZoneService)));
         }
 
         private async Task OpenShortcutDetailsAsync(ShortcutModel? shortcut)
@@ -2117,7 +2160,7 @@ namespace Points.ViewModels
 
         public void FailMission(MissionCardModel model)
         {
-            model.Fail(DateTime.Now);
+            model.Fail(_clock.UtcNow);
             SortMissionCards();
         }
 
@@ -2156,7 +2199,7 @@ namespace Points.ViewModels
                 return;
             }
 
-            RunTickCore(DateTime.Now);
+            RunTickCore(_clock.LocalNow);
         }
 
         private void RunTickCore(DateTime now)
@@ -2276,7 +2319,7 @@ namespace Points.ViewModels
                     return;
                 }
 
-                RunTickCore(DateTime.Now);
+                RunTickCore(_clock.LocalNow);
             });
         }
 
@@ -2417,7 +2460,7 @@ namespace Points.ViewModels
 
         internal async Task IncrementFirstStep(ScCardModel model)
         {
-            await _db.AddRepForStep(model.Steps[0].Id, DateTime.Now, model.Steps[0].StepValue);
+            await _db.AddRepForStep(model.Steps[0].Id, _clock.UtcNow, model.Steps[0].StepValue);
         }
 
         internal async Task SaveMission(MissionCardModel model)
@@ -2442,7 +2485,7 @@ namespace Points.ViewModels
 
             var transaction = new BudgetTransaction
             {
-                Timestamp = DateTime.Now,
+                Timestamp = _clock.UtcNow,
                 Type = type,
                 CurrencyAmount = amount,
                 GlobalValueAmount = type == BudgetTransactionType.CashIn

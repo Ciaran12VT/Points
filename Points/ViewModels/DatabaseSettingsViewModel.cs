@@ -1,16 +1,20 @@
 using CommunityToolkit.Maui.Storage;
+using Points.Helpers;
 using Points.Services.Backup;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 
 namespace Points.ViewModels
 {
     public class DatabaseSettingsViewModel
     {
         private readonly IDbService _db;
+        private readonly IClock _clock;
 
-        public DatabaseSettingsViewModel(IDbService db)
+        public DatabaseSettingsViewModel(IDbService db, IClock? clock = null)
         {
             _db = db;
+            _clock = clock ?? ServiceHelper.GetService<IClock>();
         }
 
         public async Task WipeDatabase()
@@ -25,7 +29,7 @@ namespace Points.ViewModels
 
         public async Task<string?> ExportDatabaseAsync(IEnumerable<string> selectedKeys)
         {
-            var packagePath = await BackupPackageService.CreateExportPackageAsync(_db, selectedKeys);
+            var packagePath = await BackupPackageService.CreateExportPackageAsync(_db, selectedKeys, clock: _clock);
 
             try
             {

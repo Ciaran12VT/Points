@@ -1,5 +1,6 @@
 using Points.Global;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using System.IO.Compression;
 using System.Text.Json;
 
@@ -106,10 +107,13 @@ namespace Points.Services.Backup
         public static async Task<string> CreateExportPackageAsync(
             IDbService db,
             IEnumerable<string> selectedKeys,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            IClock? clock = null)
         {
+            clock ??= new SystemClock();
+
             var selected = ResolveDefinitions(selectedKeys);
-            var zipPath = Path.Combine(FileSystem.CacheDirectory, $"points_backup_{DateTime.Now:yyyyMMdd_HHmmss}.zip");
+            var zipPath = Path.Combine(FileSystem.CacheDirectory, $"points_backup_{clock.LocalNow:yyyyMMdd_HHmmss}.zip");
 
             if (File.Exists(zipPath))
                 File.Delete(zipPath);
@@ -127,7 +131,7 @@ namespace Points.Services.Backup
                 {
                     Format = PackageFormat,
                     Version = PackageVersion,
-                    CreatedAtUtc = DateTime.UtcNow
+                    CreatedAtUtc = clock.UtcNow
                 };
 
                 foreach (var definition in selected)

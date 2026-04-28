@@ -15,7 +15,7 @@ namespace Points.Models
     public class BudgetTransaction
     {
         public int Id { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public DateTime Timestamp { get; set; } = ActivityTimeMath.UtcNow;
         public BudgetTransactionType Type { get; set; }
 
         // amount in budget currency

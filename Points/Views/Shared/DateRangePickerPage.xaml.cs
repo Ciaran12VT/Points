@@ -1,28 +1,38 @@
 using Points.Global;
+using Points.Services.Sqlite.Interfaces;
 
 namespace Points.Views.Shared;
 
 public partial class DateRangePickerPage : ContentPage
 {
+    private readonly Func<DateTime, DateTime, Task>? _onSaved;
 
-/* Unmerged change from project 'Points (net8.0-android)'
-Before:
-	public DateRangePickerPage(Services.IDbService _db)
-	{
-After:
-	public DateRangePickerPage(IDbService _db)
-	{
-*/
-	public DateRangePickerPage(Services.Sqlite.Interfaces.IDbService _db)
+    public DateRangePickerPage(IDbService db, Func<DateTime, DateTime, Task>? onSaved = null)
 	{
 		InitializeComponent();
+        _onSaved = onSaved;
+
+        RangePicker.RangeStart = GlobalVariables.RangeStart;
+        RangePicker.RangeEnd = GlobalVariables.RangeEnd;
 	}
 
     private async void OnSaveClicked(object sender, EventArgs e)
     {
-        GlobalVariables.RangeStart = RangePicker.RangeStart;
-        GlobalVariables.RangeEnd = RangePicker.RangeEnd;
+        var rangeStart = RangePicker.RangeStart;
+        var rangeEnd = RangePicker.RangeEnd;
 
-        await Shell.Current.Navigation.PopModalAsync();
+        if (rangeEnd < rangeStart)
+        {
+            await DisplayAlert("Invalid range", "Range end must be after range start.", "OK");
+            return;
+        }
+
+        GlobalVariables.RangeStart = rangeStart;
+        GlobalVariables.RangeEnd = rangeEnd;
+
+        if (_onSaved != null)
+            await _onSaved(GlobalVariables.RangeStart, GlobalVariables.RangeEnd);
+
+        await Shell.Current.Navigation.PopAsync();
     }
 }

@@ -1,5 +1,5 @@
 using Points.Models;
-using Points.ViewModels;
+using Points.Services.Scheduling;
 using System.Globalization;
 
 namespace Points.Services.Locks
@@ -13,6 +13,7 @@ namespace Points.Services.Locks
             out DateTime availableAt)
         {
             availableAt = default;
+            var localNow = ToLocalWallClock(now);
 
             if (card.Locks == null || card.Locks.Count == 0)
                 return false;
@@ -27,7 +28,7 @@ namespace Points.Services.Locks
 
             foreach (var l in card.Locks)
             {
-                if (!LockAppliesNow(l, now, byId, out var thisUnlock))
+                if (!LockAppliesNow(l, localNow, byId, out var thisUnlock))
                     continue;
 
                 anyLocked = true;
@@ -40,18 +41,26 @@ namespace Points.Services.Locks
                 return false;
 
             availableAt = furthestUnlock.Value;
-            return availableAt > now;
+            return availableAt > localNow;
         }
 
         public static string FormatRemaining(DateTime now, DateTime availableAt)
         {
-            var remaining = availableAt - now;
+            var localNow = ToLocalWallClock(now);
+            var localAvailableAt = ToLocalWallClock(availableAt);
+
+            var remaining = localAvailableAt - localNow;
             if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
 
-            if (availableAt.Date == now.Date)
+            if (localAvailableAt.Date == localNow.Date)
                 return $"{remaining.TotalHours:0.0} hrs";
 
             return $"{remaining.TotalDays:0.0} days";
+        }
+
+        private static DateTime ToLocalWallClock(DateTime value)
+        {
+            return WallClockScheduleTime.NormalizeLocal(value);
         }
 
         // -----------------------------
@@ -120,7 +129,7 @@ namespace Points.Services.Locks
 
             foreach (var s in schedules)
             {
-                if (ScheduleAppliesNow(s, now))
+                if (s.IsEnabled && ScheduleAppliesNow(s, now))
                     return true;
             }
 
@@ -130,8 +139,8 @@ namespace Points.Services.Locks
         private static bool ScheduleAppliesNow(LockScheduleModel s, DateTime now)
         {
             // ToDateTime is optional; if null, treat as "no end"
-            var from = s.FromDateTime;
-            var to = s.ToDateTime;
+            var from = ToLocalWallClock(s.FromDateTime);
+            var to = s.ToDateTime.HasValue ? ToLocalWallClock(s.ToDateTime.Value) : (DateTime?)null;
 
             // If schedule hasn't started yet, it can't apply
             if (now < from)

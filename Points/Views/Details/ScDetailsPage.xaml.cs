@@ -1,5 +1,7 @@
+using Points.Helpers;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using Points.ViewModels;
 using Points.Views.Schedules;
 using System.Collections.Specialized;
@@ -16,7 +18,7 @@ public partial class ScDetailsPage : ContentPage
     public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, IDbService db)
     {
         InitializeComponent();
-        BindingContext = new ScDetailsViewModel(model, onSaved, onDelete, availableTagsList, db);
+        BindingContext = new ScDetailsViewModel(model, onSaved, onDelete, availableTagsList, db, ServiceHelper.GetService<IClock>());
         _allTags = availableTagsList;
         _model = model;
         _db = db;
@@ -111,7 +113,18 @@ public partial class ScDetailsPage : ContentPage
         try
         {
             var edited = await tcs.Task;   // user hit Save
-            _model.Activity = edited;      // store it wherever you keep it
+
+            if (_model.CardID > 0)
+            {
+                var result = await _db.UpsertActivitiesAsync(edited, _model.CardID);
+                if (!result.Success)
+                {
+                    await DisplayAlert("Active time not saved", result.Message, "OK");
+                    return;
+                }
+            }
+
+            _model.Activity = edited;
         }
         catch (TaskCanceledException)
         {

@@ -4,8 +4,9 @@ using Points.Global;
 using Points.Models;
 using Points.Models.DbModels;
 using Points.Services;
+using Points.Services.Scheduling;
 using Points.Services.Sqlite.Interfaces;
-using Points.ViewModels;
+using Points.Services.Time;
 using SQLite;
 using SQLitePCL;
 using System;
@@ -28,12 +29,26 @@ namespace Points.Services.Sqlite
         #region Initialisation
 
         private readonly string _dbPath;
+        private readonly ITimeZoneService _timeZoneService;
+        private readonly IClock _clock;
 
         private SQLiteAsyncConnection? _db;
         public SQLiteAsyncConnection Db => _db ?? throw new InvalidOperationException("DB not initialized.");
 
         public SqliteDbService()
+            : this(new TimeZoneService(), new SystemClock())
         {
+        }
+
+        public SqliteDbService(ITimeZoneService timeZoneService)
+            : this(timeZoneService, new SystemClock())
+        {
+        }
+
+        public SqliteDbService(ITimeZoneService timeZoneService, IClock clock)
+        {
+            _timeZoneService = timeZoneService ?? throw new ArgumentNullException(nameof(timeZoneService));
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _dbPath = AppPaths.DatabasePath;
         }
 
@@ -75,6 +90,7 @@ namespace Points.Services.Sqlite
 
                 await EnsureGoalSchemaAsync();
                 await EnsureAchievementCardSchemaAsync();
+                await EnsureTimeHandlingMigrationAsync();
                 await SaveBuiltInSettingDefinitionsAsync();
             }
             finally
@@ -266,6 +282,15 @@ namespace Points.Services.Sqlite
             }
         }
 
+        private async Task EnsureTimeHandlingMigrationAsync()
+        {
+            if (_db == null)
+                throw new InvalidOperationException("Database must be initialized before schema migration.");
+
+            var migration = new TimeHandlingDatabaseMigration(Db, _timeZoneService, _clock);
+            await migration.RunAsync();
+        }
+
 
         #endregion
 
@@ -277,7 +302,10 @@ namespace Points.Services.Sqlite
         {
             var mainQuest = await GetMainQuestModelsDataAsync(rangeStart, rangeEnd);
 
-            var mission = await GetMissionCardModelsDataAsync("m.CompletedDate IS NULL OR m.CompletedDate >= datetime('now', 'localtime', 'start of day')");
+            var missionRangeUtc = ToInstantQueryUtcRange(rangeStart, rangeEnd);
+            var mission = (await GetMissionCardModelsDataAsync())
+                .Where(m => !m.CompletedDate.HasValue || InstantFallsInUtcRange(ToUtcInstantForWrite(m.CompletedDate.Value), missionRangeUtc))
+                .ToList();
 
             var budget = await GetBudgetCardModelsDataAsync();
 
@@ -412,7 +440,7 @@ namespace Points.Services.Sqlite
             // - failure if deadline has elapsed without success
             models = await FinalizeDeadlineAchievementsIfNeededAsync(models);
 
-            var now = DateTime.Now;
+            var now = _clock.LocalNow;
 
             // Keep:
             // - all non-deadline achievements
@@ -462,7 +490,7 @@ namespace Points.Services.Sqlite
 
                 CreatedDate = !string.IsNullOrWhiteSpace(row.CreatedDate)
                     ? ParseIsoDateTime(row.CreatedDate)
-                    : DateTime.Now,
+                    : _clock.UtcNow,
 
                 RangeAmount = row.RangeAmount ?? 0,
                 TargetValue = row.TargetValue ?? 0,
@@ -614,7 +642,7 @@ namespace Points.Services.Sqlite
                     EarnedOn,
                     ImageSource
                 FROM AchievementTrophy
-                ORDER BY datetime(EarnedOn) DESC;
+                ORDER BY EarnedOn DESC;
             ";
 
             var rows = await Db.QueryAsync<TrophyRow>(sql);
@@ -624,15 +652,13 @@ namespace Points.Services.Sqlite
                 Id = r.Id,
                 AchievementId = r.AchievementId,
                 Title = r.Title ?? string.Empty,
-                EarnedOn = DateTime.Parse(
-                    r.EarnedOn,
-                    null,
-                    System.Globalization.DateTimeStyles.RoundtripKind
-                ),
+                EarnedOn = ParseInstantUtc(r.EarnedOn),
                 ImageSource = string.IsNullOrWhiteSpace(r.ImageSource)
                     ? "trophy.png"
                     : r.ImageSource
-            }).ToList();
+            })
+            .OrderByDescending(t => t.EarnedOn)
+            .ToList();
         }
 
         private sealed class TrophyRow
@@ -707,7 +733,7 @@ namespace Points.Services.Sqlite
 
         private async Task<TimeValueAchievementEvaluation> CreateEvaluation(AchievementCardModel card)
         {
-            var now = DateTime.Now;
+            var now = _clock.LocalNow;
 
             // Finalized deadline achievements are inert/frozen.
             if (card.CompletionType == AchievementCompletionType.Deadline &&
@@ -754,90 +780,103 @@ namespace Points.Services.Sqlite
             public double CurrentTotalActiveTimeInSeconds { get; set; }
         }
 
+        private sealed class CardIdOnlyRow
+        {
+            public long CardID { get; set; }
+        }
+
+        private sealed class MissionCompletionValueRow
+        {
+            public string? CompletedDate { get; set; }
+            public double Value { get; set; }
+        }
+
         public async Task<TagValueSummaryRow> GetTagValueSummaryAsync(string tagName, DateTime rangeStart, DateTime rangeEnd)
         {
             await InitializeAsync();
 
-            // Convert to ISO-8601 to match how you store datetimes
-            var startIso = rangeStart.ToString("o");
-            var endIso = rangeEnd.ToString("o");
+            var rangeUtc = ToInstantQueryUtcRange(rangeStart, rangeEnd);
+            var taggedCards = await Db.QueryAsync<CardIdOnlyRow>(
+                @"SELECT c.CardID AS CardID
+                  FROM Card c
+                  WHERE ',' || REPLACE(c.Tags, ' ', '') || ','
+                        LIKE '%,' || REPLACE(?, ' ', '') || ',%';",
+                tagName);
 
-            const string sql = @"
-                    WITH TaggedCards AS (
-                        SELECT c.CardID
-                        FROM Card c
-                        WHERE ',' || REPLACE(c.Tags, ' ', '') || ',' 
-                              LIKE '%,' || REPLACE(?, ' ', '') || ',%'
-                    ),
+            var cardIds = taggedCards
+                .Select(c => c.CardID)
+                .Distinct()
+                .ToList();
 
-                    TimeValued AS (
-                        SELECT
-                            SUM(
-                                ((julianday(a.""End"") - julianday(a.Start)) * 24.0 * 60.0)
-                                * a.ValuePerMinute
-                            ) AS Value,
-                            SUM(
-                                (julianday(a.""End"") - julianday(a.Start)) * 86400.0
-                            ) AS TotalActiveSeconds
-                        FROM Activity a
-                        WHERE a.CardID IN (SELECT CardID FROM TaggedCards)
-                          AND datetime(a.Start) >= datetime(?)
-                          AND datetime(a.""End"")   <= datetime(?)  
-                          AND a.""End"" >= a.Start
-                    ),
+            if (cardIds.Count == 0)
+                return new TagValueSummaryRow();
 
-                    StepValued AS (
-                        SELECT
-                            SUM(rep.StepValue) AS Value
-                        FROM ScCard sc
-                        JOIN TaggedCards tc     ON tc.CardID      = sc.CardID
-                        JOIN ScCardStep st      ON st.ScCardID    = sc.ScCardID
-                        JOIN ScCardStepRep rep  ON rep.ScCardStepID = st.ScCardStepID
-                        WHERE datetime(rep.TimeStamp) >= datetime(?)
-                          AND datetime(rep.TimeStamp) <= datetime(?)
-                    ),
+            var placeholders = string.Join(", ", cardIds.Select(_ => "?"));
+            var args = cardIds.Cast<object>().ToArray();
 
-                    MissionValued AS (
-                        SELECT
-                            SUM(mc.Value) AS Value
-                        FROM MissionCard mc
-                        JOIN TaggedCards tc ON tc.CardID = mc.CardID
-                        WHERE datetime(mc.CompletedDate) >= datetime(?)
-                          AND datetime(mc.CompletedDate) <= datetime(?)
-                    )
+            var activityRows = await Db.QueryAsync<ActivityRow>(
+                $@"SELECT
+                       ActivityID       AS ActivityID,
+                       CardID           AS CardID,
+                       Start            AS Start,
+                       ""End""          AS End,
+                       ValueRateName    AS ValueRateName,
+                       ValuePerMinute   AS ValuePerMinute
+                   FROM Activity
+                   WHERE CardID IN ({placeholders})
+                   ORDER BY CardID, Start;",
+                args);
 
-                    SELECT
-                        COALESCE(TimeValued.Value, 0)
-                      + COALESCE(StepValued.Value, 0)
-                      + COALESCE(MissionValued.Value, 0) AS CurrentValue,
+            double activityValue = 0;
+            double totalActiveSeconds = 0;
 
-                        COALESCE(TimeValued.TotalActiveSeconds, 0) AS CurrentTotalActiveTimeInSeconds
-                    FROM TimeValued
-                    CROSS JOIN StepValued
-                    CROSS JOIN MissionValued;
-                ";
+            foreach (var activity in activityRows.Select(ToActivityModel))
+            {
+                var (startUtc, endUtc) = GetActivityIntervalUtc(activity, validateOrder: false);
+                var clippedStart = startUtc > rangeUtc.StartUtc ? startUtc : rangeUtc.StartUtc;
+                var rawEnd = endUtc ?? rangeUtc.EndUtc;
+                var clippedEnd = rawEnd < rangeUtc.EndUtc ? rawEnd : rangeUtc.EndUtc;
 
-            // Parameter order:
-            //  1: tagName
-            //  2: rangeStart (TimeValued)
-            //  3: rangeEnd   (TimeValued)
-            //  4: rangeStart (StepValued)
-            //  5: rangeEnd   (StepValued)
-            //  6: rangeStart (MissionValued)
-            //  7: rangeEnd   (MissionValued)
-            var rows = await Db.QueryAsync<TagValueSummaryRow>(
-                sql,
-                tagName,
-                startIso, endIso,
-                startIso, endIso,
-                startIso, endIso
-            );
+                if (clippedEnd <= clippedStart)
+                    continue;
 
-            var row = rows.FirstOrDefault() ?? new TagValueSummaryRow();
+                var seconds = (clippedEnd - clippedStart).TotalSeconds;
+                totalActiveSeconds += seconds;
+                activityValue += (seconds / 60.0) * activity.ValuePerMinute;
+            }
 
-            // Named tuple elements so the caller can use:
-            // result.CurrentValue and result.CurrentTotalActiveTimeInSeconds
-            return row;
+            var repRows = await Db.QueryAsync<ScCardStepRepRow>(
+                $@"SELECT
+                       rep.ScCardStepID AS ScCardStepID,
+                       rep.TimeStamp    AS TimeStamp,
+                       rep.StepValue    AS StepValue
+                   FROM ScCard sc
+                   JOIN ScCardStep st ON st.ScCardID = sc.ScCardID
+                   JOIN ScCardStepRep rep ON rep.ScCardStepID = st.ScCardStepID
+                   WHERE sc.CardID IN ({placeholders});",
+                args);
+
+            var stepValue = repRows
+                .Where(r => InstantFallsInUtcRange(ParseInstantUtc(r.TimeStamp), rangeUtc))
+                .Sum(r => r.StepValue);
+
+            var missionRows = await Db.QueryAsync<MissionCompletionValueRow>(
+                $@"SELECT CompletedDate AS CompletedDate, Value AS Value
+                   FROM MissionCard
+                   WHERE CardID IN ({placeholders})
+                     AND CompletedDate IS NOT NULL;",
+                args);
+
+            var missionValue = missionRows
+                .Where(m => !string.IsNullOrWhiteSpace(m.CompletedDate))
+                .Where(m => InstantFallsInUtcRange(ParseInstantUtc(m.CompletedDate!), rangeUtc))
+                .Sum(m => m.Value);
+
+            return new TagValueSummaryRow
+            {
+                CurrentValue = activityValue + stepValue + missionValue,
+                CurrentTotalActiveTimeInSeconds = totalActiveSeconds
+            };
         }
 
         public async Task<AchievementCardModel> ReevaluateDeadlineAchievementAsync(AchievementCardModel card)
@@ -949,7 +988,7 @@ namespace Points.Services.Sqlite
                 Id = t.BudgetCardTransactionID,
                 CurrencyAmount = t.Amount,
                 Type = BudgetTransactionTypeParse(t.Type),
-                Timestamp = ParseIsoDateTime(t.TimeStamp)
+                Timestamp = ParseInstantUtc(t.TimeStamp)
             }).ToObservableCollection();
 
             return model;
@@ -1088,7 +1127,7 @@ namespace Points.Services.Sqlite
                         Id = t.BudgetCardTransactionID,
                         CurrencyAmount = t.Amount,
                         Type = BudgetTransactionTypeParse(t.Type),
-                        Timestamp = ParseIsoDateTime(t.TimeStamp)
+                        Timestamp = ParseInstantUtc(t.TimeStamp)
                     });
                 }
             }
@@ -1215,7 +1254,7 @@ namespace Points.Services.Sqlite
             var actRows = await Db.QueryAsync<ActivityRow>(actSql, row.CardID);
 
             model.Activity = actRows
-                .Select(a => ActivityMapper.ToModel(a, ParseIsoDateTime))
+                .Select(ToActivityModel)
                 .ToList();
 
 
@@ -1259,7 +1298,7 @@ namespace Points.Services.Sqlite
 
                 // If your ScStepModel.Reps is List<DateTime> (as per your earlier pattern)
                 step.Reps = repRows
-                    .Select(r => ParseIsoDateTime(r.TimeStamp))
+                    .Select(r => ParseInstantUtc(r.TimeStamp))
                     .ToList();
 
                 // If you rely on a "version bump" to refresh converters, you can optionally:
@@ -1312,6 +1351,7 @@ namespace Points.Services.Sqlite
             // 2.5) Bulk-load Activity for all CardIDs (overlap window)
             var cardIds = rows.Select(r => r.CardID).Distinct().ToList();
             var actByCardId = new Dictionary<long, List<ActivityModel>>();
+            var rangeUtc = ToActivityQueryUtcRange(rangeStart, rangeEnd);
 
             if (cardIds.Count > 0)
             {
@@ -1327,23 +1367,18 @@ namespace Points.Services.Sqlite
                             ValuePerMinute   AS ValuePerMinute
                         FROM Activity
                         WHERE CardID IN ({placeholders})
-                          AND Start < ?
-                          AND (""End"" IS NULL OR ""End"" > ?)
                         ORDER BY CardID, Start;
                     ";
 
-                var args = cardIds.Cast<object>()
-                    .Append(rangeEnd.ToString("o"))
-                    .Append(rangeStart.ToString("o"))
-                    .ToArray();
-
-                var actRows = await Db.QueryAsync<ActivityRow>(actSql, args);
+                var actRows = await Db.QueryAsync<ActivityRow>(actSql, cardIds.Cast<object>().ToArray());
 
                 actByCardId = actRows
+                    .Select(ToActivityModel)
+                    .Where(a => ActivityOverlapsUtcRange(a, rangeUtc))
                     .GroupBy(a => a.CardID)
                     .ToDictionary(
                         g => g.Key,
-                        g => g.Select(a => ActivityMapper.ToModel(a, ParseIsoDateTime)).ToList()
+                        g => g.ToList()
                     );
             }
 
@@ -1413,24 +1448,21 @@ namespace Points.Services.Sqlite
                         StepValue    AS StepValue
                     FROM ScCardStepRep
                     WHERE ScCardStepID IN ({stepPlaceholders})
-                      AND TimeStamp >= ?
-                      AND TimeStamp <= ?
                     ORDER BY ScCardStepID, TimeStamp;
                 ";
 
                 var repRows = await Db.QueryAsync<ScCardStepRepRow>(
                     repsSql,
-                    stepIds.Cast<object>()
-                    .Append(rangeStart.ToString("o"))
-                    .Append(rangeEnd.ToString("o"))
-                    .ToArray());
+                    stepIds.Cast<object>().ToArray());
 
                 foreach (var r in repRows)
                 {
                     if (!stepIdToStep.TryGetValue(r.ScCardStepID, out var step))
                         continue;
 
-                    step.Reps.Add(ParseIsoDateTime(r.TimeStamp));
+                    var repUtc = ParseInstantUtc(r.TimeStamp);
+                    if (InstantFallsInUtcRange(repUtc, rangeUtc))
+                        step.Reps.Add(repUtc);
                 }
             }
 
@@ -1526,7 +1558,7 @@ namespace Points.Services.Sqlite
             var actRows = await Db.QueryAsync<ActivityRow>(actSql, row.CardID);
 
             model.Activity = actRows
-                .Select(a => ActivityMapper.ToModel(a, ParseIsoDateTime))
+                .Select(ToActivityModel)
                 .ToList();
 
 
@@ -1587,6 +1619,7 @@ namespace Points.Services.Sqlite
             // 2) Bulk-load Activity for all CardIDs (overlap window)
             var cardIds = rows.Select(r => r.CardID).Distinct().ToList();
             var actByCardId = new Dictionary<long, List<ActivityModel>>();
+            var rangeUtc = ToActivityQueryUtcRange(rangeStart, rangeEnd);
 
             if (cardIds.Count > 0)
             {
@@ -1601,23 +1634,18 @@ namespace Points.Services.Sqlite
                         ValuePerMinute   AS ValuePerMinute
                     FROM Activity
                     WHERE CardID IN ({placeholders})
-                      AND Start < ?
-                      AND (""End"" IS NULL OR ""End"" > ?)
                     ORDER BY CardID, Start;
                 ";
 
-                var args = cardIds.Cast<object>()
-                    .Append(rangeEnd.ToString("o"))
-                    .Append(rangeStart.ToString("o"))
-                    .ToArray();
-
-                var actRows = await Db.QueryAsync<ActivityRow>(actSql, args);
+                var actRows = await Db.QueryAsync<ActivityRow>(actSql, cardIds.Cast<object>().ToArray());
 
                 actByCardId = actRows
+                    .Select(ToActivityModel)
+                    .Where(a => ActivityOverlapsUtcRange(a, rangeUtc))
                     .GroupBy(a => a.CardID)
                     .ToDictionary(
                         g => g.Key,
-                        g => g.Select(a => ActivityMapper.ToModel(a, ParseIsoDateTime)).ToList()
+                        g => g.ToList()
                     );
             }
 
@@ -1792,7 +1820,7 @@ namespace Points.Services.Sqlite
             var actRows = await Db.QueryAsync<ActivityRow>(actSql, row.CardID);
 
             model.Activity = actRows
-                .Select(a => ActivityMapper.ToModel(a, ParseIsoDateTime))
+                .Select(ToActivityModel)
                 .ToList();
 
 
@@ -1961,7 +1989,7 @@ namespace Points.Services.Sqlite
                 if (!byCardId.TryGetValue(a.CardID, out var mission))
                     continue;
 
-                mission.Activity.Add(ActivityMapper.ToModel(a, ParseIsoDateTime));
+                mission.Activity.Add(ToActivityModel(a));
             }
 
             // Return in the same order as the base query result set // (Dictionary doesn't preserve ordering reliably).
@@ -2058,7 +2086,7 @@ namespace Points.Services.Sqlite
             model.SetValues(valueRows.Select(v => new TrackerValueModel
             {
                 Id = v.TrackerValueID,
-                Timestamp = ParseIsoDateTime(v.TimeStamp),
+                Timestamp = ParseInstantUtc(v.TimeStamp),
                 Value = v.Value
             }).ToList());
 
@@ -2146,7 +2174,7 @@ namespace Points.Services.Sqlite
                 parent.Values.Add(new TrackerValueModel
                 {
                     Id = v.TrackerValueID,
-                    Timestamp = ParseIsoDateTime(v.TimeStamp),
+                    Timestamp = ParseInstantUtc(v.TimeStamp),
                     Value = v.Value
                 });
             }
@@ -2225,7 +2253,7 @@ namespace Points.Services.Sqlite
 
             var valueRows = await Db.QueryAsync<TrackerValueRow>(valuesSql, row.CardID);
 
-            model.SetValues(valueRows.Select(v => ParseIsoDateTime(v.TimeStamp)).ToList());
+            model.SetValues(valueRows.Select(v => ParseInstantUtc(v.TimeStamp)).ToList());
 
             // Also keep IDs if you ever need them later:
             // (optional) you can load as TrackerValueModel as well,
@@ -2297,7 +2325,7 @@ namespace Points.Services.Sqlite
                 parent.Values.Add(new TrackerValueModel
                 {
                     Id = v.TrackerValueID,
-                    Timestamp = ParseIsoDateTime(v.TimeStamp),
+                    Timestamp = ParseInstantUtc(v.TimeStamp),
                     Value = 1
                 });
             }
@@ -2326,7 +2354,7 @@ namespace Points.Services.Sqlite
                       Note         AS Note
                   FROM CardSchedule
                   WHERE CardID = ?
-                  ORDER BY datetime(FromDateTime);",
+                  ORDER BY FromDateTime;",
                             cardID);
 
             var scheduleModels = scheduleRows.Select(r =>
@@ -2339,8 +2367,8 @@ namespace Points.Services.Sqlite
                     CardId = r.CardID,
                     FrequencyType = ft,
                     FrequencyValue = r.FrequencyValue,
-                    FromDateTime = ParseIso(r.FromDateTime),
-                    ToDateTime = string.IsNullOrWhiteSpace(r.ToDateTime) ? null : ParseIso(r.ToDateTime),
+                    FromDateTime = LegacyTimeReader.ReadLocalDateTime(r.FromDateTime).LocalDateTime,
+                    ToDateTime = string.IsNullOrWhiteSpace(r.ToDateTime) ? null : LegacyTimeReader.ReadLocalDateTime(r.ToDateTime).LocalDateTime,
                     IsEnabled = r.IsEnabled != 0,
                     Note = r.Note ?? ""
                 };
@@ -2365,7 +2393,7 @@ namespace Points.Services.Sqlite
                       Note           AS Note
                   FROM CardSchedule
                   WHERE IsEnabled = 1
-                  ORDER BY datetime(FromDateTime);");
+                  ORDER BY FromDateTime;");
 
             return rows.Select(CardScheduleMapper.ToDomain).ToList();
         }
@@ -2410,11 +2438,14 @@ namespace Points.Services.Sqlite
                       UpdatedAt         AS UpdatedAt,
                       Error             AS Error
                   FROM NotificationLog
-                  ORDER BY datetime(ScheduleFor) DESC, NotificationLogId DESC
-                  LIMIT ?;",
-                take);
+                  ORDER BY ScheduleFor DESC, NotificationLogId DESC;");
 
-            return rows.Select(NotificationLogMapper.ToDomain).ToList();
+            return rows
+                .Select(ToNotificationLogModel)
+                .OrderByDescending(log => log.ScheduleFor)
+                .ThenByDescending(log => log.NotificationLogId)
+                .Take(take)
+                .ToList();
         }
 
         public async Task<NotificationLogModel> UpsertNotificationLogCreatedAsync(
@@ -2425,15 +2456,15 @@ namespace Points.Services.Sqlite
         {
             await InitializeAsync();
 
-            var scheduleForIso = ToIso(scheduleFor);
+            var scheduleForUtc = ToUtcInstantForWrite(scheduleFor);
+            var scheduleForIso = StrictTimeSerializer.SerializeUtcInstant(scheduleForUtc);
             var existing = (await Db.QueryAsync<NotificationLogRow>(
                 @"SELECT *
                   FROM NotificationLog
                   WHERE ScheduleId = ?
-                    AND ScheduleFor = ?
-                  LIMIT 1;",
-                schedule.ScheduleId,
-                scheduleForIso)).FirstOrDefault();
+                  ORDER BY ScheduleFor DESC, NotificationLogId DESC;",
+                schedule.ScheduleId))
+                .FirstOrDefault(row => ParseInstantUtc(row.ScheduleFor) == scheduleForUtc);
 
             if (existing == null)
             {
@@ -2446,9 +2477,9 @@ namespace Points.Services.Sqlite
                     cardTitle ?? "",
                     schedule.Note ?? "",
                     NotificationLogStatuses.Created,
-                    ToIso(createdAt),
+                    SerializeInstantForDb(createdAt),
                     scheduleForIso,
-                    ToIso(createdAt));
+                    SerializeInstantForDb(createdAt));
 
                 var id = await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
                 return await GetNotificationLogByIdAsync(id)
@@ -2465,7 +2496,7 @@ namespace Points.Services.Sqlite
                 schedule.CardId,
                 cardTitle ?? "",
                 schedule.Note ?? "",
-                ToIso(createdAt),
+                SerializeInstantForDb(createdAt),
                 existing.NotificationLogId);
 
             return await GetNotificationLogByIdAsync(existing.NotificationLogId)
@@ -2485,8 +2516,8 @@ namespace Points.Services.Sqlite
                   WHERE NotificationLogId = ?
                     AND Status <> ?;",
                 NotificationLogStatuses.Scheduled,
-                ToIso(scheduledAt),
-                ToIso(scheduledAt),
+                SerializeInstantForDb(scheduledAt),
+                SerializeInstantForDb(scheduledAt),
                 notificationLogId,
                 NotificationLogStatuses.Sent);
         }
@@ -2501,7 +2532,7 @@ namespace Points.Services.Sqlite
                       UpdatedAt = ?
                   WHERE NotificationLogId = ?;",
                 error,
-                ToIso(updatedAt),
+                SerializeInstantForDb(updatedAt),
                 notificationLogId);
         }
 
@@ -2513,20 +2544,25 @@ namespace Points.Services.Sqlite
         {
             await InitializeAsync();
 
-            var matchCutoff = firedAt.Add(NotificationSentMatchWindow);
-            var existing = (await Db.QueryAsync<NotificationLogRow>(
+            var matchCutoffUtc = ToUtcInstantForWrite(firedAt.Add(NotificationSentMatchWindow));
+            var candidates = await Db.QueryAsync<NotificationLogRow>(
                 @"SELECT *
                   FROM NotificationLog
                   WHERE ScheduleId = ?
                     AND Status IN (?, ?, ?)
-                    AND datetime(ScheduleFor) <= datetime(?)
-                  ORDER BY datetime(ScheduleFor) DESC, NotificationLogId DESC
-                  LIMIT 1;",
+                  ORDER BY ScheduleFor DESC, NotificationLogId DESC;",
                 schedule.ScheduleId,
                 NotificationLogStatuses.Created,
                 NotificationLogStatuses.Scheduled,
-                NotificationLogStatuses.Missed,
-                ToIso(matchCutoff))).FirstOrDefault();
+                NotificationLogStatuses.Missed);
+
+            var existing = candidates
+                .Select(row => new { Row = row, ScheduleForUtc = ParseInstantUtc(row.ScheduleFor) })
+                .Where(x => x.ScheduleForUtc <= matchCutoffUtc)
+                .OrderByDescending(x => x.ScheduleForUtc)
+                .ThenByDescending(x => x.Row.NotificationLogId)
+                .Select(x => x.Row)
+                .FirstOrDefault();
 
             var logId = existing?.NotificationLogId;
             if (logId == null)
@@ -2549,8 +2585,8 @@ namespace Points.Services.Sqlite
                 cardTitle ?? "",
                 schedule.Note ?? "",
                 NotificationLogStatuses.Sent,
-                ToIso(sentAt),
-                ToIso(sentAt),
+                SerializeInstantForDb(sentAt),
+                SerializeInstantForDb(sentAt),
                 logId.Value);
         }
 
@@ -2558,19 +2594,27 @@ namespace Points.Services.Sqlite
         {
             await InitializeAsync();
 
-            var cutoff = now.Subtract(gracePeriod);
-            await Db.ExecuteAsync(
-                @"UPDATE NotificationLog
-                  SET Status = ?,
-                      UpdatedAt = ?
+            var cutoffUtc = ToUtcInstantForWrite(now.Subtract(gracePeriod));
+            var updatedAtIso = SerializeInstantForDb(now);
+            var candidates = await Db.QueryAsync<NotificationLogRow>(
+                @"SELECT *
+                  FROM NotificationLog
                   WHERE SentAt IS NULL
-                    AND Status IN (?, ?)
-                    AND datetime(ScheduleFor) < datetime(?);",
-                NotificationLogStatuses.Missed,
-                ToIso(now),
+                    AND Status IN (?, ?);",
                 NotificationLogStatuses.Created,
-                NotificationLogStatuses.Scheduled,
-                ToIso(cutoff));
+                NotificationLogStatuses.Scheduled);
+
+            foreach (var row in candidates.Where(row => ParseInstantUtc(row.ScheduleFor) < cutoffUtc))
+            {
+                await Db.ExecuteAsync(
+                    @"UPDATE NotificationLog
+                      SET Status = ?,
+                          UpdatedAt = ?
+                      WHERE NotificationLogId = ?;",
+                    NotificationLogStatuses.Missed,
+                    updatedAtIso,
+                    row.NotificationLogId);
+            }
         }
 
         private async Task<NotificationLogModel?> GetNotificationLogByIdAsync(long notificationLogId)
@@ -2582,7 +2626,7 @@ namespace Points.Services.Sqlite
                   LIMIT 1;",
                 notificationLogId)).FirstOrDefault();
 
-            return row == null ? null : NotificationLogMapper.ToDomain(row);
+            return row == null ? null : ToNotificationLogModel(row);
         }
 
         public sealed class NotificationLogRow
@@ -2601,26 +2645,23 @@ namespace Points.Services.Sqlite
             public string? Error { get; set; }
         }
 
-        public static class NotificationLogMapper
+        private NotificationLogModel ToNotificationLogModel(NotificationLogRow row)
         {
-            public static NotificationLogModel ToDomain(NotificationLogRow row)
+            return new NotificationLogModel
             {
-                return new NotificationLogModel
-                {
-                    NotificationLogId = row.NotificationLogId,
-                    ScheduleId = row.ScheduleId,
-                    CardId = row.CardId,
-                    CardTitle = row.CardTitle ?? "",
-                    Note = row.Note ?? "",
-                    Status = row.Status ?? NotificationLogStatuses.Created,
-                    CreatedAt = ParseIso(row.CreatedAt),
-                    ScheduledAt = string.IsNullOrWhiteSpace(row.ScheduledAt) ? null : ParseIso(row.ScheduledAt!),
-                    ScheduleFor = ParseIso(row.ScheduleFor),
-                    SentAt = string.IsNullOrWhiteSpace(row.SentAt) ? null : ParseIso(row.SentAt!),
-                    UpdatedAt = ParseIso(row.UpdatedAt),
-                    Error = row.Error
-                };
-            }
+                NotificationLogId = row.NotificationLogId,
+                ScheduleId = row.ScheduleId,
+                CardId = row.CardId,
+                CardTitle = row.CardTitle ?? "",
+                Note = row.Note ?? "",
+                Status = row.Status ?? NotificationLogStatuses.Created,
+                CreatedAt = ParseInstantUtc(row.CreatedAt),
+                ScheduledAt = string.IsNullOrWhiteSpace(row.ScheduledAt) ? null : ParseInstantUtc(row.ScheduledAt!),
+                ScheduleFor = ParseInstantUtc(row.ScheduleFor),
+                SentAt = string.IsNullOrWhiteSpace(row.SentAt) ? null : ParseInstantUtc(row.SentAt!),
+                UpdatedAt = ParseInstantUtc(row.UpdatedAt),
+                Error = row.Error
+            };
         }
 
         #endregion
@@ -2673,40 +2714,147 @@ namespace Points.Services.Sqlite
 
         #region Activity
 
+        private DateTime ParseInstantUtc(string value)
+        {
+            return LegacyTimeReader.ReadInstantUtc(value, _timeZoneService).UtcInstant;
+        }
+
+        private DateTime ToUtcInstantForWrite(DateTime value)
+        {
+            if (value == DateTime.MinValue || value == DateTime.MaxValue)
+                return DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+            return value.Kind == DateTimeKind.Utc
+                ? StrictTimeSerializer.RequireUtcInstant(value, nameof(value))
+                : _timeZoneService.ToUtcFromLocal(value);
+        }
+
+        private string SerializeInstantForDb(DateTime value)
+        {
+            return StrictTimeSerializer.SerializeUtcInstant(ToUtcInstantForWrite(value));
+        }
+
+        private string? SerializeNullableInstantForDb(DateTime? value)
+        {
+            return value.HasValue ? SerializeInstantForDb(value.Value) : null;
+        }
+
+        private ActivityModel ToActivityModel(ActivityRow row)
+        {
+            return ActivityMapper.ToModel(row, ParseInstantUtc);
+        }
+
+        private UtcDateTimeRange ToInstantQueryUtcRange(DateTime rangeStart, DateTime rangeEnd)
+        {
+            return new UtcDateTimeRange(
+                ToUtcInstantForWrite(rangeStart),
+                ToUtcInstantForWrite(rangeEnd));
+        }
+
+        private DateTime ToLocalWallClockForComparison(DateTime value)
+        {
+            if (value == DateTime.MinValue || value == DateTime.MaxValue)
+                return DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
+
+            var local = value.Kind == DateTimeKind.Utc
+                ? _timeZoneService.ToLocal(value)
+                : value;
+
+            return DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+        }
+
+        private bool LocalDateTimeRangesOverlap(DateTime leftStart, DateTime leftEnd, DateTime rightStart, DateTime rightEnd)
+        {
+            leftStart = ToLocalWallClockForComparison(leftStart);
+            leftEnd = ToLocalWallClockForComparison(leftEnd);
+            rightStart = ToLocalWallClockForComparison(rightStart);
+            rightEnd = ToLocalWallClockForComparison(rightEnd);
+
+            return leftStart < rightEnd && leftEnd >= rightStart;
+        }
+
+        private static bool InstantFallsInUtcRange(DateTime utcInstant, UtcDateTimeRange range)
+        {
+            utcInstant = StrictTimeSerializer.RequireUtcInstant(utcInstant, nameof(utcInstant));
+            return utcInstant >= range.StartUtc && utcInstant <= range.EndUtc;
+        }
+
+        private static bool IsInstantInHalfOpenRange(DateTime utcInstant, UtcDateTimeRange range)
+        {
+            utcInstant = StrictTimeSerializer.RequireUtcInstant(utcInstant, nameof(utcInstant));
+            return utcInstant >= range.StartUtc && utcInstant < range.EndUtc;
+        }
+
+        private UtcDateTimeRange ToActivityQueryUtcRange(DateTime rangeStart, DateTime rangeEnd)
+        {
+            return ToInstantQueryUtcRange(rangeStart, rangeEnd);
+        }
+
+        private static (DateTime StartUtc, DateTime? EndUtc) GetActivityIntervalUtc(ActivityModel activity, bool validateOrder)
+        {
+            if (activity == null) throw new ArgumentNullException(nameof(activity));
+
+            var startUtc = StrictTimeSerializer.RequireUtcInstant(activity.StartDate, nameof(activity.StartDate));
+            var endUtc = activity.EndDate.HasValue
+                ? StrictTimeSerializer.RequireUtcInstant(activity.EndDate.Value, nameof(activity.EndDate))
+                : (DateTime?)null;
+
+            if (validateOrder && endUtc.HasValue && endUtc.Value <= startUtc)
+                throw new InvalidOperationException("Activity end must be after start.");
+
+            return (startUtc, endUtc);
+        }
+
+        private static bool ActivityIntervalsOverlap(DateTime leftStartUtc, DateTime? leftEndUtc, DateTime rightStartUtc, DateTime? rightEndUtc)
+        {
+            leftStartUtc = StrictTimeSerializer.RequireUtcInstant(leftStartUtc, nameof(leftStartUtc));
+            rightStartUtc = StrictTimeSerializer.RequireUtcInstant(rightStartUtc, nameof(rightStartUtc));
+
+            if (leftEndUtc.HasValue)
+                leftEndUtc = StrictTimeSerializer.RequireUtcInstant(leftEndUtc.Value, nameof(leftEndUtc));
+
+            if (rightEndUtc.HasValue)
+                rightEndUtc = StrictTimeSerializer.RequireUtcInstant(rightEndUtc.Value, nameof(rightEndUtc));
+
+            return (!rightEndUtc.HasValue || leftStartUtc < rightEndUtc.Value)
+                && (!leftEndUtc.HasValue || rightStartUtc < leftEndUtc.Value);
+        }
+
+        private static bool ActivityOverlapsUtcRange(ActivityModel activity, UtcDateTimeRange range)
+        {
+            var (startUtc, endUtc) = GetActivityIntervalUtc(activity, validateOrder: false);
+            return ActivityIntervalsOverlap(startUtc, endUtc, range.StartUtc, range.EndUtc);
+        }
+
         public async Task<bool> HasActivityOverlapAsync(int excludeActivityId, DateTime candidateStart, DateTime? candidateEnd)
         {
             await InitializeAsync();
 
-            var startIso = DateTime.SpecifyKind(candidateStart, DateTimeKind.Utc).ToString("o");
-            var endIso = candidateEnd.HasValue
-                ? DateTime.SpecifyKind(candidateEnd.Value, DateTimeKind.Utc).ToString("o")
-                : null;
+            var candidate = new ActivityModel
+            {
+                StartDate = candidateStart,
+                EndDate = candidateEnd
+            };
+            var (candidateStartUtc, candidateEndUtc) = GetActivityIntervalUtc(candidate, validateOrder: true);
 
-            // Global overlap rule:
-            // (candidateEnd IS NULL OR db.Start < candidateEnd)
-            // AND (db.End IS NULL OR candidateStart < db.End)
-            //
-            // Exclude the row being edited.
             const string sql = @"
-                    SELECT 1
-                    FROM Activity db
-                    WHERE (? <= 0 OR db.ActivityID <> ?)
-                      AND (
-                            (? IS NULL OR db.Start < ?)
-                            AND
-                            (db.""End"" IS NULL OR ? < db.""End"")
-                          )
-                    LIMIT 1;
+                    SELECT ActivityID, CardID, Start, ""End"", ValueRateName, ValuePerMinute
+                    FROM Activity
+                    WHERE (? <= 0 OR ActivityID <> ?);
                 ";
 
-            var hit = await Db.ExecuteScalarAsync<int?>(
-                sql,
-                excludeActivityId, excludeActivityId,
-                endIso, endIso,
-                startIso
-            );
+            var rows = await Db.QueryAsync<ActivityRow>(sql, excludeActivityId, excludeActivityId);
 
-            return hit.HasValue;
+            foreach (var row in rows)
+            {
+                var existing = ToActivityModel(row);
+                var (existingStartUtc, existingEndUtc) = GetActivityIntervalUtc(existing, validateOrder: false);
+
+                if (ActivityIntervalsOverlap(candidateStartUtc, candidateEndUtc, existingStartUtc, existingEndUtc))
+                    return true;
+            }
+
+            return false;
         }
 
         public async Task<DateTime?> GetCurrentOpenActivityStartUtcAsync(long cardId)
@@ -2726,8 +2874,7 @@ namespace Points.Services.Sqlite
             if (string.IsNullOrWhiteSpace(startIso))
                 return null;
 
-            // RoundtripKind respects the +00:00 offset in your stored text
-            return DateTime.Parse(startIso, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+            return LegacyTimeReader.ReadInstantUtc(startIso, _timeZoneService).UtcInstant;
         }
 
         public async Task<DateTime?> GetLastClosedActivityEndUtcAsync()
@@ -2746,7 +2893,7 @@ namespace Points.Services.Sqlite
             if (string.IsNullOrWhiteSpace(endIso))
                 return null;
 
-            return DateTime.Parse(endIso, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+            return LegacyTimeReader.ReadInstantUtc(endIso, _timeZoneService).UtcInstant;
         }
 
         public async Task<ActivityModel?> GetCurrentActiveActivityAsync()
@@ -2758,7 +2905,7 @@ namespace Points.Services.Sqlite
             if (row == null)
                 return null;
 
-            return ActivityMapper.ToModel(row, ParseIsoDateTime);
+            return ToActivityModel(row);
         }
 
         private async Task<ActivityRow?> GetCurrentActiveRowAsync()
@@ -2839,11 +2986,11 @@ namespace Points.Services.Sqlite
             return new ToggleActivityModelResult
             {
                 Closed = rowResult.Closed != null
-                    ? ActivityMapper.ToModel(rowResult.Closed, ParseIsoDateTime)
+                    ? ToActivityModel(rowResult.Closed)
                     : null,
 
                 Opened = rowResult.Opened != null
-                    ? ActivityMapper.ToModel(rowResult.Opened, ParseIsoDateTime)
+                    ? ToActivityModel(rowResult.Opened)
                     : null
             };
         }
@@ -2852,7 +2999,7 @@ namespace Points.Services.Sqlite
         {
             await InitializeAsync();
 
-            var nowIso = DateTime.SpecifyKind(utcNow, DateTimeKind.Utc).ToString("o");
+            var nowIso = StrictTimeSerializer.SerializeUtcInstant(utcNow);
 
             ActivityRow? closed = null;
             ActivityRow? opened = null;
@@ -2929,19 +3076,11 @@ namespace Points.Services.Sqlite
 
         /* UPSERT */
 
-        private static bool Overlaps(string aStart, string? aEnd, string bStart, string? bEnd)
-        {
-            // overlap if:
-            // aStart < bEnd (or bEnd is null)
-            // and bStart < aEnd (or aEnd is null)
-            return (bEnd == null || string.CompareOrdinal(aStart, bEnd) < 0)
-                && (aEnd == null || string.CompareOrdinal(bStart, aEnd) < 0);
-        }
-
         private static bool HasInternalOverlap(List<ActivityModel> activities)
         {
             var ordered = activities
-                .OrderBy(a => a.StartDate)
+                .Select(a => GetActivityIntervalUtc(a, validateOrder: true))
+                .OrderBy(a => a.StartUtc)
                 .ToList();
 
             for (int i = 0; i < ordered.Count - 1; i++)
@@ -2949,114 +3088,118 @@ namespace Points.Services.Sqlite
                 var a = ordered[i];
                 var b = ordered[i + 1];
 
-                var aStart = DateTime.SpecifyKind(a.StartDate, DateTimeKind.Utc).ToString("o");
-                var aEnd = a.EndDate.HasValue ? DateTime.SpecifyKind(a.EndDate.Value, DateTimeKind.Utc).ToString("o") : null;
-
-                var bStart = DateTime.SpecifyKind(b.StartDate, DateTimeKind.Utc).ToString("o");
-                var bEnd = b.EndDate.HasValue ? DateTime.SpecifyKind(b.EndDate.Value, DateTimeKind.Utc).ToString("o") : null;
-
-                if (Overlaps(aStart, aEnd, bStart, bEnd))
+                if (ActivityIntervalsOverlap(a.StartUtc, a.EndUtc, b.StartUtc, b.EndUtc))
                     return true;
             }
 
             return false;
         }
 
-        public sealed class ActivityUpdateResult
-        {
-            public bool Success { get; init; }
-            public string Message { get; init; } = "";
-        }
-
-        public async Task<ActivityUpdateResult> UpsertActivitiesAsync(List<ActivityModel> activities)
+        public async Task<ActivityUpdateResult> UpsertActivitiesAsync(List<ActivityModel> activities, long? replaceCardId = null)
         {
             await InitializeAsync();
 
             if (activities == null) throw new ArgumentNullException(nameof(activities));
-            if (activities.Count == 0)
-                return new ActivityUpdateResult { Success = true, Message = "Activities updated." };
 
-            // 1) Incoming overlap check
-            if (HasInternalOverlap(activities))
+            if (replaceCardId.HasValue && replaceCardId.Value <= 0)
+                replaceCardId = null;
+
+            if (activities.Count == 0)
             {
-                return new ActivityUpdateResult
-                {
-                    Success = false,
-                    Message = "Overlapping Activities cannot be written to the database"
-                };
+                if (replaceCardId.HasValue)
+                    await Db.ExecuteAsync("DELETE FROM Activity WHERE CardID = ?;", replaceCardId.Value);
+
+                return new ActivityUpdateResult { Success = true, Message = "Activities updated." };
             }
 
             try
             {
+                if (replaceCardId.HasValue && activities.Any(a => a.CardID != replaceCardId.Value))
+                {
+                    return new ActivityUpdateResult
+                    {
+                        Success = false,
+                        Message = "All replacement activities must belong to the replacement card."
+                    };
+                }
+
+                // 1) Incoming overlap check
+                if (HasInternalOverlap(activities))
+                {
+                    return new ActivityUpdateResult
+                    {
+                        Success = false,
+                        Message = "Overlapping Activities cannot be written to the database"
+                    };
+                }
+
+                var preparedActivities = activities
+                    .Select(a =>
+                    {
+                        var (startUtc, endUtc) = GetActivityIntervalUtc(a, validateOrder: true);
+                        return new
+                        {
+                            Activity = a,
+                            StartUtc = startUtc,
+                            EndUtc = endUtc,
+                            StartIso = StrictTimeSerializer.SerializeUtcInstant(startUtc),
+                            EndIso = StrictTimeSerializer.SerializeNullableUtcInstant(endUtc)
+                        };
+                    })
+                    .ToList();
+
+                var incomingIds = activities
+                    .Where(a => a.Id > 0)
+                    .Select(a => a.Id)
+                    .ToHashSet();
+
                 await Db.RunInTransactionAsync(tran =>
                 {
-                    // TEMP table for incoming set
-                    tran.Execute(@"
-                        CREATE TEMP TABLE IF NOT EXISTS _IncomingActivity (
-                            ActivityID     INTEGER NULL,
-                            CardID         INTEGER NOT NULL,
-                            Start          TEXT    NOT NULL,
-                            ""End""        TEXT    NULL,
-                            ValueRateName  TEXT    NOT NULL,
-                            ValuePerMinute REAL    NOT NULL
-                        );
+                    var existingRows = tran.Query<ActivityRow>(@"
+                        SELECT ActivityID, CardID, Start, ""End"", ValueRateName, ValuePerMinute
+                        FROM Activity;
                     ");
-                    tran.Execute("DELETE FROM _IncomingActivity;");
 
-                    // Fill temp table
-                    foreach (var a in activities)
+                    foreach (var row in existingRows)
                     {
-                        var startIso = DateTime.SpecifyKind(a.StartDate, DateTimeKind.Utc).ToString("o");
-                        var endIso = a.EndDate.HasValue
-                            ? DateTime.SpecifyKind(a.EndDate.Value, DateTimeKind.Utc).ToString("o")
-                            : null;
+                        if (incomingIds.Contains(row.ActivityID))
+                            continue;
 
-                        tran.Execute(@"
-                            INSERT INTO _IncomingActivity (ActivityID, CardID, Start, ""End"", ValueRateName, ValuePerMinute)
-                            VALUES (?, ?, ?, ?, ?, ?);
-                        ",
-                        a.Id > 0 ? a.Id : (object?)null,
-                        a.CardID,
-                        startIso,
-                        endIso,
-                        a.RateName ?? "",
-                        a.ValuePerMinute);
+                        if (replaceCardId.HasValue && row.CardID == replaceCardId.Value)
+                            continue;
+
+                        var existing = ToActivityModel(row);
+                        var (existingStartUtc, existingEndUtc) = GetActivityIntervalUtc(existing, validateOrder: false);
+
+                        foreach (var incoming in preparedActivities)
+                        {
+                            if (ActivityIntervalsOverlap(incoming.StartUtc, incoming.EndUtc, existingStartUtc, existingEndUtc))
+                                throw new InvalidOperationException("Cannot overlap with existing Activities in the database.");
+                        }
                     }
 
-                    // 2) Forbidden overlap check:
-                    // Find any DB activity that overlaps an incoming activity
-                    // where the DB activity is NOT part of the incoming update set.
-                    //
-                    // overlap rule:
-                    // db.Start < incoming.End OR incoming.End IS NULL
-                    // AND incoming.Start < db.End OR db.End IS NULL
-                    //
-                    // and ensure DB row not in incoming IDs
-                    var forbidden = tran.ExecuteScalar<long?>(@"
-                            SELECT db.ActivityID
-                            FROM Activity db
-                            JOIN _IncomingActivity inc
-                              ON (
-                                   (inc.""End"" IS NULL OR db.Start < inc.""End"")
-                                   AND
-                                   (db.""End"" IS NULL OR inc.Start < db.""End"")
-                                 )
-                            WHERE db.ActivityID NOT IN (
-                                SELECT ActivityID FROM _IncomingActivity WHERE ActivityID IS NOT NULL
-                            )
-                            LIMIT 1;
-                        ");
+                    if (replaceCardId.HasValue)
+                    {
+                        if (incomingIds.Count > 0)
+                        {
+                            var placeholders = string.Join(", ", incomingIds.Select(_ => "?"));
+                            var args = new List<object> { replaceCardId.Value };
+                            args.AddRange(incomingIds.Cast<object>());
 
-                    if (forbidden != null)
-                        throw new InvalidOperationException("Cannot overlap with existing Activities in the database.");
+                            tran.Execute(
+                                $"DELETE FROM Activity WHERE CardID = ? AND ActivityID NOT IN ({placeholders});",
+                                args.ToArray());
+                        }
+                        else
+                        {
+                            tran.Execute("DELETE FROM Activity WHERE CardID = ?;", replaceCardId.Value);
+                        }
+                    }
 
                     // 3) Apply upserts (update existing, insert new)
-                    foreach (var a in activities)
+                    foreach (var prepared in preparedActivities)
                     {
-                        var startIso = DateTime.SpecifyKind(a.StartDate, DateTimeKind.Utc).ToString("o");
-                        var endIso = a.EndDate.HasValue
-                            ? DateTime.SpecifyKind(a.EndDate.Value, DateTimeKind.Utc).ToString("o")
-                            : null;
+                        var a = prepared.Activity;
 
                         if (a.Id > 0)
                         {
@@ -3069,7 +3212,7 @@ namespace Points.Services.Sqlite
                                     ValuePerMinute = ?
                                 WHERE ActivityID = ?;
                             ",
-                                    a.CardID, startIso, endIso, a.RateName ?? "", a.ValuePerMinute, a.Id);
+                                    a.CardID, prepared.StartIso, prepared.EndIso, a.RateName ?? "", a.ValuePerMinute, a.Id);
                         }
                         else
                         {
@@ -3077,7 +3220,7 @@ namespace Points.Services.Sqlite
                                 INSERT INTO Activity (CardID, Start, ""End"", ValueRateName, ValuePerMinute)
                                 VALUES (?, ?, ?, ?, ?);
                             ",
-                    a.CardID, startIso, endIso, a.RateName ?? "", a.ValuePerMinute);
+                    a.CardID, prepared.StartIso, prepared.EndIso, a.RateName ?? "", a.ValuePerMinute);
 
                             // Optional: if you want to write IDs back into the passed objects:
                             // a.Id = (int)tran.ExecuteScalar<long>("SELECT last_insert_rowid();");
@@ -3091,6 +3234,14 @@ namespace Points.Services.Sqlite
             {
                 return new ActivityUpdateResult { Success = false, Message = ex.Message };
             }
+            catch (ArgumentException ex)
+            {
+                return new ActivityUpdateResult { Success = false, Message = ex.Message };
+            }
+            catch (FormatException ex)
+            {
+                return new ActivityUpdateResult { Success = false, Message = ex.Message };
+            }
         }
 
         #endregion
@@ -3101,20 +3252,19 @@ namespace Points.Services.Sqlite
         {
             await InitializeAsync();
 
-            var start = plannerDate.Date;
+            var start = ToLocalWallClockForComparison(plannerDate.Date);
             var end = start.AddDays(1);
+            var completedRangeUtc = ToInstantQueryUtcRange(start, end);
 
             var planner = await GetPlannerForDateAsync(start);
             var mainQuest = await GetMainQuestModelsDataAsync(start, end);
 
-            var startIso = start.ToString("o", CultureInfo.InvariantCulture);
-            var endIso = end.ToString("o", CultureInfo.InvariantCulture);
-
-            var missions = await GetMissionCardModelsDataAsync($@"
-                m.CompletedDate IS NULL
-                OR (m.CompletedDate >= '{startIso}' AND m.CompletedDate < '{endIso}')
-                OR (m.AvailableFromDate < '{endIso}' AND m.DueDate >= '{startIso}')
-            ");
+            var missions = (await GetMissionCardModelsDataAsync())
+                .Where(m =>
+                    !m.CompletedDate.HasValue
+                    || IsInstantInHalfOpenRange(ToUtcInstantForWrite(m.CompletedDate.Value), completedRangeUtc)
+                    || LocalDateTimeRangesOverlap(m.AvailableFromDate, m.DueDate, start, end))
+                .ToList();
 
             return new PlannerDayData
             {
@@ -3132,11 +3282,12 @@ namespace Points.Services.Sqlite
             if (planner == null)
                 throw new ArgumentNullException(nameof(planner));
 
+            NormalizePlannerForSave(planner);
             ValidatePlannerTasks(planner.Tasks);
 
             var plannerDate = planner.PlannerDate.Date;
             var dateKey = ToPlannerDateKey(plannerDate);
-            var nowIso = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+            var nowIso = StrictTimeSerializer.SerializeUtcInstant(_clock.UtcNow);
             var plannerId = planner.PlannerId;
 
             await Db.RunInTransactionAsync(tran =>
@@ -3177,8 +3328,8 @@ namespace Points.Services.Sqlite
                     plannerId,
                     task.CardId,
                     task.CardKind.ToString(),
-                    task.PlannedStart.ToString("o", CultureInfo.InvariantCulture),
-                    task.PlannedEnd.ToString("o", CultureInfo.InvariantCulture));
+                    SerializePlannerLocalDateTime(task.PlannedStart),
+                    SerializePlannerLocalDateTime(task.PlannedEnd));
                 }
 
                 foreach (var ev in planner.Events.OrderBy(e => e.PlannedTime))
@@ -3192,7 +3343,7 @@ namespace Points.Services.Sqlite
                     ev.EventKind.ToString(),
                     ev.CardId,
                     ev.ScCardStepId,
-                    ev.PlannedTime.ToString("o", CultureInfo.InvariantCulture),
+                    SerializePlannerLocalDateTime(ev.PlannedTime),
                     Math.Max(1, ev.PlannedCount));
                 }
             });
@@ -3218,7 +3369,7 @@ namespace Points.Services.Sqlite
             var planner = new PlannerModel
             {
                 PlannerId = row.PlannerID,
-                PlannerDate = DateTime.ParseExact(row.PlannerDate, "yyyy-MM-dd", CultureInfo.InvariantCulture)
+                PlannerDate = StrictTimeSerializer.ParseLocalDate(row.PlannerDate)
             };
 
             var tasks = await Db.QueryAsync<PlannerTaskRow>(@"
@@ -3239,8 +3390,8 @@ namespace Points.Services.Sqlite
                     PlannerId = task.PlannerID,
                     CardId = task.CardID,
                     CardKind = kind,
-                    PlannedStart = ParseIsoDateTime(task.PlannedStart),
-                    PlannedEnd = ParseIsoDateTime(task.PlannedEnd)
+                    PlannedStart = ReadPlannerLocalDateTime(task.PlannedStart),
+                    PlannedEnd = ReadPlannerLocalDateTime(task.PlannedEnd)
                 });
             }
 
@@ -3263,7 +3414,7 @@ namespace Points.Services.Sqlite
                     EventKind = kind,
                     CardId = ev.CardID,
                     ScCardStepId = ev.ScCardStepID,
-                    PlannedTime = ParseIsoDateTime(ev.PlannedTime),
+                    PlannedTime = ReadPlannerLocalDateTime(ev.PlannedTime),
                     PlannedCount = Math.Max(1, ev.PlannedCount)
                 });
             }
@@ -3271,8 +3422,30 @@ namespace Points.Services.Sqlite
             return planner;
         }
 
-        private static string ToPlannerDateKey(DateTime plannerDate) =>
-            plannerDate.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        private void NormalizePlannerForSave(PlannerModel planner)
+        {
+            planner.PlannerDate = ToLocalWallClockForComparison(planner.PlannerDate).Date;
+
+            foreach (var task in planner.Tasks)
+            {
+                task.PlannedStart = ToLocalWallClockForComparison(task.PlannedStart);
+                task.PlannedEnd = ToLocalWallClockForComparison(task.PlannedEnd);
+            }
+
+            foreach (var ev in planner.Events)
+            {
+                ev.PlannedTime = ToLocalWallClockForComparison(ev.PlannedTime);
+            }
+        }
+
+        private string ToPlannerDateKey(DateTime plannerDate) =>
+            StrictTimeSerializer.SerializeLocalDate(ToLocalWallClockForComparison(plannerDate).Date);
+
+        private string SerializePlannerLocalDateTime(DateTime value) =>
+            StrictTimeSerializer.SerializeLocalDateTime(ToLocalWallClockForComparison(value));
+
+        private static DateTime ReadPlannerLocalDateTime(string value) =>
+            LegacyTimeReader.ReadLocalDateTime(value).LocalDateTime;
 
         private static void ValidatePlannerTasks(IEnumerable<PlannerTaskModel> tasks)
         {
@@ -3585,7 +3758,7 @@ namespace Points.Services.Sqlite
             ValidateAchievementForPersistence(acm);
 
             // --- Common values ---
-            var now = DateTime.Now;
+            var now = _clock.UtcNow;
 
             // Map enums to TEXT
             var targetTypeText = acm.TargetType.ToString();
@@ -3885,10 +4058,6 @@ namespace Points.Services.Sqlite
             Fail = 2
         }
 
-        private static DateTime StartOfTodayLocal() => DateTime.Now.Date;
-
-        private static DateTime EndOfTodayLocal() => DateTime.Now.Date.AddDays(1);
-
         private static bool ShouldKeepLoadedAfterFinalization(AchievementCardModel card, DateTime now)
         {
             if (card == null)
@@ -4002,7 +4171,7 @@ namespace Points.Services.Sqlite
             if (card.FinalizedAt.HasValue)
                 return card;
 
-            var now = DateTime.Now;
+            var now = _clock.LocalNow;
 
             if (!card.TryGetEvaluationWindow(now, out var windowStart, out var windowEnd))
                 return card;
@@ -4124,7 +4293,7 @@ namespace Points.Services.Sqlite
                 {
                     await Db.ExecuteAsync(
                         "INSERT INTO BudgetCardTransaction (BudgetCardID, Amount, Type, TimeStamp) VALUES (?, ?, ?, ?);",
-                        model.Id, trans.CurrencyAmount, trans.Type, trans.Timestamp.ToString("o"));
+                        model.Id, trans.CurrencyAmount, trans.Type, SerializeInstantForDb(trans.Timestamp));
 
                     trans.Id = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
                 }
@@ -4132,7 +4301,7 @@ namespace Points.Services.Sqlite
                 {
                     await Db.ExecuteAsync(
                         "UPDATE BudgetCardTransaction SET Amount = ?, Type = ?, TimeStamp = ? WHERE BudgetCardTransactionID = ?",
-                        trans.CurrencyAmount, trans.Type, trans.Timestamp.ToString("o"), trans.Id);
+                        trans.CurrencyAmount, trans.Type, SerializeInstantForDb(trans.Timestamp), trans.Id);
                 }
             }
         }
@@ -4158,7 +4327,7 @@ namespace Points.Services.Sqlite
             await Db.ExecuteAsync(
                 @"INSERT OR REPLACE INTO ScCardStepRep (ScCardStepID, TimeStamp, StepValue)  VALUES (?, ?, ?);",
                 scCardStepID,
-                repTime.ToString("o"),
+                SerializeInstantForDb(repTime),
                 stepValue);
         }
 
@@ -4167,18 +4336,23 @@ namespace Points.Services.Sqlite
         // This must be the ScCardStepID.
         public async Task RemoveRepForStep(int scCardStepID, DateTime repTime)
         {
-            // Find the latest rep at-or-before the provided time.
-            var ts = await Db.ExecuteScalarAsync<string?>(
-                @"SELECT TimeStamp
+            var rows = await Db.QueryAsync<ScCardStepRepRow>(
+                @"SELECT
+                      ScCardStepID AS ScCardStepID,
+                      TimeStamp    AS TimeStamp,
+                      StepValue    AS StepValue
                   FROM ScCardStepRep
-                  WHERE ScCardStepID = ?
-                    AND TimeStamp <= ?
-                  ORDER BY TimeStamp DESC
-                  LIMIT 1;",
-                scCardStepID,
-                repTime.ToString("o"));
+                  WHERE ScCardStepID = ?;",
+                scCardStepID);
 
-            if (string.IsNullOrWhiteSpace(ts))
+            var cutoffUtc = ToUtcInstantForWrite(repTime);
+            var target = rows
+                .Select(r => new { Row = r, Utc = ParseInstantUtc(r.TimeStamp) })
+                .Where(x => x.Utc <= cutoffUtc)
+                .OrderByDescending(x => x.Utc)
+                .FirstOrDefault();
+
+            if (target == null)
                 return;
 
             await Db.ExecuteAsync(
@@ -4186,7 +4360,7 @@ namespace Points.Services.Sqlite
                   WHERE ScCardStepID = ?
                     AND TimeStamp = ?;",
                 scCardStepID,
-                ts);
+                target.Row.TimeStamp);
         }
 
 
@@ -4230,7 +4404,7 @@ namespace Points.Services.Sqlite
 
                 foreach (var rep in step.Reps)
                 {
-                    await Db.ExecuteAsync(insertRepSql, step.Id, rep.ToString("o"), step.StepValue);
+                    await Db.ExecuteAsync(insertRepSql, step.Id, SerializeInstantForDb(rep), step.StepValue);
                 }
 
             }
@@ -4440,7 +4614,7 @@ namespace Points.Services.Sqlite
                     await Db.ExecuteAsync(
                         @"INSERT INTO TrackerValue (CardID, TimeStamp, Value) VALUES (?, ?, ?);",
                         cardId,
-                        v.Timestamp.ToString("o"),
+                        SerializeInstantForDb(v.Timestamp),
                         v.Value
                     );
 
@@ -4450,7 +4624,7 @@ namespace Points.Services.Sqlite
                 {
                     await Db.ExecuteAsync(
                         @"UPDATE TrackerValue SET TimeStamp = ?, Value = ? WHERE TrackerValueID = ?;",
-                        v.Timestamp.ToString("o"),
+                        SerializeInstantForDb(v.Timestamp),
                         v.Value,
                         v.Id
                     );
@@ -5101,7 +5275,8 @@ namespace Points.Services.Sqlite
                 s.CardId = cardId;
 
                 var ftText = s.FrequencyType.ToString();
-                var toIso = s.ToDateTime.HasValue ? ToIso(s.ToDateTime.Value) : null;
+                var fromDateTime = StrictTimeSerializer.SerializeLocalDateTime(WallClockScheduleTime.NormalizeLocal(s.FromDateTime));
+                var toDateTime = StrictTimeSerializer.SerializeNullableLocalDateTime(WallClockScheduleTime.NormalizeLocal(s.ToDateTime));
 
                 if (s.ScheduleId == 0)
                 {
@@ -5112,8 +5287,8 @@ namespace Points.Services.Sqlite
                         cardId,
                         ftText,
                         s.FrequencyValue,
-                        ToIso(s.FromDateTime),
-                        toIso,
+                        fromDateTime,
+                        toDateTime,
                         s.IsEnabled ? 1 : 0,
                         s.Note ?? ""
                     );
@@ -5133,8 +5308,8 @@ namespace Points.Services.Sqlite
                           WHERE ScheduleID = ? AND CardID = ?;",
                         ftText,
                         s.FrequencyValue,
-                        ToIso(s.FromDateTime),
-                        toIso,
+                        fromDateTime,
+                        toDateTime,
                         s.IsEnabled ? 1 : 0,
                         s.Note ?? "",
                         s.ScheduleId,
@@ -5178,10 +5353,10 @@ namespace Points.Services.Sqlite
                     Note = row.Note ?? "",
                     FrequencyType = (FrequencyType)Enum.Parse(typeof(FrequencyType), row.FrequencyType),
                     FrequencyValue = row.FrequencyValue,
-                    FromDateTime = DateTime.Parse(row.FromDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind),
+                    FromDateTime = LegacyTimeReader.ReadLocalDateTime(row.FromDateTime).LocalDateTime,
                     ToDateTime = string.IsNullOrWhiteSpace(row.ToDateTime)
                         ? null
-                        : DateTime.Parse(row.ToDateTime!, null, System.Globalization.DateTimeStyles.RoundtripKind),
+                        : LegacyTimeReader.ReadLocalDateTime(row.ToDateTime!).LocalDateTime,
                 };
             }
         }
@@ -5189,10 +5364,6 @@ namespace Points.Services.Sqlite
         #endregion
 
         #region Common Methods
-
-        private static string ToIso(DateTime dt) => dt.ToString("o");
-
-        private static DateTime ParseIso(string s) => DateTime.Parse(s, null, DateTimeStyles.RoundtripKind);
 
         private static void BindParameter(sqlite3_stmt stmt, int index, object? value)
         {
@@ -5820,10 +5991,10 @@ namespace Points.Services.Sqlite
                     LockId = row.LockId,
                     FrequencyType = (FrequencyType)Enum.Parse(typeof(FrequencyType), row.FrequencyType),
                     FrequencyValue = row.FrequencyValue,
-                    FromDateTime = DateTime.Parse(row.FromDateTime, null, DateTimeStyles.RoundtripKind),
+                    FromDateTime = LegacyTimeReader.ReadLocalDateTime(row.FromDateTime).LocalDateTime,
                     ToDateTime = string.IsNullOrWhiteSpace(row.ToDateTime)
                         ? null
-                        : DateTime.Parse(row.ToDateTime!, null, DateTimeStyles.RoundtripKind),
+                        : LegacyTimeReader.ReadLocalDateTime(row.ToDateTime!).LocalDateTime,
                 };
             }
         }
@@ -5962,8 +6133,8 @@ namespace Points.Services.Sqlite
                                 newLockId,
                                 s.FrequencyType.ToString(),              // TEXT enum name
                                 s.FrequencyValue,
-                                s.FromDateTime.ToString("o", CultureInfo.InvariantCulture),
-                                s.ToDateTime?.ToString("o", CultureInfo.InvariantCulture)
+                                StrictTimeSerializer.SerializeLocalDateTime(WallClockScheduleTime.NormalizeLocal(s.FromDateTime)),
+                                StrictTimeSerializer.SerializeNullableLocalDateTime(WallClockScheduleTime.NormalizeLocal(s.ToDateTime))
                             );
 
                             s.LockId = newLockId; // optional

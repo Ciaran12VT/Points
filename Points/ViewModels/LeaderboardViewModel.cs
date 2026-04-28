@@ -4,14 +4,18 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Microsoft.Maui.Graphics;
+using Points.Helpers;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 
 namespace Points.ViewModels;
 
 public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
 {
     private readonly IDbService _db;
+    private readonly IClock _clock;
+    private readonly ITimeZoneService _timeZoneService;
     private List<LeaderboardRowModel> _allRows = new();
 
     private bool _isBusy;
@@ -19,7 +23,7 @@ public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
     private bool _isLeaderboardSelected = true;
     private LeaderboardSortColumn _sortColumn = LeaderboardSortColumn.TotalHours;
     private bool _sortDescending = true;
-    private DateTime _refreshedAt = DateTime.Now;
+    private DateTime _refreshedAt = DateTime.MinValue;
     private double _totalTrackedHours;
     private LeaderboardRowModel? _deadAirRow;
 
@@ -47,9 +51,15 @@ public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
     public ICommand SortByPercentOfDayCommand { get; }
     public ICommand SortByPointsCommand { get; }
 
-    public LeaderboardViewModel(IDbService db)
+    public LeaderboardViewModel(
+        IDbService db,
+        IClock? clock = null,
+        ITimeZoneService? timeZoneService = null)
     {
         _db = db;
+        _clock = ResolveClock(clock);
+        _timeZoneService = ResolveTimeZoneService(timeZoneService);
+        _refreshedAt = LocalNow;
 
         SelectLeaderboardTabCommand = new Command(() => IsLeaderboardSelected = true);
         SelectPlannerTabCommand = new Command(async () =>
@@ -63,6 +73,7 @@ public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
         SortByPercentOfDayCommand = new Command(() => SortBy(LeaderboardSortColumn.PercentOfDay));
         SortByPointsCommand = new Command(() => SortBy(LeaderboardSortColumn.Points));
 
+        InitializePlannerDefaults();
         InitializePlannerCommands();
     }
 
@@ -128,7 +139,7 @@ public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
     public string PointsHeaderText => GetHeaderText("Points", LeaderboardSortColumn.Points);
 
     public string SummaryText =>
-        $"{_refreshedAt:MMM-dd HH:mm} | {Rows.Count} cards | {_totalTrackedHours:0.00} hrs tracked";
+        $"{TimeDisplayFormatter.FormatLocal(_refreshedAt, "MMM-dd HH:mm")} | {Rows.Count} cards | {_totalTrackedHours:0.00} hrs tracked";
 
     public async Task RefreshAsync()
     {
@@ -140,7 +151,7 @@ public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
 
         try
         {
-            var now = DateTime.Now;
+            var now = LocalNow;
             var start = now.Date;
             var end = start.AddDays(1);
 
@@ -213,33 +224,96 @@ public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
         }
     }
 
-    private static TimeSpan GetClippedActiveTime(
+    private TimeSpan GetClippedActiveTime(
         IActiveCardModel card,
         DateTime start,
         DateTime end,
         DateTime now)
     {
-        if (end <= start) return TimeSpan.Zero;
+        var startUtc = ToUtcInstant(start);
+        var endUtc = ToUtcInstant(end);
+        var nowUtc = ToUtcInstant(now);
 
-        var effectiveEnd = Min(end, now);
-        if (effectiveEnd <= start) return TimeSpan.Zero;
+        if (endUtc <= startUtc) return TimeSpan.Zero;
+
+        var effectiveEndUtc = Min(endUtc, nowUtc);
+        if (effectiveEndUtc <= startUtc) return TimeSpan.Zero;
 
         var totalMinutes = 0d;
 
         foreach (var period in card.Activity)
         {
-            var activityStart = period.StartDate;
-            var activityEnd = period.EndDate ?? effectiveEnd;
-            activityEnd = Min(activityEnd, effectiveEnd);
+            var activityStartUtc = ToUtcInstant(period.StartDate);
+            var activityEndUtc = period.EndDate.HasValue
+                ? ToUtcInstant(period.EndDate.Value)
+                : effectiveEndUtc;
 
-            var overlapStart = Max(activityStart, start);
-            var overlapEnd = Min(activityEnd, end);
+            activityEndUtc = Min(activityEndUtc, effectiveEndUtc);
+
+            var overlapStart = Max(activityStartUtc, startUtc);
+            var overlapEnd = Min(activityEndUtc, endUtc);
 
             if (overlapEnd > overlapStart)
                 totalMinutes += (overlapEnd - overlapStart).TotalMinutes;
         }
 
         return TimeSpan.FromMinutes(totalMinutes);
+    }
+
+    private DateTime LocalNow => ToLocalWallClock(_clock.LocalNow);
+
+    private DateTime ToLocalWallClock(DateTime value)
+    {
+        if (value == DateTime.MinValue || value == DateTime.MaxValue)
+            return DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
+
+        var local = value.Kind == DateTimeKind.Utc
+            ? _timeZoneService.ToLocal(value)
+            : value;
+
+        return DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+    }
+
+    private DateTime ToUtcInstant(DateTime value)
+    {
+        if (value == DateTime.MinValue || value == DateTime.MaxValue)
+            return DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+        return value.Kind == DateTimeKind.Utc
+            ? value
+            : _timeZoneService.ToUtcFromLocal(value);
+    }
+
+    private static IClock ResolveClock(IClock? clock)
+    {
+        if (clock != null)
+            return clock;
+
+        try
+        {
+            var service = ServiceHelper.Services?.GetService(typeof(IClock)) as IClock;
+            return service ?? new SystemClock();
+        }
+        catch
+        {
+            return new SystemClock();
+        }
+    }
+
+    private static ITimeZoneService ResolveTimeZoneService(ITimeZoneService? timeZoneService)
+    {
+        if (timeZoneService != null)
+            return timeZoneService;
+
+        try
+        {
+            var service = ServiceHelper.Services?.GetService(typeof(ITimeZoneService)) as ITimeZoneService;
+            return service ?? new TimeZoneService();
+        }
+        catch
+        {
+            return new TimeZoneService();
+        }
     }
 
     private void SortBy(LeaderboardSortColumn column)

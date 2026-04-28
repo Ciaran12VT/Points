@@ -1,6 +1,8 @@
 using Points.Models;
+using Points.Helpers;
 using Points.Services;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using Points.ViewModels;
 using Points.Views.Shared;
 
@@ -10,21 +12,27 @@ public partial class BudgetTransactionLogPage : ContentPage
 {
     private readonly TaskCompletionSource<List<BudgetTransaction>> _tcs;
     private readonly IDbService _db;
+    private readonly ITimeZoneService _timeZoneService;
 
-    public BudgetTransactionLogPage(List<BudgetTransaction> transactions, TaskCompletionSource<List<BudgetTransaction>> tcs, double exchangeRate, IDbService db)
+    public BudgetTransactionLogPage(List<BudgetTransaction> transactions, TaskCompletionSource<List<BudgetTransaction>> tcs, double exchangeRate, IDbService db, ITimeZoneService? timeZoneService = null)
     {
         InitializeComponent();
 
         _tcs = tcs ?? throw new ArgumentNullException(nameof(tcs));
         _db = db ?? throw new ArgumentNullException(nameof(db));
+        _timeZoneService = timeZoneService ?? ServiceHelper.GetService<ITimeZoneService>();
         if (transactions is null) throw new ArgumentNullException(nameof(transactions));
 
+        var localTransactions = transactions
+            .Select(ToEditorLocalTransaction)
+            .ToList();
+
         BindingContext = new BudgetTransactionLogViewModel(
-            transactions: transactions,
+            transactions: localTransactions,
 
             onSave: edited =>
             {
-                _tcs.TrySetResult(edited);
+                _tcs.TrySetResult(edited.Select(ToUtcTransaction).ToList());
                 _ = Navigation.PopAsync();
             },
 
@@ -62,6 +70,32 @@ public partial class BudgetTransactionLogPage : ContentPage
         );
 
         _ = LoadMetadataSummariesAsync();
+    }
+
+    private BudgetTransaction ToEditorLocalTransaction(BudgetTransaction transaction)
+    {
+        return new BudgetTransaction
+        {
+            Id = transaction.Id,
+            Timestamp = TimeDisplayFormatter.ToLocalInstant(transaction.Timestamp, _timeZoneService),
+            Type = transaction.Type,
+            CurrencyAmount = transaction.CurrencyAmount,
+            GlobalValueAmount = transaction.GlobalValueAmount
+        };
+    }
+
+    private BudgetTransaction ToUtcTransaction(BudgetTransaction transaction)
+    {
+        return new BudgetTransaction
+        {
+            Id = transaction.Id,
+            Timestamp = transaction.Timestamp.Kind == DateTimeKind.Utc
+                ? transaction.Timestamp
+                : _timeZoneService.ToUtcFromLocal(transaction.Timestamp),
+            Type = transaction.Type,
+            CurrencyAmount = transaction.CurrencyAmount,
+            GlobalValueAmount = transaction.GlobalValueAmount
+        };
     }
 
     private async Task LoadMetadataSummariesAsync()

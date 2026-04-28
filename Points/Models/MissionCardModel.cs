@@ -75,21 +75,21 @@ namespace Points.Models
             private set => SetProperty(ref _isComplete, value);
         }
 
-        private DateTime _createdDate = DateTime.Now;
+        private DateTime _createdDate = ActivityTimeMath.UtcNow;
         public DateTime CreatedDate
         {
             get => _createdDate;
             set => SetProperty(ref _createdDate, value);
         }
 
-        private DateTime _availableFromDate = DateTime.Today;
+        private DateTime _availableFromDate = ActivityTimeMath.LocalNow.Date;
         public DateTime AvailableFromDate
         {
             get => _availableFromDate;
             set => SetProperty(ref _availableFromDate, value);
         }
 
-        private DateTime _dueDate = DateTime.Today.AddDays(1);
+        private DateTime _dueDate = ActivityTimeMath.LocalNow.Date.AddDays(1);
         public DateTime DueDate
         {
             get => _dueDate;
@@ -127,7 +127,7 @@ namespace Points.Models
 
         private string GetEventDateText(DateTime value)
         {
-            var now = DateTime.Now;
+            var now = ActivityTimeMath.LocalNow;
             var today = now.Date;
             var tomorrow = today.AddDays(1);
             var time = value.ToString("hh:mmtt").ToLower();
@@ -189,9 +189,9 @@ namespace Points.Models
 
         public Command CompleteCommand { get; }
 
-        public bool IsAvailable => DateTime.Now >= AvailableFromDate;
+        public bool IsAvailable => ActivityTimeMath.LocalNow >= AvailableFromDate;
 
-        public bool IsPending => !IsComplete && DateTime.Now < AvailableFromDate;
+        public bool IsPending => !IsComplete && ActivityTimeMath.LocalNow < AvailableFromDate;
 
         public string SubTypeLabelColor => SubType == MissionSubType.Stable ? "LightBlue" : (SubType == MissionSubType.Degrade ? "DarkOrange" : "DarkRed");
 
@@ -201,7 +201,7 @@ namespace Points.Models
             {
                 if (!IsPending) return string.Empty;
 
-                var now = DateTime.Now;
+                var now = ActivityTimeMath.LocalNow;
 
                 var available = AvailableFromDate;
                 var due = DueDate;
@@ -258,7 +258,7 @@ namespace Points.Models
             Status = "Failed";
 
             IsComplete = true;
-            CompletedDate = failedAt ?? DateTime.Now;
+            CompletedDate = failedAt ?? ActivityTimeMath.UtcNow;
 
             CompleteCommand.ChangeCanExecute();
         }
@@ -278,14 +278,19 @@ namespace Points.Models
 
         public TimeSpan GetActiveTime(DateTime start, DateTime end)
         {
+            start = ActivityTimeMath.ToUtcAssumingLocal(start);
+            end = ActivityTimeMath.ToUtcAssumingLocal(end);
+
             if (end <= start) return TimeSpan.Zero;
 
             double totalMinutes = 0;
 
             foreach (var period in Activity)
             {
-                var aStart = period.StartDate;
-                var aEnd = !period.EndDate.HasValue ? Min(end, DateTime.Now) : period.EndDate.Value;
+                var aStart = ActivityTimeMath.ToUtcAssumingLocal(period.StartDate);
+                var aEnd = !period.EndDate.HasValue
+                    ? Min(end, ActivityTimeMath.UtcNow)
+                    : ActivityTimeMath.ToUtcAssumingLocal(period.EndDate.Value);
 
                 //var overlapStart = aStart > start ? aStart : start;
                 //var overlapEnd = aEnd < end ? aEnd : end;
@@ -334,12 +339,15 @@ namespace Points.Models
             if (IsFailed) return Value * -1;
 
             // Only count up to completion time (if completed), otherwise up to 'end'
-            var effectiveEnd = CompletedDate is DateTime completed ? (completed < end ? completed : end) : end;
+            var completedLocal = CompletedDate is DateTime completed
+                ? ToLocalWallClock(completed)
+                : (DateTime?)null;
+            var effectiveEnd = completedLocal is DateTime completedAt ? (completedAt < end ? completedAt : end) : end;
 
             // Stable / Degrade: one-off at completion moment (if completion within window)
             if (SubType == MissionSubType.Stable || SubType == MissionSubType.Degrade)
             {
-                if (CompletedDate is not DateTime c) return 0;
+                if (completedLocal is not DateTime c) return 0;
                 if (c < start || c > end) return 0;
 
                 return SubType == MissionSubType.Stable
@@ -350,7 +358,7 @@ namespace Points.Models
             // Rot: ongoing penalty once overdue until completion (or end)
             // No penalty before DueDate
             var penaltyStart = Max(start, DueDate);
-            var penaltyEnd = CompletedDate != null ? CompletedDate.Value : DateTime.Now;
+            var penaltyEnd = completedLocal ?? ActivityTimeMath.LocalNow;
 
             if (penaltyEnd <= penaltyStart) return 0;
 
@@ -369,14 +377,19 @@ namespace Points.Models
 
         public virtual double GetValueFromValuePerMinute(DateTime start, DateTime end)
         {
+            start = ActivityTimeMath.ToUtcAssumingLocal(start);
+            end = ActivityTimeMath.ToUtcAssumingLocal(end);
+
             if (end <= start) return 0;
 
             double totalValue = 0;
 
             foreach (var period in Activity)
             {
-                var aStart = period.StartDate;
-                var aEnd = !period.EndDate.HasValue ? Min(end, DateTime.Now) : period.EndDate.Value;
+                var aStart = ActivityTimeMath.ToUtcAssumingLocal(period.StartDate);
+                var aEnd = !period.EndDate.HasValue
+                    ? Min(end, ActivityTimeMath.UtcNow)
+                    : ActivityTimeMath.ToUtcAssumingLocal(period.EndDate.Value);
 
                 var overlapStart = aStart > start ? aStart : start;
                 var overlapEnd = aEnd < end ? aEnd : end;
@@ -398,12 +411,15 @@ namespace Points.Models
         // helpers
         private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
         private static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
+        private static DateTime ToLocalWallClock(DateTime value) => value.Kind == DateTimeKind.Utc
+            ? value.ToLocalTime()
+            : value;
 
         public double GetCurrentValue(DateTime now)
         {
             // Completed → frozen at completion time
             if (IsComplete && CompletedDate is DateTime completed)
-                return GetCompletionValueAt(completed);
+                return GetCompletionValueAt(ToLocalWallClock(completed));
 
             // Not yet available → no value
             if (now < AvailableFromDate)
@@ -419,18 +435,20 @@ namespace Points.Models
 
             IsComplete = true;
             Status = "Complete";
-            CompletedDate = completedAt ?? DateTime.Now;
+            CompletedDate = completedAt ?? ActivityTimeMath.UtcNow;
 
             CompleteCommand.ChangeCanExecute();
         }
 
         public DateTime GetLastActiveTime()
         {
-            if (IsActive) return DateTime.Now;
+            if (IsActive) return ActivityTimeMath.UtcNow;
 
             if (Activity.Count == 0) return DateTime.MinValue;
 
-            return Activity.Select(x => x.EndDate.HasValue ? x.EndDate.Value : DateTime.Now).Max();
+            return Activity
+                .Select(x => x.EndDate.HasValue ? ActivityTimeMath.ToUtcAssumingLocal(x.EndDate.Value) : ActivityTimeMath.UtcNow)
+                .Max();
         }
     }
 }

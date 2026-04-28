@@ -1,4 +1,7 @@
+using Points.Helpers;
 using Points.Models;
+using Points.Services.Scheduling;
+using Points.Services.Time;
 using Points.Views.Shared;
 using System;
 using System.Collections.Generic;
@@ -30,6 +33,7 @@ namespace Points.ViewModels
         public void AddLock()
         {
             var next = Locks.Count == 0 ? 1 : Locks.Max(x => x.Model.LockNumber) + 1;
+            var today = WallClockScheduleTime.NormalizeLocal(ServiceHelper.GetService<IClock>().LocalNow).Date;
 
             var model = new LockModel
             {
@@ -45,8 +49,8 @@ namespace Points.ViewModels
                 {
                     FrequencyType = FrequencyType.Once,
                     FrequencyValue = 0,
-                    FromDateTime = DateTime.Today,
-                    ToDateTime = DateTime.Today
+                    FromDateTime = today,
+                    ToDateTime = today
                 }
             },
                 Dependencies = new List<LockTaskDependencyModel>()

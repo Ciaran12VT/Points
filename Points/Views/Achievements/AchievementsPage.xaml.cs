@@ -1,3 +1,5 @@
+using Points.Helpers;
+using Points.Services.Time;
 using Points.ViewModels;
 
 namespace Points.Views.Achievements;
@@ -17,6 +19,6 @@ After:
 	{
 		InitializeComponent();
 
-        BindingContext = new AchievementsViewModel(availableTagsList, _db);
+        BindingContext = new AchievementsViewModel(availableTagsList, _db, ServiceHelper.GetService<IClock>());
     }
 }

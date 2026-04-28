@@ -1,6 +1,8 @@
 using System.Globalization;
+using Points.Helpers;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 
 namespace Points.Views.Details;
 
@@ -30,12 +32,14 @@ public partial class EventTrackerDetailsPage : ContentPage
         _onCancelled = onCancelled;
         _db = db;
 
+        var clock = ServiceHelper.GetService<IClock>();
+
         // Defaults
         if (_model.CreatedDate == default)
-            _model.CreatedDate = DateTime.Today;
+            _model.CreatedDate = clock.LocalNow.Date;
 
         if (_model.RangeStart == default)
-            _model.RangeStart = DateTime.Today;
+            _model.RangeStart = clock.LocalNow.Date;
 
         StartDate = _model.RangeStart;
 
@@ -155,7 +159,7 @@ public partial class EventTrackerDetailsPage : ContentPage
 
             MetadataHistoryStack.Children.Add(new Label
             {
-                Text = $"{value.Timestamp:MMM-dd HH:mm}: {FormatMetadata(metadata)}",
+                Text = $"{FormatTimestamp(value.Timestamp)}: {FormatMetadata(metadata)}",
                 FontSize = 13,
                 Opacity = 0.8
             });
@@ -170,6 +174,11 @@ public partial class EventTrackerDetailsPage : ContentPage
     {
         return string.Join("  |  ", metadata.Select(x =>
             $"{x.FieldName}: {UdmdValueFormatter.ToDisplayString(x)}"));
+    }
+
+    private static string FormatTimestamp(DateTime timestamp)
+    {
+        return TimeDisplayFormatter.FormatInstant(timestamp, "MMM-dd HH:mm");
     }
 
     private static List<DateTime> ParseEventTimes(string? text)

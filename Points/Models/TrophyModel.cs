@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Points.Services.Time;
 
 namespace Points.Models
 {
@@ -19,7 +20,7 @@ namespace Points.Models
         // e.g. "trophy.png" (add it to Resources/Images)
         public string ImageSource { get; set; } = "trophy.png";
 
-        public string EarnedOnText => EarnedOn.ToString("yyyy-MM-dd");
+        public string EarnedOnText => TimeDisplayFormatter.FormatInstant(EarnedOn, "yyyy-MM-dd");
     }
 }
 

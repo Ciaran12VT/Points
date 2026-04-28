@@ -1,5 +1,7 @@
 using Points.Models;
+using Points.Helpers;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using Points.ViewModels;
 
 namespace Points.Views.Details;
@@ -19,7 +21,13 @@ public partial class MissionDetailsPage : ContentPage
         IDbService db)
     {
         InitializeComponent();
-        BindingContext = new MissionDetailsViewModel(model, onSaved, onDelete, onFail, availableTagsList);
+        BindingContext = new MissionDetailsViewModel(
+            model,
+            onSaved,
+            onDelete,
+            onFail,
+            availableTagsList,
+            ServiceHelper.GetService<ITimeZoneService>());
         _allTags = availableTagsList;
         _model = model;
         _db = db;
@@ -173,7 +181,18 @@ public partial class MissionDetailsPage : ContentPage
         try
         {
             var edited = await tcs.Task;   // user hit Save
-            _model.Activity = edited;      // store it wherever you keep it
+
+            if (_model.CardID > 0)
+            {
+                var result = await _db.UpsertActivitiesAsync(edited, _model.CardID);
+                if (!result.Success)
+                {
+                    await DisplayAlert("Active time not saved", result.Message, "OK");
+                    return;
+                }
+            }
+
+            _model.Activity = edited;
         }
         catch (TaskCanceledException)
         {

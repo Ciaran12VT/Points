@@ -1,6 +1,8 @@
 using Points.Global;
 using Points.Models;
+using Points.Services.Scheduling;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -17,7 +19,8 @@ namespace Points.ViewModels
         public List<string> PeriodOptions { get; } = new() { "Daily", "Weekly", "Monthly" };
 
         private string _selectedPeriod = "Daily";
-        private IDbService _db;
+        private readonly IDbService _db;
+        private readonly IClock _clock;
 
         public string SelectedPeriod
         {
@@ -26,7 +29,7 @@ namespace Points.ViewModels
             {
                 if (_selectedPeriod == value) return;
                 _selectedPeriod = value;
-                RaisePropertyChanged(SelectedPeriod); // if using INotifyPropertyChanged
+                RaisePropertyChanged(nameof(SelectedPeriod));
 
                 // Optional: trigger recalculation logic here
                 _ = ReloadAsync();
@@ -39,9 +42,10 @@ namespace Points.ViewModels
 
         public Task? Initialization { get; private set; }
 
-        public GoalCreationViewModel(IDbService db)
+        public GoalCreationViewModel(IDbService db, IClock? clock = null)
         {
             _db = db;
+            _clock = clock ?? new SystemClock();
 
             SaveCommand = new Command(async () => await SaveAsync());
 
@@ -59,28 +63,28 @@ namespace Points.ViewModels
 
         private async Task LoadAsync()
         {
-            if(Enum.TryParse(typeof(TimeScope), _selectedPeriod, true, out object tscope))
+            if(Enum.TryParse<TimeScope>(_selectedPeriod, true, out var tscope))
             {
-                var range = new TimeScopeRange((TimeScope)tscope, DateTime.Now);
+                var now = LocalNow;
 
                 List<DateTime> startDates = new()
                 {
-                    new TimeScopeRange(TimeScope.Daily, DateTime.Now).Start,
-                    new TimeScopeRange(TimeScope.Weekly, DateTime.Now).Start,
-                    new TimeScopeRange(TimeScope.Monthly, DateTime.Now).Start
+                    new TimeScopeRange(TimeScope.Daily, now).Start,
+                    new TimeScopeRange(TimeScope.Weekly, now).Start,
+                    new TimeScopeRange(TimeScope.Monthly, now).Start
                 };
                 List<DateTime> endDates = new()
                 {
-                    new TimeScopeRange(TimeScope.Daily, DateTime.Now).End,
-                    new TimeScopeRange(TimeScope.Weekly, DateTime.Now).End,
-                    new TimeScopeRange(TimeScope.Monthly, DateTime.Now).End
+                    new TimeScopeRange(TimeScope.Daily, now).End,
+                    new TimeScopeRange(TimeScope.Weekly, now).End,
+                    new TimeScopeRange(TimeScope.Monthly, now).End
                 };
 
                 if (_cards == null) _cards = await _db.GetMainQuestModelsDataAsync(startDates.Min(), endDates.Max());
 
                 if (_goalModels == null) _goalModels = await _db.GetGoalModelsDataAsync();
 
-                var goalModels = _goalModels.Where(x => x.TimeScope == (TimeScope)tscope).ToList();
+                var goalModels = _goalModels.Where(x => x.TimeScope == tscope).ToList();
 
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
@@ -89,7 +93,7 @@ namespace Points.ViewModels
                     {
                         var goalModel = goalModels.Any(x => x.CardId == card.CardID) ? goalModels.First(x => x.CardId == card.CardID) : new GoalDetailsModel() { CardId = card.CardID };
 
-                        var row = new GoalProgressRowVm(card, goalModel);
+                        var row = new GoalProgressRowVm(card, goalModel, () => _clock.LocalNow);
                         row.EnableCheckbox = true;
                         row.IsChecked = goalModel.Enabled;
                         rowVms.Add(row);
@@ -111,9 +115,9 @@ namespace Points.ViewModels
             {
                 if(row.TotalValue > 0)
                 {
-                    if(Enum.TryParse(typeof(TimeScope), _selectedPeriod, true, out object tscope))
+                    if(Enum.TryParse<TimeScope>(_selectedPeriod, true, out var tscope))
                     {
-                        row.GoalDetailsModel.TimeScope = (TimeScope)tscope;
+                        row.GoalDetailsModel.TimeScope = tscope;
                     }
                     row.GoalDetailsModel.DeFactoStart = row.UseDeFactoTimes ? row.DeFactoStartTime : null;
                     row.GoalDetailsModel.DeFactoEnd = row.UseDeFactoTimes ? row.DeFactoEndTime : null;
@@ -132,6 +136,8 @@ namespace Points.ViewModels
 
             await Shell.Current.Navigation.PopAsync();
         }
+
+        private DateTime LocalNow => WallClockScheduleTime.NormalizeLocal(_clock.LocalNow);
     }
 
 
@@ -186,7 +192,7 @@ namespace Points.ViewModels
             set 
             { 
                 _deFactoStartTime = value;
-                ExpectedValue = GetTotalExpectedByNowHoursSpent(GoalDetailsModel.GoalHrs, GoalDetailsModel.TimeScope, DateTime.Now);
+                ExpectedValue = GetTotalExpectedByNowHoursSpent(GoalDetailsModel.GoalHrs, GoalDetailsModel.TimeScope, LocalNow);
                 RaisePropertyChanged(nameof(DeFactoStartTime));
                 RaisePropertyChanged(nameof(DeFactoStartTimeSpan)); 
             } 
@@ -199,7 +205,7 @@ namespace Points.ViewModels
             set 
             { 
                 _deFactoEndTime = value;
-                ExpectedValue = GetTotalExpectedByNowHoursSpent(GoalDetailsModel.GoalHrs, GoalDetailsModel.TimeScope, DateTime.Now);
+                ExpectedValue = GetTotalExpectedByNowHoursSpent(GoalDetailsModel.GoalHrs, GoalDetailsModel.TimeScope, LocalNow);
                 RaisePropertyChanged(nameof(DeFactoEndTime));
                 RaisePropertyChanged(nameof(DeFactoEndTimeSpan)); 
             } 
@@ -212,7 +218,7 @@ namespace Points.ViewModels
             set 
             { 
                 _useDeFactoTimes = value;
-                ExpectedValue = GetTotalExpectedByNowHoursSpent(GoalDetailsModel.GoalHrs, GoalDetailsModel.TimeScope, DateTime.Now);
+                ExpectedValue = GetTotalExpectedByNowHoursSpent(GoalDetailsModel.GoalHrs, GoalDetailsModel.TimeScope, LocalNow);
                 RaisePropertyChanged(nameof(UseDeFactoTimes));            
             } 
         }
@@ -240,8 +246,17 @@ namespace Points.ViewModels
 
         public string Tags { get; set; }
 
-        public GoalProgressRowVm(IActiveCardModel card, GoalDetailsModel goalDetailsModel)
+        private readonly Func<DateTime> _localNowProvider;
+
+        private DateTime LocalNow => WallClockScheduleTime.NormalizeLocal(_localNowProvider());
+
+        public GoalProgressRowVm(
+            IActiveCardModel card,
+            GoalDetailsModel goalDetailsModel,
+            Func<DateTime>? localNowProvider = null)
         {
+            _localNowProvider = localNowProvider ?? (() => ActivityTimeMath.LocalNow);
+
             Id = card.Id;
             CardID = card.CardID;
             this.Title = card.Title;
@@ -256,8 +271,9 @@ namespace Points.ViewModels
 
             if(card is ScCardModel sc)
             {
-                var currentValue = GetTotalCurrentValueEarned(sc, goalDetailsModel, DateTime.Now);
-                var expectedByNowValue = GetTotalExpectedByNowHoursSpent(goalDetailsModel.GoalHrs, goalDetailsModel.TimeScope, DateTime.Now);
+                var now = LocalNow;
+                var currentValue = GetTotalCurrentValueEarned(sc, goalDetailsModel, now);
+                var expectedByNowValue = GetTotalExpectedByNowHoursSpent(goalDetailsModel.GoalHrs, goalDetailsModel.TimeScope, now);
 
                 LeftText = card.Title;
                 RightTopText = goalDetailsModel.GoalHrs + "pts";
@@ -272,10 +288,11 @@ namespace Points.ViewModels
             }
             else if(card is TatCardModel tat)
             {
+                var now = LocalNow;
                 var pts = GetTotalGoalPoints(card, goalDetailsModel.GoalHrs);
-                var pcTotalTime = GetPercentOfTotalTime(goalDetailsModel.GoalHrs, goalDetailsModel, DateTime.Now);
-                var currentHrs = GetTotalCurrentHoursSpent(card, goalDetailsModel, DateTime.Now);
-                var expectedByNowHrs = GetTotalExpectedByNowHoursSpent(goalDetailsModel.GoalHrs, goalDetailsModel.TimeScope, DateTime.Now);
+                var pcTotalTime = GetPercentOfTotalTime(goalDetailsModel.GoalHrs, goalDetailsModel, now);
+                var currentHrs = GetTotalCurrentHoursSpent(card, goalDetailsModel, now);
+                var expectedByNowHrs = GetTotalExpectedByNowHoursSpent(goalDetailsModel.GoalHrs, goalDetailsModel.TimeScope, now);
 
                 LeftText = card.Title;
                 RightTopText = Math.Round(pts, 1) + "pts";
@@ -336,64 +353,6 @@ namespace Points.ViewModels
         public double GetValue(DateTime start, DateTime end)
         {
             return 0;
-        }
-    }
-
-    public enum TimeScope
-    {
-        Daily, Weekly, Monthly
-    }
-
-    public class TimeScopeRange
-    {
-        public DateTime Start { get; set; }
-        public DateTime End { get; set; }
-
-        public TimeScopeRange(TimeScope timeScope, DateTime now)
-        {
-            switch (timeScope)
-            {
-                case TimeScope.Daily:
-                    Start = now.Date;
-                    End = now.Date.AddDays(1).AddSeconds(-1);
-                    break;
-                case TimeScope.Weekly:
-                    {
-                        // ISO 8601: Monday = first day of week
-                        int diff = (7 + (now.DayOfWeek - DayOfWeek.Monday)) % 7;
-                        Start = now.Date.AddDays(-diff);
-                        End = Start.AddDays(7).AddSeconds(-1);
-                        break;
-                    }
-
-                case TimeScope.Monthly:
-                    {
-                        Start = new DateTime(now.Year, now.Month, 1);
-                        End = Start.AddMonths(1).AddSeconds(-1);
-                        break;
-                    }
-                default:
-                    break;
-            }
-        }
-
-        public double GetPercentageComplete(DateTime atTime)
-        {
-            if (atTime > End) return 100;
-
-            if (atTime < Start) return 0;
-
-            var total = (End - Start).TotalMilliseconds;
-            if (total <= 0) return 100d; // degenerate range; treat as complete
-
-            var elapsed = (atTime - Start).TotalMilliseconds;
-
-            var pct = (elapsed / total) * 100d;
-
-            // Defensive clamp for rounding/clock drift
-            if (pct < 0d) return 0d;
-            if (pct > 100d) return 100d;
-            return pct;
         }
     }
 }

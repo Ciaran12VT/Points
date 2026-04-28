@@ -34,7 +34,14 @@ namespace Points.Models
         public List<DateTime> Reps = new List<DateTime>();
         public int Count(DateTime start, DateTime end)
         {
-            return Reps.Count(x => x >= start && x <= end);
+            var startUtc = ActivityTimeMath.ToUtcAssumingLocal(start);
+            var endUtc = ActivityTimeMath.ToUtcAssumingLocal(end);
+
+            return Reps.Count(x =>
+            {
+                var repUtc = ActivityTimeMath.ToUtcAssumingLocal(x);
+                return repUtc >= startUtc && repUtc <= endUtc;
+            });
         }
 
         // This exists purely to trigger UI updates for converters.
@@ -52,7 +59,7 @@ namespace Points.Models
         {
             IncrementCommand = new Command(() =>
             {
-                Reps.Add(DateTime.Now);
+                Reps.Add(ActivityTimeMath.UtcNow);
                 RepsVersion++;
             });
 

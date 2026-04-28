@@ -119,7 +119,18 @@ public partial class TatDetailsPage : ContentPage
         try
         {
             var edited = await tcs.Task;   // user hit Save
-            _model.Activity = edited;      // store it wherever you keep it
+
+            if (_model.CardID > 0)
+            {
+                var result = await _db.UpsertActivitiesAsync(edited, _model.CardID);
+                if (!result.Success)
+                {
+                    await DisplayAlert("Active time not saved", result.Message, "OK");
+                    return;
+                }
+            }
+
+            _model.Activity = edited;
         }
         catch (TaskCanceledException)
         {

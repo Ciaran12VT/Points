@@ -1,6 +1,8 @@
 using Microsoft.Maui.Graphics.Text;
+using Points.Helpers;
 using Points.Models;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Time;
 using Points.ViewModels;
 using Points.Views.Shared;
 
@@ -11,24 +13,29 @@ public partial class EditActiveTimePage : ContentPage
     // Returns edited activities to the caller
     private readonly TaskCompletionSource<List<ActivityModel>> _tcs;
     private readonly IDbService _db;
+    private readonly ITimeZoneService _timeZoneService;
 
-    public EditActiveTimePage(List<ActivityModel> activity, TaskCompletionSource<List<ActivityModel>> tcs, IDbService db)
+    public EditActiveTimePage(List<ActivityModel> activity, TaskCompletionSource<List<ActivityModel>> tcs, IDbService db, ITimeZoneService? timeZoneService = null)
     {
         InitializeComponent();
 
         _tcs = tcs ?? throw new ArgumentNullException(nameof(tcs));
         _db = db ?? throw new ArgumentNullException(nameof(db));
+        _timeZoneService = timeZoneService ?? ResolveTimeZoneService();
 
         if (activity is null)
             throw new ArgumentNullException(nameof(activity));
 
+        var localActivity = activity
+            .Select(ToEditorLocalActivity)
+            .ToList();
+
         BindingContext = new EditActiveTimeViewModel(
-            activity: activity,
+            activity: localActivity,
 
             onSave: edited =>
             {
-                // NOTE: persistence is handled by the caller for now (per your existing pattern).
-                _tcs.TrySetResult(edited);
+                _tcs.TrySetResult(edited.Select(ToUtcActivity).ToList());
                 _ = Navigation.PopAsync();
             },
 
@@ -42,6 +49,54 @@ public partial class EditActiveTimePage : ContentPage
         );
 
         _ = LoadMetadataSummariesAsync();
+    }
+
+    private static ITimeZoneService ResolveTimeZoneService()
+    {
+        try
+        {
+            var service = ServiceHelper.GetService<ITimeZoneService>();
+            if (service != null)
+                return service;
+        }
+        catch
+        {
+        }
+
+        return new TimeZoneService();
+    }
+
+    private ActivityModel ToEditorLocalActivity(ActivityModel model)
+    {
+        return new ActivityModel
+        {
+            Id = model.Id,
+            CardID = model.CardID,
+            StartDate = ToEditorLocalDateTime(model.StartDate),
+            EndDate = model.EndDate.HasValue ? ToEditorLocalDateTime(model.EndDate.Value) : null,
+            RateName = model.RateName,
+            ValuePerMinute = model.ValuePerMinute
+        };
+    }
+
+    private ActivityModel ToUtcActivity(ActivityModel model)
+    {
+        return new ActivityModel
+        {
+            Id = model.Id,
+            CardID = model.CardID,
+            StartDate = _timeZoneService.ToUtcFromLocal(model.StartDate),
+            EndDate = model.EndDate.HasValue ? _timeZoneService.ToUtcFromLocal(model.EndDate.Value) : null,
+            RateName = model.RateName,
+            ValuePerMinute = model.ValuePerMinute
+        };
+    }
+
+    private DateTime ToEditorLocalDateTime(DateTime value)
+    {
+        return value.Kind == DateTimeKind.Utc
+            ? _timeZoneService.ToLocal(value)
+            : StrictTimeSerializer.RequireWallClockDateTime(value);
     }
 
     private async Task LoadMetadataSummariesAsync()
@@ -106,10 +161,15 @@ public partial class EditActiveTimePage : ContentPage
                 var candidateStart = boundary == ActiveBoundary.Start ? chosen : row.Start;
                 var candidateEnd = boundary == ActiveBoundary.End ? chosen : row.End;
 
+                var candidateStartUtc = _timeZoneService.ToUtcFromLocal(candidateStart);
+                var candidateEndUtc = candidateEnd.HasValue
+                    ? _timeZoneService.ToUtcFromLocal(candidateEnd.Value)
+                    : (DateTime?)null;
+
                 var overlaps = await _db.HasActivityOverlapAsync(
                     excludeActivityId: row.Id,
-                    candidateStart: candidateStart,
-                    candidateEnd: candidateEnd);
+                    candidateStart: candidateStartUtc,
+                    candidateEnd: candidateEndUtc);
 
                 return overlaps
                     ? "Overlaps another activity block."
