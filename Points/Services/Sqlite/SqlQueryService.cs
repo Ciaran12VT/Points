@@ -324,6 +324,42 @@ namespace Points.Services.Sqlite
                 );
 
                 -- =========================
+                -- Planner
+                -- =========================
+                CREATE TABLE IF NOT EXISTS Planner (
+                    PlannerID   INTEGER PRIMARY KEY,
+                    PlannerDate TEXT    NOT NULL, -- yyyy-MM-dd local date
+                    CreatedAt   TEXT    NOT NULL,
+                    UpdatedAt   TEXT    NOT NULL,
+                    UNIQUE (PlannerDate)
+                );
+
+                CREATE TABLE IF NOT EXISTS PlannerTask (
+                    PlannerTaskID INTEGER PRIMARY KEY,
+                    PlannerID     INTEGER NOT NULL,
+                    CardID        INTEGER NOT NULL,
+                    CardKind      TEXT    NOT NULL,
+                    PlannedStart  TEXT    NOT NULL,
+                    PlannedEnd    TEXT    NOT NULL,
+                    FOREIGN KEY (PlannerID) REFERENCES Planner(PlannerID) ON DELETE CASCADE,
+                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE,
+                    CHECK (PlannedStart < PlannedEnd)
+                );
+
+                CREATE TABLE IF NOT EXISTS PlannerEvent (
+                    PlannerEventID INTEGER PRIMARY KEY,
+                    PlannerID      INTEGER NOT NULL,
+                    EventKind      TEXT    NOT NULL,
+                    CardID         INTEGER NOT NULL,
+                    ScCardStepID   INTEGER NULL,
+                    PlannedTime    TEXT    NOT NULL,
+                    PlannedCount   INTEGER NOT NULL DEFAULT 1,
+                    FOREIGN KEY (PlannerID) REFERENCES Planner(PlannerID) ON DELETE CASCADE,
+                    FOREIGN KEY (CardID) REFERENCES Card(CardID) ON DELETE CASCADE,
+                    FOREIGN KEY (ScCardStepID) REFERENCES ScCardStep(ScCardStepID) ON DELETE SET NULL
+                );
+
+                -- =========================
                 -- Locks
                 -- =========================
                 CREATE TABLE IF NOT EXISTS Lock (
@@ -461,6 +497,15 @@ namespace Points.Services.Sqlite
 
                 CREATE INDEX IF NOT EXISTS IX_Goal_CardID       ON Goal(CardID);
                 CREATE INDEX IF NOT EXISTS IX_Goal_Enabled ON Goal(Enabled);
+
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_Planner_Date ON Planner(PlannerDate);
+                CREATE INDEX IF NOT EXISTS IX_PlannerTask_PlannerID ON PlannerTask(PlannerID);
+                CREATE INDEX IF NOT EXISTS IX_PlannerTask_CardID ON PlannerTask(CardID);
+                CREATE INDEX IF NOT EXISTS IX_PlannerTask_StartEnd ON PlannerTask(PlannedStart, PlannedEnd);
+                CREATE INDEX IF NOT EXISTS IX_PlannerEvent_PlannerID ON PlannerEvent(PlannerID);
+                CREATE INDEX IF NOT EXISTS IX_PlannerEvent_CardID ON PlannerEvent(CardID);
+                CREATE INDEX IF NOT EXISTS IX_PlannerEvent_ScCardStepID ON PlannerEvent(ScCardStepID);
+                CREATE INDEX IF NOT EXISTS IX_PlannerEvent_PlannedTime ON PlannerEvent(PlannedTime);
 
                 -- Lookup locks by card
                 CREATE INDEX IF NOT EXISTS IX_Lock_CardId ON Lock(CardId);

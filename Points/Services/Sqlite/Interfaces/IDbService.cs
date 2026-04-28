@@ -16,6 +16,7 @@ namespace Points.Services.Sqlite.Interfaces
         IShortcutService,
         IReportService,
         INotificationLogService,
+        IPlannerService,
         IUdmdService
     {
         #region Initialization / Lifecycle

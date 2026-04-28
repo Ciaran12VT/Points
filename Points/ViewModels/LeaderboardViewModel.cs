@@ -9,7 +9,7 @@ using Points.Services.Sqlite.Interfaces;
 
 namespace Points.ViewModels;
 
-public sealed class LeaderboardViewModel : INotifyPropertyChanged
+public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
 {
     private readonly IDbService _db;
     private List<LeaderboardRowModel> _allRows = new();
@@ -52,12 +52,18 @@ public sealed class LeaderboardViewModel : INotifyPropertyChanged
         _db = db;
 
         SelectLeaderboardTabCommand = new Command(() => IsLeaderboardSelected = true);
-        SelectPlannerTabCommand = new Command(() => IsLeaderboardSelected = false);
+        SelectPlannerTabCommand = new Command(async () =>
+        {
+            IsLeaderboardSelected = false;
+            await LoadPlannerAsync();
+        });
 
         SortByHoursCommand = new Command(() => SortBy(LeaderboardSortColumn.TotalHours));
         SortByPercentOfTrackedCommand = new Command(() => SortBy(LeaderboardSortColumn.PercentOfTrackedTime));
         SortByPercentOfDayCommand = new Command(() => SortBy(LeaderboardSortColumn.PercentOfDay));
         SortByPointsCommand = new Command(() => SortBy(LeaderboardSortColumn.Points));
+
+        InitializePlannerCommands();
     }
 
     public bool IsBusy

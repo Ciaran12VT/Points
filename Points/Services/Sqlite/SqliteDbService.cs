@@ -3095,6 +3095,235 @@ namespace Points.Services.Sqlite
 
         #endregion
 
+        #region Planner
+
+        public async Task<PlannerDayData> GetPlannerDayDataAsync(DateTime plannerDate)
+        {
+            await InitializeAsync();
+
+            var start = plannerDate.Date;
+            var end = start.AddDays(1);
+
+            var planner = await GetPlannerForDateAsync(start);
+            var mainQuest = await GetMainQuestModelsDataAsync(start, end);
+
+            var startIso = start.ToString("o", CultureInfo.InvariantCulture);
+            var endIso = end.ToString("o", CultureInfo.InvariantCulture);
+
+            var missions = await GetMissionCardModelsDataAsync($@"
+                m.CompletedDate IS NULL
+                OR (m.CompletedDate >= '{startIso}' AND m.CompletedDate < '{endIso}')
+                OR (m.AvailableFromDate < '{endIso}' AND m.DueDate >= '{startIso}')
+            ");
+
+            return new PlannerDayData
+            {
+                Planner = planner,
+                TaskCards = mainQuest.Concat(missions.Cast<IActiveCardModel>()).ToList(),
+                ScCards = mainQuest.OfType<ScCardModel>().ToList(),
+                MissionCards = missions
+            };
+        }
+
+        public async Task SavePlannerAsync(PlannerModel planner)
+        {
+            await InitializeAsync();
+
+            if (planner == null)
+                throw new ArgumentNullException(nameof(planner));
+
+            ValidatePlannerTasks(planner.Tasks);
+
+            var plannerDate = planner.PlannerDate.Date;
+            var dateKey = ToPlannerDateKey(plannerDate);
+            var nowIso = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+            var plannerId = planner.PlannerId;
+
+            await Db.RunInTransactionAsync(tran =>
+            {
+                var existing = tran.Query<PlannerIdRow>(
+                    "SELECT PlannerID FROM Planner WHERE PlannerDate = ? LIMIT 1;",
+                    dateKey).FirstOrDefault();
+
+                if (existing == null)
+                {
+                    tran.Execute(
+                        "INSERT INTO Planner (PlannerDate, CreatedAt, UpdatedAt) VALUES (?, ?, ?);",
+                        dateKey,
+                        nowIso,
+                        nowIso);
+
+                    plannerId = tran.ExecuteScalar<long>("SELECT last_insert_rowid();");
+                }
+                else
+                {
+                    plannerId = existing.PlannerID;
+                    tran.Execute(
+                        "UPDATE Planner SET UpdatedAt = ? WHERE PlannerID = ?;",
+                        nowIso,
+                        plannerId);
+                }
+
+                tran.Execute("DELETE FROM PlannerTask WHERE PlannerID = ?;", plannerId);
+                tran.Execute("DELETE FROM PlannerEvent WHERE PlannerID = ?;", plannerId);
+
+                foreach (var task in planner.Tasks.OrderBy(t => t.PlannedStart))
+                {
+                    tran.Execute(@"
+                        INSERT INTO PlannerTask
+                            (PlannerID, CardID, CardKind, PlannedStart, PlannedEnd)
+                        VALUES (?, ?, ?, ?, ?);
+                    ",
+                    plannerId,
+                    task.CardId,
+                    task.CardKind.ToString(),
+                    task.PlannedStart.ToString("o", CultureInfo.InvariantCulture),
+                    task.PlannedEnd.ToString("o", CultureInfo.InvariantCulture));
+                }
+
+                foreach (var ev in planner.Events.OrderBy(e => e.PlannedTime))
+                {
+                    tran.Execute(@"
+                        INSERT INTO PlannerEvent
+                            (PlannerID, EventKind, CardID, ScCardStepID, PlannedTime, PlannedCount)
+                        VALUES (?, ?, ?, ?, ?, ?);
+                    ",
+                    plannerId,
+                    ev.EventKind.ToString(),
+                    ev.CardId,
+                    ev.ScCardStepId,
+                    ev.PlannedTime.ToString("o", CultureInfo.InvariantCulture),
+                    Math.Max(1, ev.PlannedCount));
+                }
+            });
+
+            planner.PlannerId = plannerId;
+            foreach (var task in planner.Tasks)
+                task.PlannerId = plannerId;
+            foreach (var ev in planner.Events)
+                ev.PlannerId = plannerId;
+        }
+
+        private async Task<PlannerModel?> GetPlannerForDateAsync(DateTime plannerDate)
+        {
+            var dateKey = ToPlannerDateKey(plannerDate.Date);
+
+            var row = (await Db.QueryAsync<PlannerRow>(
+                "SELECT PlannerID, PlannerDate FROM Planner WHERE PlannerDate = ? LIMIT 1;",
+                dateKey)).FirstOrDefault();
+
+            if (row == null)
+                return null;
+
+            var planner = new PlannerModel
+            {
+                PlannerId = row.PlannerID,
+                PlannerDate = DateTime.ParseExact(row.PlannerDate, "yyyy-MM-dd", CultureInfo.InvariantCulture)
+            };
+
+            var tasks = await Db.QueryAsync<PlannerTaskRow>(@"
+                SELECT PlannerTaskID, PlannerID, CardID, CardKind, PlannedStart, PlannedEnd
+                FROM PlannerTask
+                WHERE PlannerID = ?
+                ORDER BY PlannedStart;
+            ", row.PlannerID);
+
+            foreach (var task in tasks)
+            {
+                if (!Enum.TryParse<PlannerTaskCardKind>(task.CardKind, true, out var kind))
+                    kind = PlannerTaskCardKind.TatCard;
+
+                planner.Tasks.Add(new PlannerTaskModel
+                {
+                    PlannerTaskId = task.PlannerTaskID,
+                    PlannerId = task.PlannerID,
+                    CardId = task.CardID,
+                    CardKind = kind,
+                    PlannedStart = ParseIsoDateTime(task.PlannedStart),
+                    PlannedEnd = ParseIsoDateTime(task.PlannedEnd)
+                });
+            }
+
+            var events = await Db.QueryAsync<PlannerEventRow>(@"
+                SELECT PlannerEventID, PlannerID, EventKind, CardID, ScCardStepID, PlannedTime, PlannedCount
+                FROM PlannerEvent
+                WHERE PlannerID = ?
+                ORDER BY PlannedTime;
+            ", row.PlannerID);
+
+            foreach (var ev in events)
+            {
+                if (!Enum.TryParse<PlannerEventKind>(ev.EventKind, true, out var kind))
+                    kind = PlannerEventKind.ScStepRep;
+
+                planner.Events.Add(new PlannerEventModel
+                {
+                    PlannerEventId = ev.PlannerEventID,
+                    PlannerId = ev.PlannerID,
+                    EventKind = kind,
+                    CardId = ev.CardID,
+                    ScCardStepId = ev.ScCardStepID,
+                    PlannedTime = ParseIsoDateTime(ev.PlannedTime),
+                    PlannedCount = Math.Max(1, ev.PlannedCount)
+                });
+            }
+
+            return planner;
+        }
+
+        private static string ToPlannerDateKey(DateTime plannerDate) =>
+            plannerDate.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        private static void ValidatePlannerTasks(IEnumerable<PlannerTaskModel> tasks)
+        {
+            var ordered = tasks
+                .OrderBy(t => t.PlannedStart)
+                .ToList();
+
+            for (var i = 0; i < ordered.Count; i++)
+            {
+                if (ordered[i].PlannedEnd <= ordered[i].PlannedStart)
+                    throw new InvalidOperationException("Planner task end time must be after start time.");
+
+                if (i > 0 && ordered[i].PlannedStart < ordered[i - 1].PlannedEnd)
+                    throw new InvalidOperationException("Planner task blocks cannot overlap.");
+            }
+        }
+
+        private sealed class PlannerIdRow
+        {
+            public long PlannerID { get; set; }
+        }
+
+        private sealed class PlannerRow
+        {
+            public long PlannerID { get; set; }
+            public string PlannerDate { get; set; } = "";
+        }
+
+        private sealed class PlannerTaskRow
+        {
+            public long PlannerTaskID { get; set; }
+            public long PlannerID { get; set; }
+            public long CardID { get; set; }
+            public string CardKind { get; set; } = "";
+            public string PlannedStart { get; set; } = "";
+            public string PlannedEnd { get; set; } = "";
+        }
+
+        private sealed class PlannerEventRow
+        {
+            public long PlannerEventID { get; set; }
+            public long PlannerID { get; set; }
+            public string EventKind { get; set; } = "";
+            public long CardID { get; set; }
+            public int? ScCardStepID { get; set; }
+            public string PlannedTime { get; set; } = "";
+            public int PlannedCount { get; set; }
+        }
+
+        #endregion
+
         #region Common Classes and Methods
 
         public async Task<string?> GetCardTitleByIdAsync(long cardId)
