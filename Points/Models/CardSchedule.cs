@@ -18,7 +18,7 @@ namespace Points.Models
         public DateTime? ToDateTime { get; set; }
 
         public bool IsEnabled { get; set; } = true;
-        public string Note { get; set; } = "";
+        public string? Note { get; set; } = "";
 
         public CardSchedule Clone() =>
             new()

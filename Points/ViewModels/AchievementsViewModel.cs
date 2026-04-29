@@ -1,6 +1,7 @@
 using Points.Global;
 using Points.Helpers;
 using Points.Models;
+using Points.Services.Diagnostics;
 using Points.Services.Sqlite.Interfaces;
 using Points.Services.Time;
 using System;
@@ -147,7 +148,7 @@ namespace Points.ViewModels
         {
             var achievements = await _db.GetAchievementCardModelsDataAsync();
 
-            await MainThread.InvokeOnMainThreadAsync(() =>
+            await MainThread.InvokeOnMainThreadAsync(async () =>
             {
                 var regularAchievements = achievements.Where(x => x.TargetType != AchievementTargetType.Achievements).ToList();
                 var metaAchievements = achievements.Where(x => x.TargetType == AchievementTargetType.Achievements).ToList();
@@ -155,9 +156,11 @@ namespace Points.ViewModels
                 var achievementsPage = Pages.First(p => p.Name == "Achievements");
                 var metaAchievementsPage = Pages.First(p => p.Name == "Meta-Achievements");
 
-                foreach (var c in regularAchievements) CommitCardToPage(achievementsPage, c, true);
+                foreach (var c in regularAchievements)
+                    await CommitCardToPage(achievementsPage, c, true);
 
-                foreach (var c in metaAchievements) CommitCardToPage(metaAchievementsPage, c, true);
+                foreach (var c in metaAchievements)
+                    await CommitCardToPage(metaAchievementsPage, c, true);
 
             });
         }
@@ -273,7 +276,7 @@ namespace Points.ViewModels
             if (!noDb)
             {
                 await CommitCardToDb(card);
-                _ = RefreshSingleDeadlineAchievementAsync(card);
+                RefreshSingleDeadlineAchievementAsync(card).Forget("Refresh saved deadline achievement");
             }
         }
 
@@ -292,7 +295,7 @@ namespace Points.ViewModels
 
             Directory.Delete(AppPaths.GetAchievementTrophiesPath(deleted.Id));
 
-            _db.DeleteAchievementCardModelAsync(deleted);
+            _db.DeleteAchievementCardModelAsync(deleted).Forget("Delete achievement card");
         }
 
         public void RemoveCardFromPage(AchievementsPageModel page, AchievementCardModel card)

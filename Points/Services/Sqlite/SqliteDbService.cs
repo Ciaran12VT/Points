@@ -4,14 +4,17 @@ using Points.Global;
 using Points.Models;
 using Points.Models.DbModels;
 using Points.Services;
+using Points.Services.Reports;
 using Points.Services.Scheduling;
 using Points.Services.Sqlite.Interfaces;
+using Points.Services.Sqlite.Queries;
 using Points.Services.Time;
 using SQLite;
 using SQLitePCL;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -23,7 +26,7 @@ using System.Threading.Tasks;
 
 namespace Points.Services.Sqlite
 {
-    public class SqliteDbService : IDbService
+    public class SqliteDbService : IDbService, ISqliteConnectionContext
     {
 
         #region Initialisation
@@ -33,6 +36,7 @@ namespace Points.Services.Sqlite
         private readonly IClock _clock;
 
         private SQLiteAsyncConnection? _db;
+        public string DatabasePath => _dbPath;
         public SQLiteAsyncConnection Db => _db ?? throw new InvalidOperationException("DB not initialized.");
 
         public SqliteDbService()
@@ -97,6 +101,20 @@ namespace Points.Services.Sqlite
             {
                 _initSemaphore.Release();
             }
+        }
+
+        public async Task RunInTransactionAsync(Action<SQLiteConnection> action)
+        {
+            if (action == null)
+                throw new ArgumentNullException(nameof(action));
+
+            await InitializeAsync();
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                conn.Execute("PRAGMA foreign_keys = ON;");
+                action(conn);
+            });
         }
 
         #endregion
@@ -1506,25 +1524,7 @@ namespace Points.Services.Sqlite
         public async Task<TatCardModel> GetTatModelDataAsync(int id)
         {
             // 1) Fetch TatCard + base Card
-            const string sql = @"
-                SELECT
-                    t.TatCardID      AS TatCardID,
-                    t.CardID         AS CardID,
-
-                    c.Title          AS Title,
-                    c.Tags           AS Tags,
-
-                    t.ValuePerMinute AS ValuePerMinute,
-                    t.Status         AS Status,
-                    t.Description    AS Description,
-                    t.TargetActiveTimeSeconds AS TargetActiveTimeSeconds,
-                FROM TatCard t
-                JOIN Card c ON c.CardID = t.CardID
-                WHERE t.TatCardID = ?
-                LIMIT 1;
-            ";
-
-            var row = (await Db.QueryAsync<TatCardJoinedRow>(sql, id)).FirstOrDefault();
+            var row = (await Db.QueryAsync<TatCardJoinedRow>(TatSql.GetTatModelDataById, id)).FirstOrDefault();
             if (row == null) throw new KeyNotFoundException($"TatCard not found. TatCardID={id}");
 
             var model = new TatCardModel
@@ -5161,17 +5161,13 @@ namespace Points.Services.Sqlite
             if (string.IsNullOrWhiteSpace(sql))
                 return Array.Empty<string>();
 
-            var trimmed = sql.TrimStart();
-            if (!trimmed.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase) &&
-                !trimmed.StartsWith("WITH", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("Only SELECT statements are allowed.");
-            }
+            var guardedSql = ReportSqlGuard.ValidateSelectStatement(sql);
 
             return await Task.Run(() =>
             {
                 sqlite3? db = null;
                 sqlite3_stmt? stmt = null;
+                var stopwatch = Stopwatch.StartNew();
 
                 try
                 {
@@ -5184,9 +5180,12 @@ namespace Points.Services.Sqlite
                     if (rc != raw.SQLITE_OK || db == null)
                         throw new InvalidOperationException($"Failed to open SQLite database. rc={rc}");
 
-                    rc = raw.sqlite3_prepare_v2(db, sql, out stmt);
+                    rc = raw.sqlite3_prepare_v2(db, guardedSql, out stmt);
                     if (rc != raw.SQLITE_OK || stmt == null)
                         throw new InvalidOperationException($"sqlite3_prepare_v2 failed. rc={rc}. {raw.sqlite3_errmsg(db).utf8_to_string()}");
+
+                    if (raw.sqlite3_stmt_readonly(stmt) == 0)
+                        throw new InvalidOperationException("Only read-only report statements are allowed.");
 
                     // Bind params (?, ?, ?)
                     if (args is { Length: > 0 })
@@ -5211,10 +5210,19 @@ namespace Points.Services.Sqlite
 
                     while (true)
                     {
+                        if (stopwatch.Elapsed > ReportSqlGuard.DefaultTimeout)
+                            throw new TimeoutException($"Report execution exceeded {ReportSqlGuard.DefaultTimeout.TotalSeconds:0.#} seconds.");
+
                         rc = raw.sqlite3_step(stmt);
 
                         if (rc == raw.SQLITE_ROW)
                         {
+                            if (results.Count - (includeHeaderRow ? 1 : 0) >= ReportSqlGuard.DefaultMaxRows)
+                            {
+                                results.Add($"(results truncated at {ReportSqlGuard.DefaultMaxRows} rows)");
+                                break;
+                            }
+
                             var row = new string[colCount];
                             for (int c = 0; c < colCount; c++)
                                 row[c] = ReadColumnAsText(stmt, c);

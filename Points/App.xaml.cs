@@ -11,7 +11,9 @@ namespace Points
             MainPage = shell;
 
             // Kick off init (don’t block UI thread).
-            _ = db.InitializeAsync();
+            Points.Services.Diagnostics.TaskSupervisor.Forget(
+                db.InitializeAsync(),
+                "Database initialization");
         }
     }
 }

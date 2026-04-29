@@ -1,5 +1,6 @@
 ﻿
 using Points.Evaluators;
+using Points.Services.Activity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -278,30 +279,7 @@ namespace Points.Models
 
         public TimeSpan GetActiveTime(DateTime start, DateTime end)
         {
-            start = ActivityTimeMath.ToUtcAssumingLocal(start);
-            end = ActivityTimeMath.ToUtcAssumingLocal(end);
-
-            if (end <= start) return TimeSpan.Zero;
-
-            double totalMinutes = 0;
-
-            foreach (var period in Activity)
-            {
-                var aStart = ActivityTimeMath.ToUtcAssumingLocal(period.StartDate);
-                var aEnd = !period.EndDate.HasValue
-                    ? Min(end, ActivityTimeMath.UtcNow)
-                    : ActivityTimeMath.ToUtcAssumingLocal(period.EndDate.Value);
-
-                //var overlapStart = aStart > start ? aStart : start;
-                //var overlapEnd = aEnd < end ? aEnd : end;
-
-                //if (overlapEnd > overlapStart)
-                //    totalMinutes += (overlapEnd - overlapStart).TotalMinutes;
-
-                totalMinutes += (aEnd - aStart).TotalMinutes;
-            }
-
-            return TimeSpan.FromMinutes(totalMinutes);
+            return ActivityIntervalCalculator.GetActiveTimeInRange(Activity, start, end, ActivityTimeMath.UtcNow);
         }
 
         private double GetCompletionValueAt(DateTime t)

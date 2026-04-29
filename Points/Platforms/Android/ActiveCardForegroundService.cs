@@ -11,6 +11,7 @@ using Java.Sql;
 using am = Android.Media;
 using System.Threading;
 using Points.Helpers;
+using Points.Services.Diagnostics;
 using Points.Services.Sqlite.Interfaces;
 using Points.Services.Time;
 
@@ -45,6 +46,7 @@ namespace Points.Platforms.Android
         private IActiveCardModel? _activeCard;
         private DateTime _startDate;
         private System.Threading.CancellationTokenSource? _cts;
+        private Task? _timerTask;
 
         //Shared Preferences Meta-data
         const string PrefsName = "points_service_prefs";
@@ -70,6 +72,8 @@ namespace Points.Platforms.Android
         public override void OnDestroy()
         {
             _cts?.Cancel();
+            _timerTask?.Forget("Active card foreground timer shutdown");
+            _timerTask = null;
             _cts = null;
             base.OnDestroy();
         }
@@ -112,7 +116,8 @@ namespace Points.Platforms.Android
                             if (_cts == null)
                             {
                                 _cts = new CancellationTokenSource();
-                                StartTimer(_cts.Token);
+                                _timerTask = RunTimerAsync(_cts.Token);
+                                _timerTask.Forget("Active card foreground timer");
                             }
 
                             var intentSessionId = intent?.GetStringExtra(ExtraSessionId);
@@ -169,7 +174,7 @@ namespace Points.Platforms.Android
                 return;
             }
 
-            _ = Task.Run(async () =>
+            Task.Run(async () =>
             {
                 try
                 {
@@ -188,7 +193,7 @@ namespace Points.Platforms.Android
                 {
                     Interlocked.Exchange(ref _achievementRefreshInProgress, 0);
                 }
-            });
+            }).Forget("Achievement refresh");
         }
 
 
@@ -201,7 +206,7 @@ namespace Points.Platforms.Android
         #endregion
 
         //Timer tick logic is in here
-        private async void StartTimer(CancellationToken token)
+        private async Task RunTimerAsync(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
@@ -242,7 +247,8 @@ namespace Points.Platforms.Android
 
                                 if(earnedAchievements != null && earnedAchievements.Count > 0)
                                 {
-                                    _ = PersistEarnedAchievementsAsync(earnedAchievements);
+                                    PersistEarnedAchievementsAsync(earnedAchievements)
+                                        .Forget("Persist earned achievements");
 
                                     ShowAchievementEarnedNotification(earnedAchievements);
                                 }
@@ -250,9 +256,9 @@ namespace Points.Platforms.Android
                         }                      
                     }
                 }
-                catch
+                catch (Exception ex) when (!token.IsCancellationRequested)
                 {
-                    // swallow tick errors to avoid service crash
+                    System.Diagnostics.Debug.WriteLine($"Active card foreground timer tick failed: {ex}");
                 }
 
                 try

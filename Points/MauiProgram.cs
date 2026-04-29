@@ -49,7 +49,9 @@ namespace Points
             builder.Services.AddTransient<HomePage>();      // <-- add this
             builder.Services.AddTransient<HomeViewModel>();
             builder.Services.AddSingleton<AppShell>();      // <-- add this
-            builder.Services.AddSingleton<IDbService, SqliteDbService>();
+            builder.Services.AddSingleton<SqliteDbService>();
+            builder.Services.AddSingleton<IDbService>(sp => sp.GetRequiredService<SqliteDbService>());
+            builder.Services.AddSingleton<ISqliteConnectionContext>(sp => sp.GetRequiredService<SqliteDbService>());
 
             var app = builder.Build();
 

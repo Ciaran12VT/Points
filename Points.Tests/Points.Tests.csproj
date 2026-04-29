@@ -21,6 +21,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Points\Models\ActivityModel.cs" Link="App\Models\ActivityModel.cs" />
+    <Compile Include="..\Points\Models\ActivityTimeMath.cs" Link="App\Models\ActivityTimeMath.cs" />
+    <Compile Include="..\Points\Services\Activity\ActivityIntervalCalculator.cs" Link="App\Activity\ActivityIntervalCalculator.cs" />
+    <Compile Include="..\Points\Services\Activity\CardRecencyCalculator.cs" Link="App\Activity\CardRecencyCalculator.cs" />
+    <Compile Include="..\Points\Services\Reports\ReportSqlGuard.cs" Link="App\Reports\ReportSqlGuard.cs" />
+    <Compile Include="..\Points\Services\Sqlite\Queries\TatSql.cs" Link="App\Sqlite\Queries\TatSql.cs" />
     <Compile Include="..\Points\Services\Time\*.cs" Link="App\Time\%(Filename)%(Extension)" />
     <Compile Include="..\Points\Services\Scheduling\WallClockScheduleTime.cs" Link="App\Scheduling\WallClockScheduleTime.cs" />
   </ItemGroup>
