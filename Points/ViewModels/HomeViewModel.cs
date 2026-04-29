@@ -30,6 +30,7 @@ namespace Points.ViewModels
 
         private readonly IActiveCardNotificationService _activeCardNotificationService;
         private IDbService _db;
+        private readonly IReportService _reports;
         private readonly INotificationScheduleCoordinator _scheduleCoordinator;
         private readonly ITimeZoneService _timeZoneService;
         private readonly IClock _clock;
@@ -361,10 +362,11 @@ namespace Points.ViewModels
 
         #endregion
 
-        public HomeViewModel(IDbService db, IActiveCardNotificationService activeCardNotificationService, INotificationScheduleCoordinator scheduleCoordinator, ITimeZoneService timeZoneService, IClock clock)
+        public HomeViewModel(IDbService db, IReportService reports, IActiveCardNotificationService activeCardNotificationService, INotificationScheduleCoordinator scheduleCoordinator, ITimeZoneService timeZoneService, IClock clock)
         {
             _activeCardNotificationService = activeCardNotificationService;
             _db = db;
+            _reports = reports;
             _scheduleCoordinator = scheduleCoordinator;
             _timeZoneService = timeZoneService;
             _clock = clock;
@@ -2005,7 +2007,7 @@ namespace Points.ViewModels
 
         private async Task OpenReportsAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Reports.ReportPage(_db));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Reports.ReportPage(_reports));
         }
 
         private async Task OpenLeaderboardAsync()

@@ -13,6 +13,8 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
+    <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -23,9 +25,14 @@
   <ItemGroup>
     <Compile Include="..\Points\Models\ActivityModel.cs" Link="App\Models\ActivityModel.cs" />
     <Compile Include="..\Points\Models\ActivityTimeMath.cs" Link="App\Models\ActivityTimeMath.cs" />
+    <Compile Include="..\Points\Models\ReportModel.cs" Link="App\Models\ReportModel.cs" />
     <Compile Include="..\Points\Services\Activity\ActivityIntervalCalculator.cs" Link="App\Activity\ActivityIntervalCalculator.cs" />
     <Compile Include="..\Points\Services\Activity\CardRecencyCalculator.cs" Link="App\Activity\CardRecencyCalculator.cs" />
     <Compile Include="..\Points\Services\Reports\ReportSqlGuard.cs" Link="App\Reports\ReportSqlGuard.cs" />
+    <Compile Include="..\Points\Services\Reports\SqliteReportService.cs" Link="App\Reports\SqliteReportService.cs" />
+    <Compile Include="..\Points\Services\Sqlite\Interfaces\IDatabaseInitializationService.cs" Link="App\Sqlite\Interfaces\IDatabaseInitializationService.cs" />
+    <Compile Include="..\Points\Services\Sqlite\Interfaces\IReportService.cs" Link="App\Sqlite\Interfaces\IReportService.cs" />
+    <Compile Include="..\Points\Services\Sqlite\Interfaces\ISqliteConnectionContext.cs" Link="App\Sqlite\Interfaces\ISqliteConnectionContext.cs" />
     <Compile Include="..\Points\Services\Sqlite\Queries\TatSql.cs" Link="App\Sqlite\Queries\TatSql.cs" />
     <Compile Include="..\Points\Services\Time\*.cs" Link="App\Time\%(Filename)%(Extension)" />
     <Compile Include="..\Points\Services\Scheduling\WallClockScheduleTime.cs" Link="App\Scheduling\WallClockScheduleTime.cs" />

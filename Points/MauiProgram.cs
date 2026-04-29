@@ -4,6 +4,7 @@ using Points.Helpers;
 using Points.Interfaces;
 using Points.Models;
 using Points.Services;
+using Points.Services.Reports;
 using Points.Services.Scheduling;
 using Points.Services.Sqlite;
 using Points.Services.Sqlite.Interfaces;
@@ -52,6 +53,7 @@ namespace Points
             builder.Services.AddSingleton<SqliteDbService>();
             builder.Services.AddSingleton<IDbService>(sp => sp.GetRequiredService<SqliteDbService>());
             builder.Services.AddSingleton<ISqliteConnectionContext>(sp => sp.GetRequiredService<SqliteDbService>());
+            builder.Services.AddSingleton<IReportService, SqliteReportService>();
 
             var app = builder.Build();
 

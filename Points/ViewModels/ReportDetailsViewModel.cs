@@ -28,7 +28,7 @@ namespace Points.ViewModels
         [ObservableProperty]
         private string sqlText = "";
 
-        private readonly IDbService _db;
+        private readonly IReportService _reports;
         private readonly IClock _clock;
 
         // Each string = "col1|col2|..."
@@ -43,12 +43,12 @@ namespace Points.ViewModels
         // 🔹 Fire this when the results set is ready
         public event Action? ResultsUpdated;
 
-        public ReportDetailsViewModel(ReportModel report, IDbService db, IClock clock, Func<ReportModel, Task>? onSaved = null, Func<ReportModel, Task>? onDeleted = null)
+        public ReportDetailsViewModel(ReportModel report, IReportService reports, IClock clock, Func<ReportModel, Task>? onSaved = null, Func<ReportModel, Task>? onDeleted = null)
         {
             Report = report;
             TitleText = report.Title;
             SqlText = report.SQLQuery;
-            _db = db;
+            _reports = reports;
             _clock = clock;
 
 
@@ -71,8 +71,7 @@ namespace Points.ViewModels
                 Report.SQLQuery = SqlText;
                 Report.LastRunOn = _clock.UtcNow;
 
-                // DB persistence (to implement later)
-                await _db.UpsertReportAsync(Report);
+                await _reports.UpsertReportAsync(Report);
 
                 // Notify parent list (for resorting/requery/etc.)
                 await _onSaved(Report);
@@ -96,8 +95,7 @@ namespace Points.ViewModels
 
             try
             {
-                // DB delete (to implement later)
-                await _db.DeleteReportAsync(Report.Id);
+                await _reports.DeleteReportAsync(Report.Id);
 
                 // Update parent list
                 await _onDeleted(Report);
@@ -127,7 +125,7 @@ namespace Points.ViewModels
                 Results.Clear();
                 ResultsMessage = "Executing...";
 
-                var results = await _db.ExecuteSelectForReportAsync(SqlText);
+                var results = await _reports.ExecuteSelectForReportAsync(SqlText);
 
                 foreach (var result in results)
                 {

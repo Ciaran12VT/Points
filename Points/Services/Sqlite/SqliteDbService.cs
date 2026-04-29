@@ -5146,108 +5146,15 @@ namespace Points.Services.Sqlite
 
         #region Reports
 
-        // -------------------------
-        // Reports / Ad-hoc SQL
-        // -------------------------
+        private IReportService? _reportService;
+        private IReportService ReportService => _reportService ??= new SqliteReportService(this, _timeZoneService);
 
-        /// <summary>
-        /// Executes an arbitrary SELECT (or WITH...SELECT) and returns the result set as display lines
-        /// suitable for the ReportDetailsPage Results CollectionView (1 string per row).
-        /// </summary>
-        public async Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(string sql, bool includeHeaderRow = true, params object?[] args)
+        public Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(
+            string sql,
+            bool includeHeaderRow = true,
+            params object?[] args)
         {
-            await InitializeAsync();
-
-            if (string.IsNullOrWhiteSpace(sql))
-                return Array.Empty<string>();
-
-            var guardedSql = ReportSqlGuard.ValidateSelectStatement(sql);
-
-            return await Task.Run(() =>
-            {
-                sqlite3? db = null;
-                sqlite3_stmt? stmt = null;
-                var stopwatch = Stopwatch.StartNew();
-
-                try
-                {
-                    var rc = raw.sqlite3_open_v2(
-                        _dbPath,
-                        out db,
-                        raw.SQLITE_OPEN_READONLY,
-                        null);
-
-                    if (rc != raw.SQLITE_OK || db == null)
-                        throw new InvalidOperationException($"Failed to open SQLite database. rc={rc}");
-
-                    rc = raw.sqlite3_prepare_v2(db, guardedSql, out stmt);
-                    if (rc != raw.SQLITE_OK || stmt == null)
-                        throw new InvalidOperationException($"sqlite3_prepare_v2 failed. rc={rc}. {raw.sqlite3_errmsg(db).utf8_to_string()}");
-
-                    if (raw.sqlite3_stmt_readonly(stmt) == 0)
-                        throw new InvalidOperationException("Only read-only report statements are allowed.");
-
-                    // Bind params (?, ?, ?)
-                    if (args is { Length: > 0 })
-                    {
-                        for (int i = 0; i < args.Length; i++)
-                            BindParameter(stmt, i + 1, args[i]);
-                    }
-
-                    var results = new List<string>();
-                    int colCount = raw.sqlite3_column_count(stmt);
-
-                    if (includeHeaderRow && colCount > 0)
-                    {
-                        var headers = new string[colCount];
-                        for (int c = 0; c < colCount; c++)
-                        {
-                            var name = raw.sqlite3_column_name(stmt, c).utf8_to_string();
-                            headers[c] = string.IsNullOrEmpty(name) ? $"Col{c + 1}" : name;
-                        }
-                        results.Add(string.Join(" | ", headers));
-                    }
-
-                    while (true)
-                    {
-                        if (stopwatch.Elapsed > ReportSqlGuard.DefaultTimeout)
-                            throw new TimeoutException($"Report execution exceeded {ReportSqlGuard.DefaultTimeout.TotalSeconds:0.#} seconds.");
-
-                        rc = raw.sqlite3_step(stmt);
-
-                        if (rc == raw.SQLITE_ROW)
-                        {
-                            if (results.Count - (includeHeaderRow ? 1 : 0) >= ReportSqlGuard.DefaultMaxRows)
-                            {
-                                results.Add($"(results truncated at {ReportSqlGuard.DefaultMaxRows} rows)");
-                                break;
-                            }
-
-                            var row = new string[colCount];
-                            for (int c = 0; c < colCount; c++)
-                                row[c] = ReadColumnAsText(stmt, c);
-
-                            results.Add(string.Join(" | ", row));
-                            continue;
-                        }
-
-                        if (rc == raw.SQLITE_DONE)
-                            break;
-
-                        throw new InvalidOperationException($"sqlite3_step failed. rc={rc}. {raw.sqlite3_errmsg(db).utf8_to_string()}");
-                    }
-
-                    if (results.Count == 0)
-                        results.Add("(no rows)");
-
-                    return (IReadOnlyList<string>)results;
-                }
-                finally
-                {
-                    if (stmt != null) raw.sqlite3_finalize(stmt);
-                    if (db != null) raw.sqlite3_close(db);
-                }
-            });
+            return ReportService.ExecuteSelectForReportAsync(sql, includeHeaderRow, args);
         }
 
 
@@ -5367,64 +5274,6 @@ namespace Points.Services.Sqlite
                         : LegacyTimeReader.ReadLocalDateTime(row.ToDateTime!).LocalDateTime,
                 };
             }
-        }
-
-        #endregion
-
-        #region Common Methods
-
-        private static void BindParameter(sqlite3_stmt stmt, int index, object? value)
-        {
-            if (value == null)
-            {
-                raw.sqlite3_bind_null(stmt, index);
-                return;
-            }
-
-            switch (value)
-            {
-                case string s:
-                    raw.sqlite3_bind_text(stmt, index, s);
-                    return;
-
-                case bool b:
-                    raw.sqlite3_bind_int(stmt, index, b ? 1 : 0);
-                    return;
-
-                case byte or short or int or long:
-                    raw.sqlite3_bind_int64(stmt, index, Convert.ToInt64(value, CultureInfo.InvariantCulture));
-                    return;
-
-                case float or double or decimal:
-                    raw.sqlite3_bind_double(stmt, index, Convert.ToDouble(value, CultureInfo.InvariantCulture));
-                    return;
-
-                case DateTime dt:
-                    raw.sqlite3_bind_text(stmt, index, dt.ToString("o"));
-                    return;
-
-                default:
-                    raw.sqlite3_bind_text(stmt, index, value.ToString() ?? "");
-                    return;
-            }
-        }
-
-        private static string ReadColumnAsText(sqlite3_stmt stmt, int colIndex)
-        {
-            var t = raw.sqlite3_column_type(stmt, colIndex);
-
-            return t switch
-            {
-                raw.SQLITE_NULL => "NULL",
-                raw.SQLITE_INTEGER => raw.sqlite3_column_int64(stmt, colIndex).ToString(CultureInfo.InvariantCulture),
-                raw.SQLITE_FLOAT => raw.sqlite3_column_double(stmt, colIndex).ToString(CultureInfo.InvariantCulture),
-
-                // NOTE: column_text may also be utf8z depending on package version; this works reliably:
-                raw.SQLITE_TEXT => raw.sqlite3_column_text(stmt, colIndex).utf8_to_string() ?? "",
-
-                raw.SQLITE_BLOB => $"[BLOB {raw.sqlite3_column_bytes(stmt, colIndex)} bytes]",
-                _ => ""
-            };
         }
 
         #endregion
@@ -6573,127 +6422,19 @@ namespace Points.Services.Sqlite
 
         #region Reports Implementation
 
-        private static string? ToDbDateTime(DateTime? dt)  => dt?.ToString("o"); // ISO 8601 round-trip
-
-        private static DateTime? FromDbDateTime(string? s) => string.IsNullOrWhiteSpace(s) ? null : DateTime.Parse(s, null, System.Globalization.DateTimeStyles.RoundtripKind);
-
-
-        public async Task UpsertReportAsync(ReportModel report)
+        public Task UpsertReportAsync(ReportModel report)
         {
-            await InitializeAsync();
-
-            if (report == null) throw new ArgumentNullException(nameof(report));
-            if (string.IsNullOrWhiteSpace(report.Title))
-                throw new ArgumentException("Report.Title is required.", nameof(report));
-
-            await Db.RunInTransactionAsync(conn =>
-            {
-                var lastRunOn = ToDbDateTime(report.LastRunOn);
-                var eligible = report.EligibleForAchievment ? 1 : 0;
-                var sql = report.SQLQuery ?? string.Empty;
-
-                if (report.Id > 0)
-                {
-                    const string updateSql = @"
-                    UPDATE Report
-                    SET Title = ?,
-                        SQLQuery = ?,
-                        LastRunOn = ?,
-                        EligibleForAchievment = ?
-                    WHERE Id = ?;";
-
-                    conn.Execute(updateSql, report.Title, sql, lastRunOn, eligible, report.Id);
-                    return;
-                }
-
-                // Insert or update-by-title (requires UX_Report_Title)
-                const string upsertByTitleSql = @"
-                    INSERT INTO Report (Title, SQLQuery, LastRunOn, EligibleForAchievment)
-                    VALUES (?, ?, ?, ?)
-                    ON CONFLICT(Title) DO UPDATE SET
-                        SQLQuery = excluded.SQLQuery,
-                        LastRunOn = excluded.LastRunOn,
-                        EligibleForAchievment = excluded.EligibleForAchievment;";
-
-                conn.Execute(upsertByTitleSql, report.Title, sql, lastRunOn, eligible);
-
-                // Ensure report.Id is set:
-                // If it was an insert, last_insert_rowid() works.
-                // If it was an update (conflict), last_insert_rowid() may not change, so fetch by Title.
-                var idRow = conn.Query<IdRow>(
-                    "SELECT Id FROM Report WHERE Title = ? LIMIT 1;",
-                    report.Title).FirstOrDefault();
-
-                if (idRow != null)
-                    report.Id = idRow.Id;
-            });
+            return ReportService.UpsertReportAsync(report);
         }
 
-        private sealed class IdRow
+        public Task DeleteReportAsync(int reportId)
         {
-            public int Id { get; set; }
+            return ReportService.DeleteReportAsync(reportId);
         }
 
-        public async Task DeleteReportAsync(int reportId)
+        public Task<IReadOnlyList<ReportModel>> GetReportsAsync()
         {
-            await InitializeAsync();
-
-            await Db.RunInTransactionAsync(conn =>
-            {
-                conn.Execute("DELETE FROM Report WHERE Id = ?;", reportId);
-            });
-        }
-
-
-        private sealed class ReportRow
-        {
-            public int Id { get; set; }
-            public string Title { get; set; } = "";
-            public string SQLQuery { get; set; } = "";
-            public string? LastRunOn { get; set; }
-            public int EligibleForAchievment { get; set; }
-        }
-
-        private static ReportModel MapReportRow(ReportRow row)
-        {
-            return new ReportModel
-            {
-                Id = row.Id,
-                Title = row.Title,
-                SQLQuery = row.SQLQuery,
-                LastRunOn = string.IsNullOrWhiteSpace(row.LastRunOn)
-                    ? null
-                    : DateTime.Parse(row.LastRunOn, null, System.Globalization.DateTimeStyles.RoundtripKind),
-                EligibleForAchievment = row.EligibleForAchievment == 1
-            };
-        }
-
-        public async Task<IReadOnlyList<ReportModel>> GetReportsAsync()
-        {
-            await InitializeAsync();
-
-            const string sql = @"
-                SELECT
-                    r.Id                    AS Id,
-                    r.Title                 AS Title,
-                    r.SQLQuery              AS SQLQuery,
-                    r.LastRunOn             AS LastRunOn,
-                    r.EligibleForAchievment AS EligibleForAchievment
-                FROM Report r
-                ORDER BY r.Title;";
-
-            var rows = await Db.QueryAsync<ReportRow>(sql);
-
-            return rows.Select(r => new ReportModel
-            {
-                Id = r.Id,
-                Title = r.Title,
-                SQLQuery = r.SQLQuery,
-                LastRunOn = string.IsNullOrWhiteSpace(r.LastRunOn)
-                    ? null
-                    : DateTime.Parse(r.LastRunOn, null, System.Globalization.DateTimeStyles.RoundtripKind),
-                EligibleForAchievment = r.EligibleForAchievment == 1
-            }).ToList();
+            return ReportService.GetReportsAsync();
         }
 
         #endregion

@@ -14,7 +14,6 @@ namespace Points.Services.Sqlite.Interfaces
         ILockService,
         IGoalService,
         IShortcutService,
-        IReportService,
         INotificationLogService,
         IPlannerService,
         IUdmdService
@@ -98,16 +97,6 @@ namespace Points.Services.Sqlite.Interfaces
         Task<ShortcutGroupModel> UpsertShortcutGroupAsync(ShortcutGroupModel group);
         Task<ShortcutModel> SaveShortcutAsync(ShortcutModel shortcut);
         Task DeleteShortcutAsync(long shortcutId);
-
-        #endregion
-
-        #region Reports
-
-        Task<IReadOnlyList<string>> ExecuteSelectForReportAsync(string sql, bool includeHeaderRow = true, params object?[] args);
-
-        Task UpsertReportAsync(ReportModel report);
-        Task DeleteReportAsync(int reportId);
-        Task<IReadOnlyList<ReportModel>> GetReportsAsync();
 
         #endregion
 

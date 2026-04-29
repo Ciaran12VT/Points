@@ -10,7 +10,7 @@ namespace Points.ViewModels
 {
     public sealed partial class ReportsViewModel : Models.ObservableObject
     {
-        private IDbService _db;
+        private readonly IReportService _reports;
         private readonly IClock _clock;
 
         public ObservableCollection<ReportsPageModel> Pages { get; } = new();
@@ -19,9 +19,9 @@ namespace Points.ViewModels
 
         public Task? Initialization { get; private set; }
 
-        public ReportsViewModel(IDbService db, IClock? clock = null)
+        public ReportsViewModel(IReportService reports, IClock? clock = null)
         {
-            _db = db;
+            _reports = reports;
             _clock = clock ?? ServiceHelper.GetService<IClock>();
 
             // Create empty page immediately so UI binds safely
@@ -41,7 +41,7 @@ namespace Points.ViewModels
         {
             var page = Pages.First();
 
-            var reports = await _db.GetReportsAsync();
+            var reports = await _reports.GetReportsAsync();
 
             page.Cards.Clear();
 
@@ -60,7 +60,7 @@ namespace Points.ViewModels
 
             var vm = new ReportDetailsViewModel(
                 report,
-                _db,
+                _reports,
                 _clock,
                 onSaved: r =>
                 {
