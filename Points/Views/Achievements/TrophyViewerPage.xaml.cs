@@ -6,13 +6,13 @@ namespace Points.Views.Achievements;
 
 public partial class TrophyViewerPage : ContentPage
 {
-    private readonly IDbService _db;
+    private readonly IAchievementService _achievements;
     private readonly TrophyModel _trophy;
 
-    public TrophyViewerPage(TrophyModel trophy, IDbService db)
+    public TrophyViewerPage(TrophyModel trophy, IAchievementService achievements)
 	{
 		InitializeComponent();
-        _db = db;
+        _achievements = achievements;
         _trophy = trophy;
         BindingContext = trophy;
     }
@@ -74,7 +74,7 @@ public partial class TrophyViewerPage : ContentPage
             return;
 
         // 1) Delete from DB
-        await _db.DeleteAchievementTrophyAsync(_trophy.Id);
+        await _achievements.DeleteAchievementTrophyAsync(_trophy.Id);
 
         // 3) Close modal
         await Shell.Current.Navigation.PopModalAsync();

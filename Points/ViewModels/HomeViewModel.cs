@@ -29,8 +29,23 @@ namespace Points.ViewModels
         public event PropertyChangedEventHandler? PropertyChanged;
 
         private readonly IActiveCardNotificationService _activeCardNotificationService;
-        private IDbService _db;
+        private readonly ICardReadService _cardReader;
+        private readonly ICardWriteService _cardWriter;
+        private readonly IDatabaseMaintenanceService _databaseMaintenance;
+        private readonly IDatabaseInitializationService _databaseLifecycle;
         private readonly IReportService _reports;
+        private readonly IShortcutService _shortcuts;
+        private readonly IGoalService _goals;
+        private readonly ILockService _locks;
+        private readonly IActivityService _activity;
+        private readonly IAchievementService _achievements;
+        private readonly IBudgetService _budgets;
+        private readonly ITrackerService _trackers;
+        private readonly ITatCardService _tats;
+        private readonly INotificationLogService _notificationLogs;
+        private readonly ISettingsService _settings;
+        private readonly IUdmdService _udmd;
+        private readonly IPlannerService _planner;
         private readonly INotificationScheduleCoordinator _scheduleCoordinator;
         private readonly ITimeZoneService _timeZoneService;
         private readonly IClock _clock;
@@ -362,11 +377,47 @@ namespace Points.ViewModels
 
         #endregion
 
-        public HomeViewModel(IDbService db, IReportService reports, IActiveCardNotificationService activeCardNotificationService, INotificationScheduleCoordinator scheduleCoordinator, ITimeZoneService timeZoneService, IClock clock)
+        public HomeViewModel(
+            ICardReadService cardReader,
+            ICardWriteService cardWriter,
+            IDatabaseMaintenanceService databaseMaintenance,
+            IDatabaseInitializationService databaseLifecycle,
+            IReportService reports,
+            IShortcutService shortcuts,
+            IGoalService goals,
+            ILockService locks,
+            IActivityService activity,
+            IAchievementService achievements,
+            IBudgetService budgets,
+            ITrackerService trackers,
+            ITatCardService tats,
+            INotificationLogService notificationLogs,
+            ISettingsService settings,
+            IUdmdService udmd,
+            IPlannerService planner,
+            IActiveCardNotificationService activeCardNotificationService,
+            INotificationScheduleCoordinator scheduleCoordinator,
+            ITimeZoneService timeZoneService,
+            IClock clock)
         {
             _activeCardNotificationService = activeCardNotificationService;
-            _db = db;
+            _cardReader = cardReader;
+            _cardWriter = cardWriter;
+            _databaseMaintenance = databaseMaintenance;
+            _databaseLifecycle = databaseLifecycle;
             _reports = reports;
+            _shortcuts = shortcuts;
+            _goals = goals;
+            _locks = locks;
+            _activity = activity;
+            _achievements = achievements;
+            _budgets = budgets;
+            _trackers = trackers;
+            _tats = tats;
+            _notificationLogs = notificationLogs;
+            _settings = settings;
+            _udmd = udmd;
+            _planner = planner;
             _scheduleCoordinator = scheduleCoordinator;
             _timeZoneService = timeZoneService;
             _clock = clock;
@@ -452,7 +503,7 @@ namespace Points.ViewModels
                 };
 
                 valueCard.Values.Add(trackerValue);
-                await _db.SaveCardModelAsync(valueCard);
+                await SaveTrackerCardAsync(valueCard);
                 await SaveTrackerMetadataIfNeededAsync(valueCard.CardID, trackerValue.Id, metadata);
             }
             else if (card is EventTrackerCardModel eventCard)
@@ -468,7 +519,7 @@ namespace Points.ViewModels
                 };
 
                 eventCard.Values.Add(trackerValue);
-                await _db.SaveCardModelAsync(eventCard);
+                await SaveTrackerCardAsync(eventCard);
                 await SaveTrackerMetadataIfNeededAsync(eventCard.CardID, trackerValue.Id, metadata);
             }
         }
@@ -479,7 +530,7 @@ namespace Points.ViewModels
             if (page == null || cardId <= 0)
                 return UdmdPromptResult.Empty;
 
-            return await UdmdPromptPage.PromptForCardAsync(page, _db, cardId);
+            return await UdmdPromptPage.PromptForCardAsync(page, _udmd, cardId);
         }
 
         private async Task SaveTrackerMetadataIfNeededAsync(long cardId, long trackerValueId, UdmdPromptResult metadata)
@@ -495,7 +546,7 @@ namespace Points.ViewModels
 
             try
             {
-                await _db.SaveTrackerValueMetadataAsync(cardId, trackerValueId, metadata.Values);
+                await _udmd.SaveTrackerValueMetadataAsync(cardId, trackerValueId, metadata.Values);
             }
             catch (Exception ex)
             {
@@ -535,7 +586,7 @@ namespace Points.ViewModels
 
                 if (card.IsActive)
                 {
-                    var startUtc = await _db.GetCurrentOpenActivityStartUtcAsync(card.CardID);
+                    var startUtc = await _activity.GetCurrentOpenActivityStartUtcAsync(card.CardID);
                     if (startUtc == null)
                         return; // should not happen if IsActive true
 
@@ -543,7 +594,7 @@ namespace Points.ViewModels
                 }
                 else
                 {
-                    var lastEndUtc = await _db.GetLastClosedActivityEndUtcAsync();
+                    var lastEndUtc = await _activity.GetLastClosedActivityEndUtcAsync();
                     minUtc = lastEndUtc ?? DateTime.MinValue;
                 }
 
@@ -577,7 +628,7 @@ namespace Points.ViewModels
 
         public async Task LoadAsync()
         {
-            var settings = await _db.GetSettingsAsync();
+            var settings = await _settings.GetSettingsAsync();
             SettingsProvider.Initialize(settings);
 
             var pageToRestore = Pages.Count > 0 && Position >= 0 && Position < Pages.Count
@@ -589,10 +640,10 @@ namespace Points.ViewModels
             var now = _clock.LocalNow;
             var seedRangeStart = MinDateTime(GlobalVariables.RangeStart, new TimeScopeRange(TimeScope.Daily, now).Start);
             var seedRangeEnd = MaxDateTime(GlobalVariables.RangeEnd, new TimeScopeRange(TimeScope.Monthly, now).End);
-            var seed = await _db.GetHomeSeedDataAsync(seedRangeStart, seedRangeEnd);
-            var allGoalModels = await _db.GetGoalModelsDataAsync();
-            var openActivity = await _db.GetCurrentActiveActivityAsync();
-            var shortcuts = await _db.GetDashboardShortcutsAsync();
+            var seed = await _cardReader.GetHomeSeedDataAsync(seedRangeStart, seedRangeEnd);
+            var allGoalModels = await _goals.GetGoalModelsDataAsync();
+            var openActivity = await _activity.GetCurrentActiveActivityAsync();
+            var shortcuts = await _shortcuts.GetDashboardShortcutsAsync();
 
             // Make sure we touch ObservableCollection on UI thread
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -756,11 +807,11 @@ namespace Points.ViewModels
                 new TimeScopeRange(TimeScope.Monthly, now).End
             };
 
-            var allCards = await _db.GetMainQuestModelsDataAsync(
+            var allCards = await _cardReader.GetMainQuestModelsDataAsync(
                 startDates.Min(),
                 endDates.Max());
 
-            var allGoalModels = await _db.GetGoalModelsDataAsync();
+            var allGoalModels = await _goals.GetGoalModelsDataAsync();
             var enabledGoalModels = allGoalModels.Where(p => p.Enabled).ToList();
 
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -804,7 +855,7 @@ namespace Points.ViewModels
 
         private async Task ReloadDashboardAsync()
         {
-            var shortcuts = await _db.GetDashboardShortcutsAsync();
+            var shortcuts = await _shortcuts.GetDashboardShortcutsAsync();
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 var dashboard = Pages.FirstOrDefault(p => p.IsDashboard);
@@ -998,7 +1049,9 @@ namespace Points.ViewModels
                         saved => CommitCardToPage(page, saved),
                         deleted => RemoveCardFromPage(page, deleted),
                         GetTags(),
-                        _db
+                        _achievements,
+                        _activity,
+                        _udmd
                     )
                 );
                 return;
@@ -1014,7 +1067,9 @@ namespace Points.ViewModels
                         saved => CommitCardToPage(page, saved),
                         deleted => RemoveCardFromPage(page, deleted),
                         GetTags(),
-                        _db,
+                        _locks,
+                        _activity,
+                        _udmd,
                         dependencyOptions
                     )
                 );
@@ -1030,7 +1085,8 @@ namespace Points.ViewModels
                         onDelete: m => DeleteMission(m),
                         onFail: m => FailMission(m),
                         GetTags(),
-                        _db
+                        _activity,
+                        _udmd
                     )
                 );
                 return;
@@ -1044,7 +1100,7 @@ namespace Points.ViewModels
                         saved => CommitCardToPage(page, saved),
                         deleted => RemoveCardFromPage(page, deleted),
                         GetTags(),
-                        _db
+                        _udmd
                     )
                 );
                 return;
@@ -1058,7 +1114,7 @@ namespace Points.ViewModels
                         saved => CommitCardToPage(page, saved),
                         deleted => DeleteCardFromPageAndDbAsync(page, deleted),
                         onCancelled: () => { },
-                        db: _db
+                        udmd: _udmd
                     )
                 );
                 return;
@@ -1072,7 +1128,7 @@ namespace Points.ViewModels
                         saved => CommitCardToPage(page, saved),
                         deleted => DeleteCardFromPageAndDbAsync(page, deleted),
                         onCancelled: () => { },
-                        db: _db
+                        udmd: _udmd
                     )
                 );
                 return;
@@ -1116,8 +1172,8 @@ namespace Points.ViewModels
             }
 
             // 2) Load groups + shortcuts (for picker + default ordering)
-            var groups = await _db.GetShortcutGroupsAsync();
-            var shortcuts = await _db.GetDashboardShortcutsAsync();
+            var groups = await _shortcuts.GetShortcutGroupsAsync();
+            var shortcuts = await _shortcuts.GetDashboardShortcutsAsync();
 
             var existingGroupNames = groups
                 .Where(g => !string.IsNullOrWhiteSpace(g.Name))
@@ -1149,7 +1205,7 @@ namespace Points.ViewModels
             // 4) Dashboard reload helper
             async Task ReloadDashboardAsync()
             {
-                var updated = await _db.GetDashboardShortcutsAsync();
+                var updated = await _shortcuts.GetDashboardShortcutsAsync();
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     var dashboard = Pages.First(p => p.Name == "Dashboard");
@@ -1166,14 +1222,14 @@ namespace Points.ViewModels
                     if (saved.Group == null || string.IsNullOrWhiteSpace(saved.Group.Name))
                         throw new InvalidOperationException("Shortcut must have a Group with a Name before saving.");
 
-                    var persistedGroup = await _db.UpsertShortcutGroupAsync(saved.Group);
+                    var persistedGroup = await _shortcuts.UpsertShortcutGroupAsync(saved.Group);
 
                     // Ensure FK is set
                     saved.ShortcutGroupId = persistedGroup.ShortcutGroupId;
                     saved.Group = persistedGroup;
 
                     // Save shortcut row
-                    await _db.SaveShortcutAsync(saved);
+                    await _shortcuts.SaveShortcutAsync(saved);
 
                     // Refresh dashboard UI
                     await ReloadDashboardAsync();
@@ -1186,7 +1242,7 @@ namespace Points.ViewModels
                 _ = Task.Run(async () =>
                 {
                     if (deleted.ShortcutId > 0)
-                        await _db.DeleteShortcutAsync(deleted.ShortcutId);
+                        await _shortcuts.DeleteShortcutAsync(deleted.ShortcutId);
 
                     await ReloadDashboardAsync();
                 });
@@ -1283,7 +1339,18 @@ namespace Points.ViewModels
 
         private void CommitCardToDb(ICardModel card)
         {
-             _db.SaveCardModelAsync(card);
+            _ = card switch
+            {
+                TatCardModel tat when tat.CardID > 0 =>
+                    _tats.SaveTatModelDataAsync(tat, tat.CardID),
+                BudgetCardModel budget when budget.CardID > 0 =>
+                    _budgets.SaveBudgetCardModelDataAsync(budget, budget.CardID),
+                ValueTrackerCardModel valueTracker when valueTracker.CardID > 0 =>
+                    _trackers.SaveValueTrackerCardModelDataAsync(valueTracker, valueTracker.CardID),
+                EventTrackerCardModel eventTracker when eventTracker.CardID > 0 =>
+                    _trackers.SaveEventTrackerCardModelDataAsync(eventTracker, eventTracker.CardID),
+                _ => _cardWriter.SaveCardModelAsync(card)
+            };
         }
 
         private void AfterCardCommitted(HomePageModel page, ICardModel card)
@@ -1315,7 +1382,7 @@ namespace Points.ViewModels
         {
             if (page == null || card == null) return;
 
-            await _db.DeleteCardModelAsync(card);
+            await _cardWriter.DeleteCardModelAsync(card);
             RemoveCardFromPage(page, card);
             await ReloadDashboardAsync();
         }
@@ -1618,7 +1685,7 @@ namespace Points.ViewModels
                 }
 
                 // DB authoritative toggle
-                var result = await _db.ToggleActivityAsync(
+                var result = await _activity.ToggleActivityAsync(
                     cardId: card.CardID,
                     utcNow: nowUtcNonNull,
                     valueRateName: rateName,
@@ -1628,7 +1695,7 @@ namespace Points.ViewModels
                 {
                     try
                     {
-                        await _db.SaveActivityMetadataAsync(card.CardID, result.Opened.Id, pendingMetadata.Values);
+                        await _udmd.SaveActivityMetadataAsync(card.CardID, result.Opened.Id, pendingMetadata.Values);
                     }
                     catch (Exception ex)
                     {
@@ -1967,12 +2034,12 @@ namespace Points.ViewModels
 
         private async Task OpenAchievementsAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.AchievementsPage(_db, GetTags()));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.AchievementsPage(_cardWriter, _achievements, GetTags()));
         }
 
         private async Task OpenDateRangePickerViewAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Shared.DateRangePickerPage(_db, ApplyGlobalDateRangeAsync));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Shared.DateRangePickerPage(ApplyGlobalDateRangeAsync));
         }
 
         private async Task ApplyGlobalDateRangeAsync(DateTime rangeStart, DateTime rangeEnd)
@@ -1997,12 +2064,16 @@ namespace Points.ViewModels
         {
             var mainQuest = Pages.First(p => p.Name == "Main Quest");
             var cards = mainQuest.AllCards.OfType<IActiveCardModel>().ToList();
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Goals.GoalCreationPage(_db, _clock));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Goals.GoalCreationPage(_cardReader, _goals, _clock));
         }
 
         private async Task OpenSettingsAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Settings.SettingsPage(_db));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Settings.SettingsPage(
+                _databaseMaintenance,
+                _databaseLifecycle,
+                _notificationLogs,
+                _settings));
         }
 
         private async Task OpenReportsAsync()
@@ -2019,7 +2090,7 @@ namespace Points.ViewModels
             if (page == null)
                 return;
 
-            await page.ShowPopupAsync(new LeaderboardPopup(new LeaderboardViewModel(_db, _clock, _timeZoneService)));
+            await page.ShowPopupAsync(new LeaderboardPopup(new LeaderboardViewModel(_cardReader, _planner, _clock, _timeZoneService)));
         }
 
         private async Task OpenShortcutDetailsAsync(ShortcutModel? shortcut)
@@ -2066,8 +2137,8 @@ namespace Points.ViewModels
             }
 
             // 2) Load groups + shortcuts (for picker + validation / existing names)
-            var groups = await _db.GetShortcutGroupsAsync();
-            var shortcuts = await _db.GetDashboardShortcutsAsync();
+            var groups = await _shortcuts.GetShortcutGroupsAsync();
+            var shortcuts = await _shortcuts.GetDashboardShortcutsAsync();
 
             var existingGroupNames = groups
                 .Where(g => !string.IsNullOrWhiteSpace(g.Name))
@@ -2105,7 +2176,7 @@ namespace Points.ViewModels
             // 4) Dashboard reload helper
             async Task ReloadDashboardAsync()
             {
-                var updated = await _db.GetDashboardShortcutsAsync();
+                var updated = await _shortcuts.GetDashboardShortcutsAsync();
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     var dashboard = Pages.First(p => p.Name == "Dashboard");
@@ -2121,12 +2192,12 @@ namespace Points.ViewModels
                     if (saved.Group == null || string.IsNullOrWhiteSpace(saved.Group.Name))
                         throw new InvalidOperationException("Shortcut must have a Group with a Name before saving.");
 
-                    var persistedGroup = await _db.UpsertShortcutGroupAsync(saved.Group);
+                    var persistedGroup = await _shortcuts.UpsertShortcutGroupAsync(saved.Group);
 
                     saved.ShortcutGroupId = persistedGroup.ShortcutGroupId;
                     saved.Group = persistedGroup;
 
-                    await _db.SaveShortcutAsync(saved);
+                    await _shortcuts.SaveShortcutAsync(saved);
 
                     await ReloadDashboardAsync();
                 });
@@ -2138,7 +2209,7 @@ namespace Points.ViewModels
                 _ = Task.Run(async () =>
                 {
                     if (deleted.ShortcutId > 0)
-                        await _db.DeleteShortcutAsync(deleted.ShortcutId);
+                        await _shortcuts.DeleteShortcutAsync(deleted.ShortcutId);
 
                     await ReloadDashboardAsync();
                 });
@@ -2375,7 +2446,7 @@ namespace Points.ViewModels
                     // Deadline achievements may transition during a tick.
                     if (card.CompletionType == AchievementCompletionType.Deadline)
                     {
-                        var reevaluated = await _db.ReevaluateDeadlineAchievementAsync(card);
+                        var reevaluated = await _achievements.ReevaluateDeadlineAchievementAsync(card);
 
                         if (reevaluated != null)
                         {
@@ -2462,18 +2533,42 @@ namespace Points.ViewModels
 
         internal async Task IncrementFirstStep(ScCardModel model)
         {
-            await _db.AddRepForStep(model.Steps[0].Id, _clock.UtcNow, model.Steps[0].StepValue);
+            await _activity.AddRepForStep(model.Steps[0].Id, _clock.UtcNow, model.Steps[0].StepValue);
         }
 
         internal async Task SaveMission(MissionCardModel model)
         {
-            await _db.SaveCardModelAsync(model);
+            await _cardWriter.SaveCardModelAsync(model);
         }
 
         public async Task SaveBudget(BudgetCardModel b)
         {
             b.NotifyTimeChanged(Now);
-            await _db.SaveCardModelAsync(b);
+            if (b.CardID > 0)
+                await _budgets.SaveBudgetCardModelDataAsync(b, b.CardID);
+            else
+                await _cardWriter.SaveCardModelAsync(b);
+        }
+
+        private async Task SaveTrackerCardAsync(TrackerCardModel tracker)
+        {
+            if (tracker is ValueTrackerCardModel valueTracker)
+            {
+                if (valueTracker.CardID > 0)
+                    await _trackers.SaveValueTrackerCardModelDataAsync(valueTracker, valueTracker.CardID);
+                else
+                    await _cardWriter.SaveCardModelAsync(valueTracker);
+
+                return;
+            }
+
+            if (tracker is EventTrackerCardModel eventTracker)
+            {
+                if (eventTracker.CardID > 0)
+                    await _trackers.SaveEventTrackerCardModelDataAsync(eventTracker, eventTracker.CardID);
+                else
+                    await _cardWriter.SaveCardModelAsync(eventTracker);
+            }
         }
 
         public async Task RecordBudgetTransactionAsync(BudgetCardModel budget, BudgetTransactionType type, double amount)
@@ -2497,7 +2592,10 @@ namespace Points.ViewModels
 
             budget.Transactions.Add(transaction);
             budget.NotifyTimeChanged(Now);
-            await _db.SaveCardModelAsync(budget);
+            if (budget.CardID > 0)
+                await _budgets.SaveBudgetCardModelDataAsync(budget, budget.CardID);
+            else
+                await _cardWriter.SaveCardModelAsync(budget);
 
             if (metadata.Values.Count == 0)
                 return;
@@ -2510,7 +2608,7 @@ namespace Points.ViewModels
 
             try
             {
-                await _db.SaveBudgetTransactionMetadataAsync(budget.CardID, transaction.Id, metadata.Values);
+                await _udmd.SaveBudgetTransactionMetadataAsync(budget.CardID, transaction.Id, metadata.Values);
             }
             catch (Exception ex)
             {

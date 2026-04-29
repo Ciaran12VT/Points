@@ -7,11 +7,11 @@ namespace Points.Views.Goals;
 
 public partial class GoalCreationPage : ContentPage
 {
-	public GoalCreationPage(IDbService db, IClock? clock = null)
+	public GoalCreationPage(ICardReadService cardReader, IGoalService goals, IClock? clock = null)
 	{
 		InitializeComponent();
 
-		BindingContext = new GoalCreationViewModel(db, clock);
+		BindingContext = new GoalCreationViewModel(cardReader, goals, clock);
 
     }
 

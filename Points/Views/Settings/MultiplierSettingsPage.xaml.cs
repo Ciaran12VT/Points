@@ -5,10 +5,10 @@ namespace Points.Views.Settings;
 
 public partial class MultipliersSettingsPage : ContentPage
 {
-    public MultipliersSettingsPage(IDbService db)
+    public MultipliersSettingsPage(ISettingsService settings)
     {
         InitializeComponent();
-        BindingContext = new MultipliersSettingsViewModel(db, ReturnToSettingsPageAsync);
+        BindingContext = new MultipliersSettingsViewModel(settings, ReturnToSettingsPageAsync);
     }
 
     private async Task ReturnToSettingsPageAsync()

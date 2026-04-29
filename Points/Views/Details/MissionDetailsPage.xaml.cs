@@ -10,7 +10,8 @@ public partial class MissionDetailsPage : ContentPage
 {
     private readonly List<string> _allTags;
     private readonly MissionCardModel _model;
-    private readonly IDbService _db;
+    private readonly IActivityService _activity;
+    private readonly IUdmdService _udmd;
 
     public MissionDetailsPage(
         MissionCardModel model,
@@ -18,7 +19,8 @@ public partial class MissionDetailsPage : ContentPage
         Action<MissionCardModel> onDelete,
         Action<MissionCardModel> onFail,
         List<string> availableTagsList,
-        IDbService db)
+        IActivityService activity,
+        IUdmdService udmd)
     {
         InitializeComponent();
         BindingContext = new MissionDetailsViewModel(
@@ -30,7 +32,8 @@ public partial class MissionDetailsPage : ContentPage
             ServiceHelper.GetService<ITimeZoneService>());
         _allTags = availableTagsList;
         _model = model;
-        _db = db;
+        _activity = activity;
+        _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
         Loaded += OnPageLoaded;
     }
 
@@ -174,7 +177,7 @@ public partial class MissionDetailsPage : ContentPage
     {
         var tcs = new TaskCompletionSource<List<ActivityModel>>();
 
-        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs, _db);
+        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs, _activity, _udmd);
 
         await Navigation.PushAsync(page);
 
@@ -184,7 +187,7 @@ public partial class MissionDetailsPage : ContentPage
 
             if (_model.CardID > 0)
             {
-                var result = await _db.UpsertActivitiesAsync(edited, _model.CardID);
+                var result = await _activity.UpsertActivitiesAsync(edited, _model.CardID);
                 if (!result.Success)
                 {
                     await DisplayAlert("Active time not saved", result.Message, "OK");

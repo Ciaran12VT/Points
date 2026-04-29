@@ -127,7 +127,7 @@ public sealed partial class LeaderboardViewModel
 
         try
         {
-            var data = await _db.GetPlannerDayDataAsync(PlannerSelectedDate);
+            var data = await _plannerService.GetPlannerDayDataAsync(PlannerSelectedDate);
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
@@ -211,7 +211,7 @@ public sealed partial class LeaderboardViewModel
     private async Task SaveAndReloadPlannerAsync()
     {
         _planner.PlannerDate = PlannerSelectedDate;
-        await _db.SavePlannerAsync(_planner);
+        await _plannerService.SavePlannerAsync(_planner);
         await LoadPlannerAsync();
     }
 

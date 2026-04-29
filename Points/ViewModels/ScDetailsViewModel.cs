@@ -30,9 +30,9 @@ namespace Points.ViewModels
 
         private double initalTotalValue = 0;
 
-        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, IDbService db, IClock clock)
+        public ScDetailsViewModel(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, IAchievementService achievements, IClock clock)
         {
-            _db = db;
+            _achievements = achievements;
             _clock = clock;
             ToggleSignCommand = new Command(ToggleSign);
             AddStepCommand = new Command(AddStep);
@@ -149,7 +149,7 @@ namespace Points.ViewModels
         public string SignToggleText => _isNegative ? "-" : "+";
         public string SignToggleColor => _isNegative ? "Red" : "Green";
 
-        private IDbService _db;
+        private readonly IAchievementService _achievements;
 
         public Command ToggleSignCommand { get; }
         private void ToggleSign()
@@ -197,7 +197,7 @@ namespace Points.ViewModels
                 });
             }
 
-            _model.TimeValueAchievementEvaluators = await _db.RefreshEvaluatorsAsync(_model.TimeValueAchievementEvaluators);
+            _model.TimeValueAchievementEvaluators = await _achievements.RefreshEvaluatorsAsync(_model.TimeValueAchievementEvaluators);
 
             await EvaluateAchievements(_model);
 
@@ -262,7 +262,7 @@ namespace Points.ViewModels
             var now = _clock.UtcNow;
             foreach (var ach in earned)
             {
-                await _db.MarkAchievementEarnedAsync(ach.Id, now);
+                await _achievements.MarkAchievementEarnedAsync(ach.Id, now);
 
                 // If you keep this field in-memory, update it as well
                 ach.LastEarnedAt = now;

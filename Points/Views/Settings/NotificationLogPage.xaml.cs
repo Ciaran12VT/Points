@@ -7,11 +7,11 @@ namespace Points.Views.Settings;
 
 public partial class NotificationLogPage : ContentPage
 {
-    public NotificationLogPage(IDbService db)
+    public NotificationLogPage(INotificationLogService notificationLogs)
     {
         InitializeComponent();
         BindingContext = new NotificationLogViewModel(
-            db,
+            notificationLogs,
             ServiceHelper.GetService<IClock>(),
             ServiceHelper.GetService<ITimeZoneService>());
     }

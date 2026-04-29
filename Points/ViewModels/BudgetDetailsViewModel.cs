@@ -16,7 +16,7 @@ namespace Points.ViewModels
         private readonly BudgetCardModel _model;
         private readonly Action<BudgetCardModel> _onSaved;
         private Action<BudgetCardModel> _onDelete;
-        private readonly IDbService _db;
+        private readonly IUdmdService _udmd;
 
         public List<string> AvailableTagList { get; }
         public Command CancelCommand { get; }
@@ -34,12 +34,12 @@ namespace Points.ViewModels
         public void StopTimer() => _timer?.Stop();
 
 
-        public BudgetDetailsViewModel(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete, List<string> availableTagsList, IDbService db)
+        public BudgetDetailsViewModel(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete, List<string> availableTagsList, IUdmdService udmd)
         {
             _model = model;
             _onSaved = onSaved;
             _onDelete = onDelete;
-            _db = db;
+            _udmd = udmd;
             AvailableTagList = availableTagsList;
 
             // Tick every second
@@ -255,7 +255,7 @@ namespace Points.ViewModels
                 transactions: working,
                 tcs: tcs,
                 exchangeRate: _model.ExchangeRate,
-                db: _db
+                udmd: _udmd
             ));
 
             var edited = await tcs.Task;

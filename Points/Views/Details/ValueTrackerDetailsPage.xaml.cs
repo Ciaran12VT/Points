@@ -13,14 +13,14 @@ public partial class ValueTrackerDetailsPage : ContentPage
     private readonly Action<ValueTrackerCardModel> _onSaved;
     private readonly Func<ValueTrackerCardModel, Task> _onDelete;
     private readonly Action _onCancelled;
-    private readonly IDbService _db;
+    private readonly IUdmdService _udmd;
 
     public ValueTrackerDetailsPage(
         ValueTrackerCardModel model,
         Action<ValueTrackerCardModel> onSaved,
         Func<ValueTrackerCardModel, Task> onDelete,
         Action onCancelled,
-        IDbService db)
+        IUdmdService udmd)
     {
         InitializeComponent();
 
@@ -28,7 +28,7 @@ public partial class ValueTrackerDetailsPage : ContentPage
         _onSaved = onSaved;
         _onDelete = onDelete;
         _onCancelled = onCancelled;
-        _db = db;
+        _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
 
         BindingContext = _model;
 
@@ -166,7 +166,7 @@ public partial class ValueTrackerDetailsPage : ContentPage
             return;
         }
 
-        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _db));
+        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _udmd));
     }
 
     private async Task LoadMetadataHistoryAsync()
@@ -178,7 +178,7 @@ public partial class ValueTrackerDetailsPage : ContentPage
 
         foreach (var value in _model.Values.Where(x => x.Id > 0).OrderByDescending(x => x.Timestamp))
         {
-            var metadata = await _db.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.TrackerValue, value.Id);
+            var metadata = await _udmd.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.TrackerValue, value.Id);
             if (metadata.Count == 0)
                 continue;
 

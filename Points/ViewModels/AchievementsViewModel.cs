@@ -34,7 +34,8 @@ namespace Points.ViewModels
         }
 
         public List<string> AvailableTagsList;
-        private IDbService _db;
+        private readonly ICardWriteService _cardWriter;
+        private readonly IAchievementService _achievements;
         private readonly IClock _clock;
 
         public Command AddAchievementCommand { get; }
@@ -44,7 +45,7 @@ namespace Points.ViewModels
 
         private async Task OpenTrophyRoomAsync()
         {
-            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.TrophyRoomPage(_db));
+            await Shell.Current.Navigation.PushAsync(new Points.Views.Achievements.TrophyRoomPage(_achievements));
         }
 
         private async Task AddAchievementAsync()
@@ -118,9 +119,14 @@ namespace Points.ViewModels
         private readonly SemaphoreSlim _deadlineRefreshGate = new(1, 1);
         private readonly IDispatcherTimer _deadlineRefreshTimer;
 
-        public AchievementsViewModel(List<string> availableTagsList, IDbService db, IClock? clock = null)
+        public AchievementsViewModel(
+            List<string> availableTagsList,
+            ICardWriteService cardWriter,
+            IAchievementService achievements,
+            IClock? clock = null)
         {
-            _db = db;
+            _cardWriter = cardWriter;
+            _achievements = achievements;
             _clock = clock ?? ServiceHelper.GetService<IClock>();
 
             Pages.Add(CreateAchievementsPage());
@@ -146,7 +152,7 @@ namespace Points.ViewModels
 
         private async Task LoadAsync()
         {
-            var achievements = await _db.GetAchievementCardModelsDataAsync();
+            var achievements = await _achievements.GetAchievementCardModelsDataAsync();
 
             await MainThread.InvokeOnMainThreadAsync(async () =>
             {
@@ -195,7 +201,7 @@ namespace Points.ViewModels
                         continue;
                     }
 
-                    var refreshed = await _db.ReevaluateDeadlineAchievementAsync(card);
+                    var refreshed = await _achievements.ReevaluateDeadlineAchievementAsync(card);
 
                     if (refreshed != null)
                     {
@@ -282,7 +288,7 @@ namespace Points.ViewModels
 
         private async Task CommitCardToDb(ICardModel card)
         {
-            await _db.SaveCardModelAsync(card);
+            await _cardWriter.SaveCardModelAsync(card);
         }
 
         public void DeleteCardFromDb(AchievementCardModel deleted)
@@ -295,7 +301,7 @@ namespace Points.ViewModels
 
             Directory.Delete(AppPaths.GetAchievementTrophiesPath(deleted.Id));
 
-            _db.DeleteAchievementCardModelAsync(deleted).Forget("Delete achievement card");
+            _achievements.DeleteAchievementCardModelAsync(deleted).Forget("Delete achievement card");
         }
 
         public void RemoveCardFromPage(AchievementsPageModel page, AchievementCardModel card)
@@ -312,7 +318,7 @@ namespace Points.ViewModels
             if (card.CompletionType != AchievementCompletionType.Deadline)
                 return;
 
-            var refreshed = await _db.ReevaluateDeadlineAchievementAsync(card);
+            var refreshed = await _achievements.ReevaluateDeadlineAchievementAsync(card);
             if (refreshed != null)
             {
                 await MainThread.InvokeOnMainThreadAsync(() =>

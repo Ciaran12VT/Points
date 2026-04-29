@@ -30,7 +30,7 @@ namespace Points.Models
             LongPressRequested?.Invoke(card);
         }
 
-        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
+        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; } = new();
 
         public List<LockModel> Locks { get; set; } = new();
 

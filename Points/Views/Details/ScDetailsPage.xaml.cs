@@ -12,16 +12,18 @@ public partial class ScDetailsPage : ContentPage
 {
     INotifyCollectionChanged? _stepsNotify;
     private readonly TatCardModel _model;
-    private readonly IDbService _db;
+    private readonly IActivityService _activity;
+    private readonly IUdmdService _udmd;
     private readonly List<string> _allTags;
 
-    public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, IDbService db)
+    public ScDetailsPage(ScCardModel model, Action<ScCardModel> onSaved, Action<ScCardModel> onDelete, List<string> availableTagsList, IAchievementService achievements, IActivityService activity, IUdmdService udmd)
     {
         InitializeComponent();
-        BindingContext = new ScDetailsViewModel(model, onSaved, onDelete, availableTagsList, db, ServiceHelper.GetService<IClock>());
+        BindingContext = new ScDetailsViewModel(model, onSaved, onDelete, availableTagsList, achievements, ServiceHelper.GetService<IClock>());
         _allTags = availableTagsList;
         _model = model;
-        _db = db;
+        _activity = activity;
+        _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
         // 1) First scroll: only after the page is actually loaded + laid out
         Loaded += async (_, __) =>
         {
@@ -107,7 +109,7 @@ public partial class ScDetailsPage : ContentPage
     {
         var tcs = new TaskCompletionSource<List<ActivityModel>>();
 
-        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs, _db);
+        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs, _activity, _udmd);
         await Navigation.PushAsync(page);
 
         try
@@ -116,7 +118,7 @@ public partial class ScDetailsPage : ContentPage
 
             if (_model.CardID > 0)
             {
-                var result = await _db.UpsertActivitiesAsync(edited, _model.CardID);
+                var result = await _activity.UpsertActivitiesAsync(edited, _model.CardID);
                 if (!result.Success)
                 {
                     await DisplayAlert("Active time not saved", result.Message, "OK");
@@ -171,7 +173,7 @@ public partial class ScDetailsPage : ContentPage
             return;
         }
 
-        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _db));
+        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _udmd));
     }
 
     protected override void OnDisappearing()

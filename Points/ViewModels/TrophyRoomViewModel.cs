@@ -15,7 +15,7 @@ namespace Points.ViewModels
 {
     public class TrophyRoomViewModel : INotifyPropertyChanged
     {
-        private IDbService _db;
+        private readonly IAchievementService _achievements;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -25,9 +25,9 @@ namespace Points.ViewModels
 
         public Command OpenTrophyCommand { get; }
 
-        public TrophyRoomViewModel(IDbService db)
+        public TrophyRoomViewModel(IAchievementService achievements)
         {
-            _db = db;
+            _achievements = achievements;
 
             Initialization = LoadAsync();
 
@@ -35,7 +35,7 @@ namespace Points.ViewModels
 
         private async Task LoadAsync()
         {
-            var trophies = await _db.GetTrophyModelsDataAsync();
+            var trophies = await _achievements.GetTrophyModelsDataAsync();
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {

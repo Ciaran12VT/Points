@@ -12,15 +12,17 @@ public partial class EditActiveTimePage : ContentPage
 {
     // Returns edited activities to the caller
     private readonly TaskCompletionSource<List<ActivityModel>> _tcs;
-    private readonly IDbService _db;
+    private readonly IActivityService _activity;
+    private readonly IUdmdService _udmd;
     private readonly ITimeZoneService _timeZoneService;
 
-    public EditActiveTimePage(List<ActivityModel> activity, TaskCompletionSource<List<ActivityModel>> tcs, IDbService db, ITimeZoneService? timeZoneService = null)
+    public EditActiveTimePage(List<ActivityModel> activity, TaskCompletionSource<List<ActivityModel>> tcs, IActivityService activityService, IUdmdService udmd, ITimeZoneService? timeZoneService = null)
     {
         InitializeComponent();
 
         _tcs = tcs ?? throw new ArgumentNullException(nameof(tcs));
-        _db = db ?? throw new ArgumentNullException(nameof(db));
+        _activity = activityService ?? throw new ArgumentNullException(nameof(activityService));
+        _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
         _timeZoneService = timeZoneService ?? ResolveTimeZoneService();
 
         if (activity is null)
@@ -106,7 +108,7 @@ public partial class EditActiveTimePage : ContentPage
 
         foreach (var row in vm.Rows.Where(x => x.Id > 0))
         {
-            var metadata = await _db.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.Activity, row.Id);
+            var metadata = await _udmd.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.Activity, row.Id);
             if (metadata.Count == 0)
                 continue;
 
@@ -166,7 +168,7 @@ public partial class EditActiveTimePage : ContentPage
                     ? _timeZoneService.ToUtcFromLocal(candidateEnd.Value)
                     : (DateTime?)null;
 
-                var overlaps = await _db.HasActivityOverlapAsync(
+                var overlaps = await _activity.HasActivityOverlapAsync(
                     excludeActivityId: row.Id,
                     candidateStart: candidateStartUtc,
                     candidateEnd: candidateEndUtc);

@@ -11,15 +11,15 @@ namespace Points.Views.Details;
 public partial class BudgetTransactionLogPage : ContentPage
 {
     private readonly TaskCompletionSource<List<BudgetTransaction>> _tcs;
-    private readonly IDbService _db;
+    private readonly IUdmdService _udmd;
     private readonly ITimeZoneService _timeZoneService;
 
-    public BudgetTransactionLogPage(List<BudgetTransaction> transactions, TaskCompletionSource<List<BudgetTransaction>> tcs, double exchangeRate, IDbService db, ITimeZoneService? timeZoneService = null)
+    public BudgetTransactionLogPage(List<BudgetTransaction> transactions, TaskCompletionSource<List<BudgetTransaction>> tcs, double exchangeRate, IUdmdService udmd, ITimeZoneService? timeZoneService = null)
     {
         InitializeComponent();
 
         _tcs = tcs ?? throw new ArgumentNullException(nameof(tcs));
-        _db = db ?? throw new ArgumentNullException(nameof(db));
+        _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
         _timeZoneService = timeZoneService ?? ServiceHelper.GetService<ITimeZoneService>();
         if (transactions is null) throw new ArgumentNullException(nameof(transactions));
 
@@ -105,7 +105,7 @@ public partial class BudgetTransactionLogPage : ContentPage
 
         foreach (var row in vm.Rows.Where(x => x.Id > 0))
         {
-            var metadata = await _db.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.BudgetTransaction, row.Id);
+            var metadata = await _udmd.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.BudgetTransaction, row.Id);
             if (metadata.Count == 0)
                 continue;
 
@@ -119,7 +119,7 @@ public partial class BudgetTransactionLogPage : ContentPage
         if (sender is not Button { BindingContext: BudgetTransactionRow row })
             return;
 
-        var metadata = await _db.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.BudgetTransaction, row.Id);
+        var metadata = await _udmd.GetMetadataForEntityAsync(UdmdRelatedEntityTypes.BudgetTransaction, row.Id);
         if (metadata.Count == 0)
             return;
 

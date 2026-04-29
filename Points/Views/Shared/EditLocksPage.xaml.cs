@@ -10,18 +10,18 @@ namespace Points.Views.Shared;
 public partial class EditLocksPage : ContentPage
 {
     private readonly long _cardId;
-    private readonly IDbService _db;
+    private readonly ILockService _locks;
     private readonly List<LockModel> _targetLocks;     // the list on the TatCardModel
     private readonly Action _onChanged;
     private readonly List<DependencyTaskOption> _dependencyOptions;
 
     private readonly EditLocksVm _vm;
 
-    public EditLocksPage(long cardId, List<LockModel> locks, IDbService db, List<DependencyTaskOption> dependencyOptions, Action onChanged)
+    public EditLocksPage(long cardId, List<LockModel> locks, ILockService locksService, List<DependencyTaskOption> dependencyOptions, Action onChanged)
 	{
 		InitializeComponent();
         _cardId = cardId;
-        _db = db;
+        _locks = locksService;
         _targetLocks = locks;
         _onChanged = onChanged;
         _dependencyOptions = dependencyOptions;
@@ -50,7 +50,7 @@ public partial class EditLocksPage : ContentPage
     {
         if ((sender as Button)?.CommandParameter is LockEditorVm lockVm)
         {
-            await _db.DeleteLockModelAsync(lockVm.Model);
+            await _locks.DeleteLockModelAsync(lockVm.Model);
             _vm.RemoveLock(lockVm);
         }            
     }
@@ -245,7 +245,7 @@ public partial class EditLocksPage : ContentPage
         var locksToSave = _vm.ToModels();
 
         // 2) persist
-        await _db.SaveLocksForCardAsync(_cardId, locksToSave);
+        await _locks.SaveLocksForCardAsync(_cardId, locksToSave);
 
         // 3) update the card model list in-memory
         _targetLocks.Clear();

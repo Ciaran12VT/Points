@@ -8,18 +8,23 @@ namespace Points.ViewModels
 {
     public class DatabaseSettingsViewModel
     {
-        private readonly IDbService _db;
+        private readonly IDatabaseMaintenanceService _databaseMaintenance;
+        private readonly IDatabaseInitializationService _databaseLifecycle;
         private readonly IClock _clock;
 
-        public DatabaseSettingsViewModel(IDbService db, IClock? clock = null)
+        public DatabaseSettingsViewModel(
+            IDatabaseMaintenanceService databaseMaintenance,
+            IDatabaseInitializationService databaseLifecycle,
+            IClock? clock = null)
         {
-            _db = db;
+            _databaseMaintenance = databaseMaintenance;
+            _databaseLifecycle = databaseLifecycle;
             _clock = clock ?? ServiceHelper.GetService<IClock>();
         }
 
         public async Task WipeDatabase()
         {
-            await _db.WipeAsync();
+            await _databaseMaintenance.WipeAsync();
         }
 
         public IReadOnlyList<BackupResourceOption> GetExportableItems()
@@ -29,7 +34,7 @@ namespace Points.ViewModels
 
         public async Task<string?> ExportDatabaseAsync(IEnumerable<string> selectedKeys)
         {
-            var packagePath = await BackupPackageService.CreateExportPackageAsync(_db, selectedKeys, clock: _clock);
+            var packagePath = await BackupPackageService.CreateExportPackageAsync(_databaseLifecycle, selectedKeys, clock: _clock);
 
             try
             {
@@ -124,7 +129,7 @@ namespace Points.ViewModels
         {
             try
             {
-                await BackupPackageService.RestoreAsync(_db, plan, selectedKeys);
+                await BackupPackageService.RestoreAsync(_databaseLifecycle, plan, selectedKeys);
             }
             catch (Exception ex)
             {

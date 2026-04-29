@@ -108,18 +108,18 @@ public sealed class UdmdPromptPage : ContentPage
         Grid.SetRow(buttons, 1);
     }
 
-    public static async Task<UdmdPromptResult> PromptForCardAsync(Page owner, IDbService db, long cardId)
+    public static async Task<UdmdPromptResult> PromptForCardAsync(Page owner, IUdmdService udmd, long cardId)
     {
         if (owner == null)
             throw new ArgumentNullException(nameof(owner));
 
-        if (db == null)
-            throw new ArgumentNullException(nameof(db));
+        if (udmd == null)
+            throw new ArgumentNullException(nameof(udmd));
 
         if (cardId <= 0)
             return UdmdPromptResult.Empty;
 
-        var configs = await db.GetActiveUdmdConfigsForCardAsync(cardId);
+        var configs = await udmd.GetActiveUdmdConfigsForCardAsync(cardId);
         if (configs.Count == 0)
             return UdmdPromptResult.Empty;
 
@@ -127,7 +127,7 @@ public sealed class UdmdPromptPage : ContentPage
         foreach (var config in configs)
         {
             var dropdowns = config.FieldTypeKind == UdmdFieldType.Dropdown
-                ? await db.GetDropdownValuesAsync(config.UdmdConfigID)
+                ? await udmd.GetDropdownValuesAsync(config.UdmdConfigID)
                 : new List<UdmdDropdownModel>();
 
             fields.Add(new UdmdFieldPromptModel

@@ -8,10 +8,15 @@ namespace Points.Views.Settings;
 
 public partial class DatabaseSettingsPage : ContentPage
 {
-    public DatabaseSettingsPage(IDbService db)
+    public DatabaseSettingsPage(
+        IDatabaseMaintenanceService databaseMaintenance,
+        IDatabaseInitializationService databaseLifecycle)
     {
         InitializeComponent();
-        BindingContext = new DatabaseSettingsViewModel(db, ServiceHelper.GetService<IClock>());
+        BindingContext = new DatabaseSettingsViewModel(
+            databaseMaintenance,
+            databaseLifecycle,
+            ServiceHelper.GetService<IClock>());
     }
 
     private async void OnWipeDbClicked(object sender, EventArgs e)

@@ -8,6 +8,7 @@ namespace Points.Services.Sqlite.Interfaces
         Task<ShortcutGroupModel> UpsertShortcutGroupAsync(ShortcutGroupModel group);
         Task<ShortcutModel> SaveShortcutAsync(ShortcutModel shortcut);
         Task DeleteShortcutAsync(long shortcutId);
+        Task DeleteShortcutGroupAsync(long shortcutGroupId);
     }
 
 

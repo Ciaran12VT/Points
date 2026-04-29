@@ -19,7 +19,8 @@ namespace Points.ViewModels
         public List<string> PeriodOptions { get; } = new() { "Daily", "Weekly", "Monthly" };
 
         private string _selectedPeriod = "Daily";
-        private readonly IDbService _db;
+        private readonly ICardReadService _cardReader;
+        private readonly IGoalService _goals;
         private readonly IClock _clock;
 
         public string SelectedPeriod
@@ -42,9 +43,10 @@ namespace Points.ViewModels
 
         public Task? Initialization { get; private set; }
 
-        public GoalCreationViewModel(IDbService db, IClock? clock = null)
+        public GoalCreationViewModel(ICardReadService cardReader, IGoalService goals, IClock? clock = null)
         {
-            _db = db;
+            _cardReader = cardReader;
+            _goals = goals;
             _clock = clock ?? new SystemClock();
 
             SaveCommand = new Command(async () => await SaveAsync());
@@ -80,9 +82,9 @@ namespace Points.ViewModels
                     new TimeScopeRange(TimeScope.Monthly, now).End
                 };
 
-                if (_cards == null) _cards = await _db.GetMainQuestModelsDataAsync(startDates.Min(), endDates.Max());
+                if (_cards == null) _cards = await _cardReader.GetMainQuestModelsDataAsync(startDates.Min(), endDates.Max());
 
-                if (_goalModels == null) _goalModels = await _db.GetGoalModelsDataAsync();
+                if (_goalModels == null) _goalModels = await _goals.GetGoalModelsDataAsync();
 
                 var goalModels = _goalModels.Where(x => x.TimeScope == tscope).ToList();
 
@@ -132,7 +134,7 @@ namespace Points.ViewModels
             }
 
             //TODO: Save to DB
-            await _db.SaveGoalModelsDataAsync(goalModelsToSave);
+            await _goals.SaveGoalModelsDataAsync(goalModelsToSave);
 
             await Shell.Current.Navigation.PopAsync();
         }

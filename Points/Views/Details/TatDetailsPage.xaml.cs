@@ -11,11 +11,13 @@ namespace Points.Views.Details;
 public partial class TatDetailsPage : ContentPage
 {
     private readonly TatCardModel _model;
-    private readonly IDbService _db;
+    private readonly ILockService _locks;
+    private readonly IActivityService _activity;
+    private readonly IUdmdService _udmd;
     private readonly List<string> _allTags;
     private readonly List<DependencyTaskOption> _dependencyOptions;
 
-    public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList, IDbService db, List<DependencyTaskOption> dependencyOptions)
+    public TatDetailsPage(TatCardModel model, Action<TatCardModel> onSaved, Action<TatCardModel> onDelete, List<string> availableTagsList, ILockService locks, IActivityService activity, IUdmdService udmd, List<DependencyTaskOption> dependencyOptions)
     {
         InitializeComponent();
         var vm = new TatDetailsViewModel(model, onSaved, onDelete, availableTagsList);
@@ -25,7 +27,9 @@ public partial class TatDetailsPage : ContentPage
         vm.IsLocksEnabled = SettingsProvider.IsLocksEnabled;
         vm.IsValueRatesEnabled = SettingsProvider.IsValueRatesEnabled;
         vm.IsSchedulesEnabled = SettingsProvider.IsSchedulesEnabled;
-        _db = db;
+        _locks = locks;
+        _activity = activity;
+        _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
         _allTags = availableTagsList;
         _dependencyOptions = dependencyOptions;
         Loaded += OnPageLoaded;
@@ -113,7 +117,7 @@ public partial class TatDetailsPage : ContentPage
     {
         var tcs = new TaskCompletionSource<List<ActivityModel>>();
 
-        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs, _db);
+        var page = new Points.Views.Details.EditActiveTimePage(_model.Activity, tcs, _activity, _udmd);
         await Navigation.PushAsync(page);
 
         try
@@ -122,7 +126,7 @@ public partial class TatDetailsPage : ContentPage
 
             if (_model.CardID > 0)
             {
-                var result = await _db.UpsertActivitiesAsync(edited, _model.CardID);
+                var result = await _activity.UpsertActivitiesAsync(edited, _model.CardID);
                 if (!result.Success)
                 {
                     await DisplayAlert("Active time not saved", result.Message, "OK");
@@ -180,7 +184,7 @@ public partial class TatDetailsPage : ContentPage
             new EditLocksPage(
                 cardId: _model.CardID,
                 locks: _model.Locks,
-                db: _db,
+                locksService: _locks,
                 dependencyOptions: _dependencyOptions,
                 onChanged: () =>
                 {
@@ -204,7 +208,7 @@ public partial class TatDetailsPage : ContentPage
             return;
         }
 
-        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _db));
+        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _udmd));
     }
 
     private async void OnSetActiveTimeTargetClicked(object sender, EventArgs e)

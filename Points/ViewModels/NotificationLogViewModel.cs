@@ -53,7 +53,7 @@ namespace Points.ViewModels
     {
         private static readonly TimeSpan MissedGracePeriod = TimeSpan.FromMinutes(15);
 
-        private readonly IDbService _db;
+        private readonly INotificationLogService _notificationLogs;
         private readonly IClock _clock;
         private readonly ITimeZoneService _timeZoneService;
         private bool _isBusy;
@@ -75,9 +75,9 @@ namespace Points.ViewModels
 
         public bool IsEmpty => !IsBusy && Rows.Count == 0;
 
-        public NotificationLogViewModel(IDbService db, IClock clock, ITimeZoneService? timeZoneService = null)
+        public NotificationLogViewModel(INotificationLogService notificationLogs, IClock clock, ITimeZoneService? timeZoneService = null)
         {
-            _db = db;
+            _notificationLogs = notificationLogs;
             _clock = clock;
             _timeZoneService = timeZoneService ?? new TimeZoneService();
             RefreshCommand = new Command(async () => await LoadAsync());
@@ -90,8 +90,8 @@ namespace Points.ViewModels
             IsBusy = true;
             try
             {
-                await _db.MarkOverdueNotificationLogsMissedAsync(_clock.UtcNow, MissedGracePeriod);
-                var logs = await _db.GetNotificationLogsAsync();
+                await _notificationLogs.MarkOverdueNotificationLogsMissedAsync(_clock.UtcNow, MissedGracePeriod);
+                var logs = await _notificationLogs.GetNotificationLogsAsync();
 
                 Rows.Clear();
                 foreach (var log in logs)

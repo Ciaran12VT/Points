@@ -7,14 +7,14 @@ namespace Points.Views.Details;
 public partial class BudgetDetailsPage : ContentPage
 {
     private readonly BudgetCardModel _model;
-    private readonly IDbService _db;
+    private readonly IUdmdService _udmd;
 
-    public BudgetDetailsPage(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete, List<string> availableTagsList, IDbService db)
+    public BudgetDetailsPage(BudgetCardModel model, Action<BudgetCardModel> onSaved, Action<BudgetCardModel> onDelete, List<string> availableTagsList, IUdmdService udmd)
     {
         InitializeComponent();
         _model = model;
-        _db = db;
-        BindingContext = new BudgetDetailsViewModel(model, onSaved, onDelete, availableTagsList, db);
+        _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
+        BindingContext = new BudgetDetailsViewModel(model, onSaved, onDelete, availableTagsList, udmd);
     }
 
     private async void OnEditUdmdClicked(object sender, EventArgs e)
@@ -25,7 +25,7 @@ public partial class BudgetDetailsPage : ContentPage
             return;
         }
 
-        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _db));
+        await Shell.Current.Navigation.PushAsync(new UdmdConfigPage(_model.CardID, _udmd));
     }
 
     protected override void OnDisappearing()

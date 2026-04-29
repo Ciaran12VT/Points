@@ -7,12 +7,12 @@ namespace Points.ViewModels
 {
     public class ModulesAndFeaturesSettingsViewModel : Models.ObservableObject, INotifyPropertyChanged
     {
-        private readonly IDbService _db;
+        private readonly ISettingsService _settings;
         private readonly Func<Task>? _onSaved;
 
-        public ModulesAndFeaturesSettingsViewModel(IDbService db, Func<Task>? onSaved = null)
+        public ModulesAndFeaturesSettingsViewModel(ISettingsService settings, Func<Task>? onSaved = null)
         {
-            _db = db;
+            _settings = settings;
             _onSaved = onSaved;
             SaveCommand = new Command(async () => await SaveAsync());
 
@@ -191,7 +191,7 @@ namespace Points.ViewModels
 
         private async Task LoadAsync()
         {
-            var settings = await _db.GetSettingsAsync();
+            var settings = await _settings.GetSettingsAsync();
 
             DashboardActive = GetBool(settings, SettingKeys.DashboardActive, true);
             DashboardScreenOrderText = GetInt(settings, SettingKeys.DashboardScreenOrder, 1).ToString();
@@ -224,31 +224,31 @@ namespace Points.ViewModels
         {
             if (HasInvalidScreenOrder) return;
 
-            await _db.SetBoolSettingAsync(SettingKeys.DashboardActive, DashboardActive);
-            await _db.SetIntSettingAsync(SettingKeys.DashboardScreenOrder, ParseInt(DashboardScreenOrderText, 1));
+            await _settings.SetBoolSettingAsync(SettingKeys.DashboardActive, DashboardActive);
+            await _settings.SetIntSettingAsync(SettingKeys.DashboardScreenOrder, ParseInt(DashboardScreenOrderText, 1));
 
-            await _db.SetBoolSettingAsync(SettingKeys.MainQuestActive, MainQuestActive);
-            await _db.SetIntSettingAsync(SettingKeys.MainQuestScreenOrder, ParseInt(MainQuestScreenOrderText, 2));
+            await _settings.SetBoolSettingAsync(SettingKeys.MainQuestActive, MainQuestActive);
+            await _settings.SetIntSettingAsync(SettingKeys.MainQuestScreenOrder, ParseInt(MainQuestScreenOrderText, 2));
 
-            await _db.SetBoolSettingAsync(SettingKeys.MissionActive, MissionActive);
-            await _db.SetIntSettingAsync(SettingKeys.MissionScreenOrder, ParseInt(MissionScreenOrderText, 3));
+            await _settings.SetBoolSettingAsync(SettingKeys.MissionActive, MissionActive);
+            await _settings.SetIntSettingAsync(SettingKeys.MissionScreenOrder, ParseInt(MissionScreenOrderText, 3));
 
-            await _db.SetBoolSettingAsync(SettingKeys.BudgetsActive, BudgetsActive);
-            await _db.SetIntSettingAsync(SettingKeys.BudgetsScreenOrder, ParseInt(BudgetsScreenOrderText, 4));
+            await _settings.SetBoolSettingAsync(SettingKeys.BudgetsActive, BudgetsActive);
+            await _settings.SetIntSettingAsync(SettingKeys.BudgetsScreenOrder, ParseInt(BudgetsScreenOrderText, 4));
 
-            await _db.SetBoolSettingAsync(SettingKeys.AchievementsActive, AchievementsActive);
-            await _db.SetIntSettingAsync(SettingKeys.AchievementsScreenOrder, ParseInt(AchievementsScreenOrderText, 5));
+            await _settings.SetBoolSettingAsync(SettingKeys.AchievementsActive, AchievementsActive);
+            await _settings.SetIntSettingAsync(SettingKeys.AchievementsScreenOrder, ParseInt(AchievementsScreenOrderText, 5));
 
-            await _db.SetBoolSettingAsync(SettingKeys.ArcsActive, ArcsActive);
-            await _db.SetIntSettingAsync(SettingKeys.ArcsScreenOrder, ParseInt(ArcsScreenOrderText, 6));
+            await _settings.SetBoolSettingAsync(SettingKeys.ArcsActive, ArcsActive);
+            await _settings.SetIntSettingAsync(SettingKeys.ArcsScreenOrder, ParseInt(ArcsScreenOrderText, 6));
 
-            await _db.SetBoolSettingAsync(SettingKeys.GoalsActive, GoalsActive);
-            await _db.SetIntSettingAsync(SettingKeys.GoalsScreenOrder, ParseInt(GoalsScreenOrderText, 7));
+            await _settings.SetBoolSettingAsync(SettingKeys.GoalsActive, GoalsActive);
+            await _settings.SetIntSettingAsync(SettingKeys.GoalsScreenOrder, ParseInt(GoalsScreenOrderText, 7));
 
-            await _db.SetBoolSettingAsync(SettingKeys.LocksActive, LocksActive);
-            await _db.SetBoolSettingAsync(SettingKeys.SchedulesActive, SchedulesActive);
-            await _db.SetBoolSettingAsync(SettingKeys.ValueRatesActive, ValueRatesActive);
-            await _db.SetBoolSettingAsync(SettingKeys.CashInActive, CashInActive);
+            await _settings.SetBoolSettingAsync(SettingKeys.LocksActive, LocksActive);
+            await _settings.SetBoolSettingAsync(SettingKeys.SchedulesActive, SchedulesActive);
+            await _settings.SetBoolSettingAsync(SettingKeys.ValueRatesActive, ValueRatesActive);
+            await _settings.SetBoolSettingAsync(SettingKeys.CashInActive, CashInActive);
 
             SettingsProvider.UpdateDashboardActive(DashboardActive);
             SettingsProvider.UpdateDashboardScreenOrder(ParseInt(DashboardScreenOrderText, 1));

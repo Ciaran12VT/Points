@@ -8,12 +8,12 @@ namespace Points.ViewModels
 {
     public class MultipliersSettingsViewModel : Models.ObservableObject, INotifyPropertyChanged
     {
-        private readonly IDbService _db;
+        private readonly ISettingsService _settings;
         private readonly Func<Task>? _onSaved;
 
-        public MultipliersSettingsViewModel(IDbService db, Func<Task>? onSaved = null)
+        public MultipliersSettingsViewModel(ISettingsService settings, Func<Task>? onSaved = null)
         {
-            _db = db;
+            _settings = settings;
             _onSaved = onSaved;
 
             SaveCommand = new Command(async () => await SaveAsync());
@@ -87,7 +87,7 @@ namespace Points.ViewModels
 
         private async Task LoadAsync()
         {
-            var settings = await _db.GetSettingsAsync();
+            var settings = await _settings.GetSettingsAsync();
 
             var hardModeEnabledSetting = settings.FirstOrDefault(x => x.SettingKey == SettingKeys.HardModeEnabled);
             HardModeEnabled = hardModeEnabledSetting?.BoolValue ?? false;
@@ -100,8 +100,8 @@ namespace Points.ViewModels
 
         private async Task SaveAsync()
         {
-            await _db.SetBoolSettingAsync(SettingKeys.HardModeEnabled, HardModeEnabled);
-            await _db.SetDoubleSettingAsync(SettingKeys.HardModeDamagePerMinuteValue, HardModeIdlePenaltyPerMinute);
+            await _settings.SetBoolSettingAsync(SettingKeys.HardModeEnabled, HardModeEnabled);
+            await _settings.SetDoubleSettingAsync(SettingKeys.HardModeDamagePerMinuteValue, HardModeIdlePenaltyPerMinute);
 
             SettingsProvider.UpdateHardModeEnabled(HardModeEnabled);
             SettingsProvider.UpdateHardModeDamagePerMinuteValue(HardModeIdlePenaltyPerMinute);

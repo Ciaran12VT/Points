@@ -199,8 +199,8 @@ namespace Points.Platforms.Android
 
         private async Task EnsureSeededAsync(IActiveCardModel acm)
         {
-            var db = ServiceHelper.GetService<IDbService>();
-            acm.TimeValueAchievementEvaluators = await db.RefreshEvaluatorsAsync(acm.TimeValueAchievementEvaluators);
+            var achievements = ServiceHelper.GetService<IAchievementService>();
+            acm.TimeValueAchievementEvaluators = await achievements.RefreshEvaluatorsAsync(acm.TimeValueAchievementEvaluators);
         }
 
         #endregion
@@ -514,7 +514,7 @@ namespace Points.Platforms.Android
 
         private async Task PersistEarnedAchievementsAsync(IEnumerable<AchievementCardModel> earned)
         {
-            var db = ServiceHelper.GetService<IDbService>();
+            var achievements = ServiceHelper.GetService<IAchievementService>();
             var now = ServiceHelper.GetService<IClock>().UtcNow;
 
             foreach (var ach in earned)
@@ -522,7 +522,7 @@ namespace Points.Platforms.Android
                 if (!_earnedThisSession.Add(ach.Id)) continue;
 
                 // Assuming AchievementCardModel has a numeric Id
-                await db.MarkAchievementEarnedAsync(ach.Id, now);
+                await achievements.MarkAchievementEarnedAsync(ach.Id, now);
 
                 // Optional: update in-memory model too, if it has a LastEarnedAt property:
                 ach.LastEarnedAt = now;

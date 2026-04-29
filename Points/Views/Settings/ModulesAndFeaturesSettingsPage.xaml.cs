@@ -5,10 +5,10 @@ namespace Points.Views.Settings;
 
 public partial class ModulesAndFeaturesSettingsPage : ContentPage
 {
-    public ModulesAndFeaturesSettingsPage(IDbService db)
+    public ModulesAndFeaturesSettingsPage(ISettingsService settings)
     {
         InitializeComponent();
-        BindingContext = new ModulesAndFeaturesSettingsViewModel(db, ReturnToSettingsPageAsync);
+        BindingContext = new ModulesAndFeaturesSettingsViewModel(settings, ReturnToSettingsPageAsync);
     }
 
     private async Task ReturnToSettingsPageAsync()

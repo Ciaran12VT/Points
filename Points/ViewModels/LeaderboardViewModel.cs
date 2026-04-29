@@ -13,7 +13,8 @@ namespace Points.ViewModels;
 
 public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
 {
-    private readonly IDbService _db;
+    private readonly ICardReadService _cardReader;
+    private readonly IPlannerService _plannerService;
     private readonly IClock _clock;
     private readonly ITimeZoneService _timeZoneService;
     private List<LeaderboardRowModel> _allRows = new();
@@ -52,11 +53,13 @@ public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
     public ICommand SortByPointsCommand { get; }
 
     public LeaderboardViewModel(
-        IDbService db,
+        ICardReadService cardReader,
+        IPlannerService plannerService,
         IClock? clock = null,
         ITimeZoneService? timeZoneService = null)
     {
-        _db = db;
+        _cardReader = cardReader ?? throw new ArgumentNullException(nameof(cardReader));
+        _plannerService = plannerService ?? throw new ArgumentNullException(nameof(plannerService));
         _clock = ResolveClock(clock);
         _timeZoneService = ResolveTimeZoneService(timeZoneService);
         _refreshedAt = LocalNow;
@@ -155,7 +158,7 @@ public sealed partial class LeaderboardViewModel : INotifyPropertyChanged
             var start = now.Date;
             var end = start.AddDays(1);
 
-            var seed = await _db.GetHomeSeedDataAsync(start, end);
+            var seed = await _cardReader.GetHomeSeedDataAsync(start, end);
 
             var activeCards = seed.MainQuestCards
                 .Cast<IActiveCardModel>()

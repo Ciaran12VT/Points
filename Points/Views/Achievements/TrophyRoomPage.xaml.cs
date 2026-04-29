@@ -6,14 +6,14 @@ namespace Points.Views.Achievements;
 
 public partial class TrophyRoomPage : ContentPage
 {
-    private IDbService _db;
+    private readonly IAchievementService _achievements;
 
-    public TrophyRoomPage(IDbService db)
+    public TrophyRoomPage(IAchievementService achievements)
 	{
 		InitializeComponent();
-        _db = db;
+        _achievements = achievements;
 
-        BindingContext = new TrophyRoomViewModel(_db);
+        BindingContext = new TrophyRoomViewModel(_achievements);
     }
 
     private async void OnViewTrophyClicked(object sender, EventArgs e)
@@ -22,6 +22,6 @@ public partial class TrophyRoomPage : ContentPage
         if (btn.CommandParameter is not TrophyModel trophy) return;
 
         // Fullscreen modal viewer
-        await Shell.Current.Navigation.PushModalAsync(new NavigationPage(new TrophyViewerPage(trophy, _db)));
+        await Shell.Current.Navigation.PushModalAsync(new NavigationPage(new TrophyViewerPage(trophy, _achievements)));
     }
 }

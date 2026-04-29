@@ -1,5 +1,4 @@
 using Points.Global;
-using Points.Services.Sqlite.Interfaces;
 
 namespace Points.Views.Shared;
 
@@ -7,7 +6,7 @@ public partial class DateRangePickerPage : ContentPage
 {
     private readonly Func<DateTime, DateTime, Task>? _onSaved;
 
-    public DateRangePickerPage(IDbService db, Func<DateTime, DateTime, Task>? onSaved = null)
+    public DateRangePickerPage(Func<DateTime, DateTime, Task>? onSaved = null)
 	{
 		InitializeComponent();
         _onSaved = onSaved;

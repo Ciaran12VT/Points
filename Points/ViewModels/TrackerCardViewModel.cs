@@ -17,13 +17,13 @@ public partial class TrackerCardViewModel : Models.ObservableObject
 
     public ICommand AddValueCommand { get; }
 
-    private readonly IDbService _db;
+    private readonly ICardWriteService _cardWriter;
 
-    public TrackerCardViewModel(TrackerCardModel model, IDbService db)
+    public TrackerCardViewModel(TrackerCardModel model, ICardWriteService cardWriter)
     {
         Model = model;
 
-        _db = db;
+        _cardWriter = cardWriter;
 
         // Keep sparkline updated when Values changes.
         Model.Values.CollectionChanged += OnValuesChanged;
@@ -90,7 +90,7 @@ public partial class TrackerCardViewModel : Models.ObservableObject
                 break;
         }
 
-        await _db.SaveCardModelAsync(card);
+        await _cardWriter.SaveCardModelAsync(card);
     }
 
     private async Task AddValueToValueTrackerAsync(ValueTrackerCardModel valueTracker)

@@ -7,16 +7,16 @@ namespace Points.Views.Details;
 public sealed class UdmdConfigPage : ContentPage
 {
     private readonly long _cardId;
-    private readonly IDbService _db;
+    private readonly IUdmdService _udmd;
     private readonly VerticalStackLayout _fieldsStack = new();
     private readonly Label _messageLabel = new() { IsVisible = false, TextColor = Colors.OrangeRed };
     private readonly List<FieldEditor> _editors = new();
     private bool _loaded;
 
-    public UdmdConfigPage(long cardId, IDbService db)
+    public UdmdConfigPage(long cardId, IUdmdService udmd)
     {
         _cardId = cardId;
-        _db = db ?? throw new ArgumentNullException(nameof(db));
+        _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
 
         Title = "UDMD";
 
@@ -99,13 +99,13 @@ public sealed class UdmdConfigPage : ContentPage
         _fieldsStack.Children.Clear();
         _editors.Clear();
 
-        var configs = await _db.GetUdmdConfigsForCardAsync(_cardId);
+        var configs = await _udmd.GetUdmdConfigsForCardAsync(_cardId);
         foreach (var config in configs)
         {
             var dropdownText = "";
             if (config.FieldTypeKind == UdmdFieldType.Dropdown)
             {
-                var dropdowns = await _db.GetDropdownValuesAsync(config.UdmdConfigID);
+                var dropdowns = await _udmd.GetDropdownValuesAsync(config.UdmdConfigID);
                 dropdownText = string.Join(Environment.NewLine, dropdowns.Select(x => x.DropdownValue));
             }
 
@@ -149,13 +149,13 @@ public sealed class UdmdConfigPage : ContentPage
         try
         {
             var config = editor.ReadConfig(_cardId);
-            config = await _db.SaveUdmdConfigAsync(config);
+            config = await _udmd.SaveUdmdConfigAsync(config);
             editor.Config = config;
 
             if (config.FieldTypeKind == UdmdFieldType.Dropdown)
             {
                 var values = SplitDropdownValues(editor.DropdownValuesEditor.Text);
-                await _db.SaveDropdownValuesAsync(config.UdmdConfigID, values);
+                await _udmd.SaveDropdownValuesAsync(config.UdmdConfigID, values);
             }
 
             if (showSuccess)
@@ -179,7 +179,7 @@ public sealed class UdmdConfigPage : ContentPage
             return;
         }
 
-        await _db.DeleteOrDeactivateUdmdConfigAsync(editor.Config.UdmdConfigID);
+        await _udmd.DeleteOrDeactivateUdmdConfigAsync(editor.Config.UdmdConfigID);
         editor.ActiveSwitch.IsToggled = false;
         editor.Config.IsActive = false;
         ShowMessage("Field deactivated.", Colors.Green);
