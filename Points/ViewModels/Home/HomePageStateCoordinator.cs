@@ -99,7 +99,7 @@ namespace Points.ViewModels.Home
                     page.Definition.Title,
                     page.Definition.CardsFactory(),
                     page.Definition.Icon,
-                    12));
+                    page.Definition.Title == "Dashboard" ? 8 : 12)); // The dashboard icon is slightly too big, so we use a smaller font size for it
             }
         }
 
