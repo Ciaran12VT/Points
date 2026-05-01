@@ -1,9 +1,13 @@
 using System.Globalization;
+using CommunityToolkit.Maui.Views;
+using Points.Helpers;
 using Points.Models;
+using Points.Services.Calculations;
 using Points.Services.Navigation;
 using Points.Services;
 using Points.Services.Persistence;
 using Points.Services.Time;
+using Points.Views.Budgets;
 
 namespace Points.Views.Udmd;
 
@@ -206,7 +210,42 @@ public sealed class UdmdPromptPage : ContentPage
                 Text = message,
                 FontAttributes = FontAttributes.Bold
             });
-            content.Children.Add(amountEntry);
+
+            var amountRow = new Grid
+            {
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition(GridLength.Star),
+                    new ColumnDefinition(GridLength.Auto)
+                },
+                ColumnSpacing = 8
+            };
+
+            var calculatorButton = new Button
+            {
+                Text = "🖩",
+                WidthRequest = 32,
+                HeightRequest = 32,
+                Padding = 0,
+                CornerRadius = 18,
+                BackgroundColor = Colors.DodgerBlue,
+                TextColor = Colors.White,
+                HorizontalOptions = LayoutOptions.End,
+                VerticalOptions = LayoutOptions.Center,
+                FontSize = 14
+            };
+            SemanticProperties.SetDescription(calculatorButton, "Calculator");
+            calculatorButton.Clicked += async (_, __) =>
+            {
+                var popupHost = amountEntry.FindParentOfType<Page>() ?? owner;
+                var popupResult = await popupHost.ShowPopupAsync(new BudgetAmountCalculatorPopup(amountEntry.Text));
+                if (popupResult is double calculatedAmount)
+                    amountEntry.Text = ArithmeticExpressionEvaluator.FormatResult(calculatedAmount);
+            };
+
+            amountRow.Add(amountEntry, 0, 0);
+            amountRow.Add(calculatorButton, 1, 0);
+            content.Children.Add(amountRow);
         }
 
         async Task<bool> ValidateAmountAsync()

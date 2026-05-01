@@ -67,6 +67,7 @@
     <Compile Include="..\Points\Services\Activity\CardRecencyCalculator.cs" Link="App\Activity\CardRecencyCalculator.cs" />
     <Compile Include="..\Points\Services\Activity\SqliteActivityService.cs" Link="App\Activity\SqliteActivityService.cs" />
     <Compile Include="..\Points\Services\Budgets\SqliteBudgetService.cs" Link="App\Budgets\SqliteBudgetService.cs" />
+    <Compile Include="..\Points\Services\Calculations\ArithmeticExpressionEvaluator.cs" Link="App\Calculations\ArithmeticExpressionEvaluator.cs" />
     <Compile Include="..\Points\Services\Cards\SqliteCardService.cs" Link="App\Cards\SqliteCardService.cs" />
     <Compile Include="..\Points\Services\Goals\SqliteGoalService.cs" Link="App\Goals\SqliteGoalService.cs" />
     <Compile Include="..\Points\Services\Locks\SqliteLockService.cs" Link="App\Locks\SqliteLockService.cs" />
