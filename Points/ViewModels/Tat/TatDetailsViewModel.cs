@@ -21,6 +21,7 @@ namespace Points.ViewModels.Tat
         private TatCardModel _model = null!;
         private Action<TatCardModel> _onSaved;
         private Func<TatCardModel, Task> _onDelete;
+        private readonly Func<TatCardModel, Task<bool>> _wouldArchiveOnDelete;
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
         private readonly ActiveCardDetailsInteractionCoordinator _detailsInteractions;
@@ -103,6 +104,7 @@ namespace Points.ViewModels.Tat
             TatCardModel model,
             Action<TatCardModel> onSaved,
             Func<TatCardModel, Task> onDelete,
+            Func<TatCardModel, Task<bool>> wouldArchiveOnDelete,
             List<string> availableTagsList,
             ILockService locks,
             IActivityService activity,
@@ -138,6 +140,7 @@ namespace Points.ViewModels.Tat
             EditUdmdCommand = new Command(async () => await EditUdmdAsync());
             SetActiveTimeTargetCommand = new Command(async () => await SetActiveTimeTargetAsync());
             AvailableTagList = availableTagsList;
+            _wouldArchiveOnDelete = wouldArchiveOnDelete ?? throw new ArgumentNullException(nameof(wouldArchiveOnDelete));
 
             // Tick every second
             _timer = Application.Current!.Dispatcher.CreateTimer();
@@ -309,18 +312,26 @@ namespace Points.ViewModels.Tat
 
         private async Task OnCancelAsync()
         {
+            var deleteActionText = await GetDeleteActionTextAsync();
             var choice = await _dialogs.DisplayActionSheetAsync(
                 _model.Title,
                 "Cancel",
                 null,
-                "Delete"
+                deleteActionText
             );
 
-            if (choice == "Delete")
+            if (choice == deleteActionText)
             {
                 await _onDelete(_model);
                 await _navigation.PopAsync();
             }
+        }
+
+        private async Task<string> GetDeleteActionTextAsync()
+        {
+            return await _wouldArchiveOnDelete(_model)
+                ? "Archive"
+                : "Delete";
         }
 
         private void AddValueRate()

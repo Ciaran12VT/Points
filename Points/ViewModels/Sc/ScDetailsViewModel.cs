@@ -21,6 +21,7 @@ namespace Points.ViewModels.Sc
         private ScCardModel _model = null!;
         private Action<ScCardModel> _onSaved;
         private Func<ScCardModel, Task> _onDelete;
+        private readonly Func<ScCardModel, Task<bool>> _wouldArchiveOnDelete;
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
         private readonly IClock _clock;
@@ -47,6 +48,7 @@ namespace Points.ViewModels.Sc
             ScCardModel model,
             Action<ScCardModel> onSaved,
             Func<ScCardModel, Task> onDelete,
+            Func<ScCardModel, Task<bool>> wouldArchiveOnDelete,
             List<string> availableTagsList,
             IAchievementService achievements,
             IActivityService activity,
@@ -76,6 +78,7 @@ namespace Points.ViewModels.Sc
             AvailableTagList = availableTagsList;
             _onSaved = onSaved;
             _onDelete = onDelete;
+            _wouldArchiveOnDelete = wouldArchiveOnDelete ?? throw new ArgumentNullException(nameof(wouldArchiveOnDelete));
 
             // Tick every second
             _timer = Application.Current!.Dispatcher.CreateTimer();
@@ -277,18 +280,26 @@ namespace Points.ViewModels.Sc
 
         private async Task OnCancelAsync()
         {
+            var deleteActionText = await GetDeleteActionTextAsync();
             var choice = await _dialogs.DisplayActionSheetAsync(
                 _model.Title,
                 "Cancel",
                 null,
-                "Delete"
+                deleteActionText
             );
 
-            if (choice == "Delete")
+            if (choice == deleteActionText)
             {
                 await _onDelete(_model);
                 await _navigation.PopAsync();
             }
+        }
+
+        private async Task<string> GetDeleteActionTextAsync()
+        {
+            return await _wouldArchiveOnDelete(_model)
+                ? "Archive"
+                : "Delete";
         }
 
         private void RaiseComputed()

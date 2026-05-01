@@ -175,29 +175,23 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
         if (model == null)
             throw new ArgumentNullException(nameof(model));
 
-        var cardId = model.CardID;
-        if (cardId <= 0)
-        {
-            var resolvedCardId = await CheckForCardIdAsync(model);
-            if (resolvedCardId == null)
-                return;
-
-            cardId = resolvedCardId.Value;
-        }
+        var cardId = await ResolveCardIdForDeleteAsync(model);
+        if (cardId == null)
+            return;
 
         var archived = false;
 
         await _context.Db.RunInTransactionAsync(conn =>
         {
-            if (HasTransactionalData(conn, model, cardId))
+            if (HasTransactionalData(conn, model, cardId.Value))
             {
-                ArchiveSubtype(conn, model, cardId);
+                ArchiveSubtype(conn, model, cardId.Value);
                 archived = true;
                 return;
             }
 
-            DeleteCommonCardRows(conn, cardId);
-            conn.Execute("DELETE FROM Card WHERE CardID = ?;", cardId);
+            DeleteCommonCardRows(conn, cardId.Value);
+            conn.Execute("DELETE FROM Card WHERE CardID = ?;", cardId.Value);
         });
 
         if (archived)
@@ -206,9 +200,38 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
             return;
         }
 
-        UdmdImageFileStore.TryDeleteCardFolder(cardId);
+        UdmdImageFileStore.TryDeleteCardFolder(cardId.Value);
         model.Id = 0;
         model.CardID = 0;
+    }
+
+    public async Task<bool> WouldArchiveCardModelOnDeleteAsync(ICardModel model)
+    {
+        await _context.InitializeAsync();
+
+        if (model == null)
+            throw new ArgumentNullException(nameof(model));
+
+        var cardId = await ResolveCardIdForDeleteAsync(model);
+        if (cardId == null)
+            return false;
+
+        return model switch
+        {
+            ScCardModel => await HasRowsAsync("SELECT 1 FROM Activity WHERE CardID = ? LIMIT 1;", cardId.Value) ||
+                           await HasRowsAsync(
+                               @"SELECT 1
+                                 FROM ScCard sc
+                                 JOIN ScCardStep step ON step.ScCardID = sc.ScCardID
+                                 JOIN ScCardStepRep rep ON rep.ScCardStepID = step.ScCardStepID
+                                 WHERE sc.CardID = ?
+                                 LIMIT 1;",
+                               cardId.Value),
+            TatCardModel => await HasRowsAsync("SELECT 1 FROM Activity WHERE CardID = ? LIMIT 1;", cardId.Value),
+            BudgetCardModel => await HasBudgetTransactionRowsAsync(model.Id, cardId.Value),
+            TrackerCardModel => await HasRowsAsync("SELECT 1 FROM TrackerValue WHERE CardID = ? LIMIT 1;", cardId.Value),
+            _ => false
+        };
     }
 
     private async Task SaveSubtypeAsync(ICardModel model, long cardId)
@@ -264,6 +287,32 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
 
         var cardId = ids.FirstOrDefault();
         return cardId <= 0 ? null : cardId;
+    }
+
+    private async Task<long?> ResolveCardIdForDeleteAsync(ICardModel model)
+    {
+        var cardId = model.CardID;
+        if (cardId > 0)
+            return cardId;
+
+        return await CheckForCardIdAsync(model);
+    }
+
+    private async Task<bool> HasBudgetTransactionRowsAsync(int modelId, long cardId)
+    {
+        var budgetCardId = modelId > 0
+            ? modelId
+            : (int)(await _context.Db.QueryScalarsAsync<long>(
+                "SELECT BudgetCardID FROM BudgetCard WHERE CardID = ? LIMIT 1;",
+                cardId)).FirstOrDefault();
+
+        return budgetCardId > 0 &&
+               await HasRowsAsync("SELECT 1 FROM BudgetCardTransaction WHERE BudgetCardID = ? LIMIT 1;", budgetCardId);
+    }
+
+    private async Task<bool> HasRowsAsync(string sql, params object[] args)
+    {
+        return (await _context.Db.QueryScalarsAsync<int>(sql, args)).FirstOrDefault() != 0;
     }
 
     private async Task PopulateLocksAsync(List<IActiveCardModel> mainQuest, List<MissionCardModel> mission)

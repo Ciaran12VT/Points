@@ -18,6 +18,7 @@ namespace Points.ViewModels.Budgets
         private readonly BudgetCardModel _model;
         private readonly Action<BudgetCardModel> _onSaved;
         private Func<BudgetCardModel, Task> _onDelete;
+        private readonly Func<BudgetCardModel, Task<bool>> _wouldArchiveOnDelete;
         private readonly IUdmdService _udmd;
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
@@ -45,6 +46,7 @@ namespace Points.ViewModels.Budgets
             BudgetCardModel model,
             Action<BudgetCardModel> onSaved,
             Func<BudgetCardModel, Task> onDelete,
+            Func<BudgetCardModel, Task<bool>> wouldArchiveOnDelete,
             List<string> availableTagsList,
             IUdmdService udmd,
             IAppNavigationService navigation,
@@ -55,6 +57,7 @@ namespace Points.ViewModels.Budgets
             _model = model;
             _onSaved = onSaved;
             _onDelete = onDelete;
+            _wouldArchiveOnDelete = wouldArchiveOnDelete ?? throw new ArgumentNullException(nameof(wouldArchiveOnDelete));
             _udmd = udmd;
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
@@ -241,18 +244,26 @@ namespace Points.ViewModels.Budgets
 
         private async Task OnCancelAsync()
         {
+            var deleteActionText = await GetDeleteActionTextAsync();
             var choice = await _dialogs.DisplayActionSheetAsync(
                 _model.Title,
                 "Cancel",
                 null,
-                "Delete"
+                deleteActionText
             );
 
-            if (choice == "Delete")
+            if (choice == deleteActionText)
             {
                 await _onDelete(_model);
                 await _navigation.PopAsync();
             }
+        }
+
+        private async Task<string> GetDeleteActionTextAsync()
+        {
+            return await _wouldArchiveOnDelete(_model)
+                ? "Archive"
+                : "Delete";
         }
 
         private async Task OpenTransactionLogAsync()

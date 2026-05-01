@@ -65,6 +65,8 @@ public sealed class SqliteCardServiceTests
         var imageFolder = AppPaths.GetImageMetadataPath(sc.CardID);
         File.WriteAllText(Path.Combine(imageFolder, "field.jpg"), "test");
 
+        Assert.False(await harness.Service.WouldArchiveCardModelOnDeleteAsync(sc));
+
         await harness.Service.DeleteCardModelAsync(sc);
 
         Assert.Equal(0, sc.Id);
@@ -91,6 +93,8 @@ public sealed class SqliteCardServiceTests
         await using var context = new TestSqliteConnectionContext();
         var harness = CreateHarness(context);
         var model = await context.InsertCardWithTransactionalDataAsync(kind);
+
+        Assert.True(await harness.Service.WouldArchiveCardModelOnDeleteAsync(model));
 
         await harness.Service.DeleteCardModelAsync(model);
 

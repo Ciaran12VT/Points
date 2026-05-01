@@ -86,6 +86,13 @@ namespace Points.ViewModels.Home
             await _reloadDashboardAsync();
         }
 
+        public Task<bool> WouldArchiveOnDeleteAsync(ICardModel? card)
+        {
+            return card == null
+                ? Task.FromResult(false)
+                : _cardWriter.WouldArchiveCardModelOnDeleteAsync(card);
+        }
+
         public void FailMission(MissionCardModel model)
         {
             model.Fail(_clock.UtcNow);

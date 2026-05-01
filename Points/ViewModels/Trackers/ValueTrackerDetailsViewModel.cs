@@ -13,6 +13,7 @@ public sealed class ValueTrackerDetailsViewModel : Models.ObservableObject
     private readonly ValueTrackerCardModel _model;
     private readonly Action<ValueTrackerCardModel> _onSaved;
     private readonly Func<ValueTrackerCardModel, Task> _onDelete;
+    private readonly Func<ValueTrackerCardModel, Task<bool>> _wouldArchiveOnDelete;
     private readonly Action _onCancelled;
     private readonly IUdmdService _udmd;
     private readonly IAppNavigationService _navigation;
@@ -76,6 +77,7 @@ public sealed class ValueTrackerDetailsViewModel : Models.ObservableObject
         ValueTrackerCardModel model,
         Action<ValueTrackerCardModel> onSaved,
         Func<ValueTrackerCardModel, Task> onDelete,
+        Func<ValueTrackerCardModel, Task<bool>> wouldArchiveOnDelete,
         Action onCancelled,
         IUdmdService udmd,
         IAppNavigationService navigation,
@@ -85,6 +87,7 @@ public sealed class ValueTrackerDetailsViewModel : Models.ObservableObject
         _model = model ?? throw new ArgumentNullException(nameof(model));
         _onSaved = onSaved ?? throw new ArgumentNullException(nameof(onSaved));
         _onDelete = onDelete ?? throw new ArgumentNullException(nameof(onDelete));
+        _wouldArchiveOnDelete = wouldArchiveOnDelete ?? throw new ArgumentNullException(nameof(wouldArchiveOnDelete));
         _onCancelled = onCancelled ?? throw new ArgumentNullException(nameof(onCancelled));
         _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
@@ -115,10 +118,13 @@ public sealed class ValueTrackerDetailsViewModel : Models.ObservableObject
 
     private async Task DeleteAsync()
     {
+        var deleteActionText = await GetDeleteActionTextAsync();
         var confirmed = await _dialogs.DisplayAlertAsync(
-            "Delete Arc?",
-            "Cards with saved values are archived for reporting. Empty cards are deleted.",
-            "Delete",
+            $"{deleteActionText} Arc?",
+            deleteActionText == "Archive"
+                ? "This Arc has saved values, so it will be archived and kept for reporting."
+                : "This Arc has no saved values, so it will be deleted.",
+            deleteActionText,
             "Cancel");
 
         if (!confirmed)
@@ -133,6 +139,13 @@ public sealed class ValueTrackerDetailsViewModel : Models.ObservableObject
         {
             await _dialogs.DisplayAlertAsync("Delete failed", ex.Message, "OK");
         }
+    }
+
+    private async Task<string> GetDeleteActionTextAsync()
+    {
+        return await _wouldArchiveOnDelete(_model)
+            ? "Archive"
+            : "Delete";
     }
 
     private async Task SaveAsync()
