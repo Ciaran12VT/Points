@@ -70,6 +70,12 @@
 		<PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
 	</ItemGroup>
 
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<PackageReference Include="Xamarin.AndroidX.Collection.Ktx" Version="1.4.5" />
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.Runtime.Ktx" Version="2.8.7" />
+		<PackageReference Include="Xamarin.AndroidX.Work.Runtime" Version="2.10.0" />
+	</ItemGroup>
+
 	<ItemGroup>
 	  <AndroidResource Update="Platforms\Android\Resources\raw\clack.ogg">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
@@ -155,6 +161,9 @@
 	  <MauiXaml Update="Views\Settings\SettingsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Views\Settings\ScheduledBackupHistoryPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Views\Shared\DateRangePickerPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
@@ -183,6 +192,9 @@
 	    <Generator>MSBuild:Compile</Generator>
 	  </None>
 	  <None Update="Views\Settings\MultiplierSettingsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </None>
+	  <None Update="Views\Settings\ScheduledBackupHistoryPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </None>
 	</ItemGroup>

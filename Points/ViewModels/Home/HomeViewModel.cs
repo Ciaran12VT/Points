@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using Points.Models;
 using Points.Global;
 using Points.Services;
+using Points.Services.Backup;
 using Points.Services.Navigation;
 using System.Windows.Input;
 using Points.Services.Scheduling;
@@ -356,6 +357,11 @@ namespace Points.ViewModels.Home
             IAppDialogService dialogs,
             IPopupService popups,
             IAppPageService pageService,
+            IBackupFileStorageService backupFileStorage,
+            IScheduledBackupConfigStore scheduledBackupConfigStore,
+            IScheduledBackupLogStore scheduledBackupLogStore,
+            IGoogleDriveBackupConnector googleDriveBackupConnector,
+            IScheduledBackupWorkScheduler scheduledBackupWorkScheduler,
             IClock clock)
         {
             _clock = clock;
@@ -463,6 +469,11 @@ namespace Points.ViewModels.Home
                 dialogs,
                 popups,
                 clock,
+                backupFileStorage,
+                scheduledBackupConfigStore,
+                scheduledBackupLogStore,
+                googleDriveBackupConnector,
+                scheduledBackupWorkScheduler,
                 Pages,
                 _pageState,
                 _cardWorkflow,

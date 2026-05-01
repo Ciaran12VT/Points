@@ -1,3 +1,4 @@
+using Points.Services.Backup;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Time;
@@ -14,6 +15,11 @@ public partial class SettingsPage : ContentPage
     private readonly ISettingsService _settings;
     private readonly IClock _clock;
     private readonly ITimeZoneService _timeZoneService;
+    private readonly IBackupFileStorageService _backupFileStorage;
+    private readonly IScheduledBackupConfigStore _scheduledBackupConfigStore;
+    private readonly IScheduledBackupLogStore _scheduledBackupLogStore;
+    private readonly IGoogleDriveBackupConnector _googleDriveBackupConnector;
+    private readonly IScheduledBackupWorkScheduler _scheduledBackupWorkScheduler;
 
     public Command OpenDatabaseSettingsCommand { get; }
     public Command OpenMultipliersSettingsCommand { get; }
@@ -28,7 +34,12 @@ public partial class SettingsPage : ContentPage
         IAppNavigationService navigation,
         IAppDialogService dialogs,
         IClock clock,
-        ITimeZoneService timeZoneService)
+        ITimeZoneService timeZoneService,
+        IBackupFileStorageService backupFileStorage,
+        IScheduledBackupConfigStore scheduledBackupConfigStore,
+        IScheduledBackupLogStore scheduledBackupLogStore,
+        IGoogleDriveBackupConnector googleDriveBackupConnector,
+        IScheduledBackupWorkScheduler scheduledBackupWorkScheduler)
     {
         OpenDatabaseSettingsCommand = new Command(async () => await OpenDatabaseSettingsAsync());
         OpenMultipliersSettingsCommand = new Command(async () => await OpenMultipliersSettingsAsync());
@@ -44,11 +55,27 @@ public partial class SettingsPage : ContentPage
         _settings = settings;
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _timeZoneService = timeZoneService ?? throw new ArgumentNullException(nameof(timeZoneService));
+        _backupFileStorage = backupFileStorage ?? throw new ArgumentNullException(nameof(backupFileStorage));
+        _scheduledBackupConfigStore = scheduledBackupConfigStore ?? throw new ArgumentNullException(nameof(scheduledBackupConfigStore));
+        _scheduledBackupLogStore = scheduledBackupLogStore ?? throw new ArgumentNullException(nameof(scheduledBackupLogStore));
+        _googleDriveBackupConnector = googleDriveBackupConnector ?? throw new ArgumentNullException(nameof(googleDriveBackupConnector));
+        _scheduledBackupWorkScheduler = scheduledBackupWorkScheduler ?? throw new ArgumentNullException(nameof(scheduledBackupWorkScheduler));
     }
 
     private async Task OpenDatabaseSettingsAsync()
     {
-        await _navigation.PushAsync(new DatabaseSettingsPage(_databaseMaintenance, _databaseLifecycle, _navigation, _dialogs, _clock));
+        await _navigation.PushAsync(new DatabaseSettingsPage(
+            _databaseMaintenance,
+            _databaseLifecycle,
+            _backupFileStorage,
+            _scheduledBackupConfigStore,
+            _scheduledBackupLogStore,
+            _googleDriveBackupConnector,
+            _scheduledBackupWorkScheduler,
+            _navigation,
+            _dialogs,
+            _clock,
+            _timeZoneService));
     }
 
     private async Task OpenMultipliersSettingsAsync()

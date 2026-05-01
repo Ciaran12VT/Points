@@ -1,5 +1,6 @@
 using Points.Global;
 using Points.Models;
+using Points.Services.Backup;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Time;
@@ -25,6 +26,11 @@ namespace Points.ViewModels.Home
         private readonly IAppDialogService _dialogs;
         private readonly IPopupService _popups;
         private readonly IClock _clock;
+        private readonly IBackupFileStorageService _backupFileStorage;
+        private readonly IScheduledBackupConfigStore _scheduledBackupConfigStore;
+        private readonly IScheduledBackupLogStore _scheduledBackupLogStore;
+        private readonly IGoogleDriveBackupConnector _googleDriveBackupConnector;
+        private readonly IScheduledBackupWorkScheduler _scheduledBackupWorkScheduler;
         private readonly IReadOnlyList<HomePageModel> _pages;
         private readonly HomePageStateCoordinator _pageState;
         private readonly HomeCardWorkflowCoordinator _cardWorkflow;
@@ -53,6 +59,11 @@ namespace Points.ViewModels.Home
             IAppDialogService dialogs,
             IPopupService popups,
             IClock clock,
+            IBackupFileStorageService backupFileStorage,
+            IScheduledBackupConfigStore scheduledBackupConfigStore,
+            IScheduledBackupLogStore scheduledBackupLogStore,
+            IGoogleDriveBackupConnector googleDriveBackupConnector,
+            IScheduledBackupWorkScheduler scheduledBackupWorkScheduler,
             IReadOnlyList<HomePageModel> pages,
             HomePageStateCoordinator pageState,
             HomeCardWorkflowCoordinator cardWorkflow,
@@ -80,6 +91,11 @@ namespace Points.ViewModels.Home
             _dialogs = dialogs;
             _popups = popups;
             _clock = clock;
+            _backupFileStorage = backupFileStorage;
+            _scheduledBackupConfigStore = scheduledBackupConfigStore;
+            _scheduledBackupLogStore = scheduledBackupLogStore;
+            _googleDriveBackupConnector = googleDriveBackupConnector;
+            _scheduledBackupWorkScheduler = scheduledBackupWorkScheduler;
             _pages = pages;
             _pageState = pageState;
             _cardWorkflow = cardWorkflow;
@@ -161,7 +177,12 @@ namespace Points.ViewModels.Home
                     _navigation,
                     _dialogs,
                     _clock,
-                    _timeZoneService));
+                    _timeZoneService,
+                    _backupFileStorage,
+                    _scheduledBackupConfigStore,
+                    _scheduledBackupLogStore,
+                    _googleDriveBackupConnector,
+                    _scheduledBackupWorkScheduler));
         }
 
         public async Task OpenReportsAsync()

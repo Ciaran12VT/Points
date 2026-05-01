@@ -11,6 +11,7 @@ public partial class ScheduleEditPage : ContentPage
     private readonly IClock _clock;
     private readonly IScheduleModel _schedule;
     private readonly Func<IScheduleModel, Task> _onSaved;
+    private readonly Action? _onCanceled;
 
     public Command CancelCommand { get; }
     public Command SaveCommand { get; }
@@ -19,7 +20,8 @@ public partial class ScheduleEditPage : ContentPage
         IScheduleModel schedule,
         Func<IScheduleModel, Task> onSaved,
         IAppNavigationService navigation,
-        IClock clock)
+        IClock clock,
+        Action? onCanceled = null)
     {
         CancelCommand = new Command(async () => await CancelAsync());
         SaveCommand = new Command(async () => await SaveAsync());
@@ -30,6 +32,7 @@ public partial class ScheduleEditPage : ContentPage
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _schedule = schedule;
         _onSaved = onSaved;
+        _onCanceled = onCanceled;
 
         // Populate frequency picker
         var values = Enum.GetValues(typeof(FrequencyType)).Cast<FrequencyType>().ToList();
@@ -113,7 +116,14 @@ public partial class ScheduleEditPage : ContentPage
 
     private async Task CancelAsync()
     {
+        _onCanceled?.Invoke();
         await _navigation.PopModalAsync();
+    }
+
+    protected override bool OnBackButtonPressed()
+    {
+        _onCanceled?.Invoke();
+        return base.OnBackButtonPressed();
     }
 
     private async Task SaveAsync()

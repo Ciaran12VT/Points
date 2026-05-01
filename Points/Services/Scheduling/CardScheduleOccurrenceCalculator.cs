@@ -7,7 +7,7 @@ namespace Points.Services.Scheduling
         /// <summary>
         /// Returns the next occurrence strictly after the supplied time, or null when the schedule has no future occurrence.
         /// </summary>
-        public static DateTime? GetNextOccurrence(CardSchedule schedule, DateTime now)
+        public static DateTime? GetNextOccurrence(IScheduleModel schedule, DateTime now)
         {
             if (!schedule.IsEnabled)
                 return null;
@@ -33,7 +33,7 @@ namespace Points.Services.Scheduling
             return candidate;
         }
 
-        private static DateTime? GetRecurringCandidate(CardSchedule schedule, DateTime anchor, DateTime now)
+        private static DateTime? GetRecurringCandidate(IScheduleModel schedule, DateTime anchor, DateTime now)
         {
             var timeOfDay = anchor.TimeOfDay;
 
@@ -55,7 +55,7 @@ namespace Points.Services.Scheduling
             };
         }
 
-        private static DateTime NextEveryDays(CardSchedule schedule, DateTime anchor, DateTime now, TimeSpan timeOfDay)
+        private static DateTime NextEveryDays(IScheduleModel schedule, DateTime anchor, DateTime now, TimeSpan timeOfDay)
         {
             var interval = Math.Max(1, schedule.FrequencyValue);
 

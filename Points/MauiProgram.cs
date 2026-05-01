@@ -6,6 +6,7 @@ using Points.Models;
 using Points.Services;
 using Points.Services.Achievements;
 using Points.Services.Activity;
+using Points.Services.Backup;
 using Points.Services.Budgets;
 using Points.Services.Cards;
 using Points.Services.Goals;
@@ -54,11 +55,25 @@ namespace Points
             builder.Services.AddSingleton<IActiveCardNotificationService, Points.Platforms.Android.ActiveCardNotificationService>();
             builder.Services.AddSingleton<IDeviceAlarmScheduler, Points.Platforms.Android.AndroidDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, Points.Platforms.Android.AndroidScheduleNotificationPresenter>();
+            builder.Services.AddSingleton<IScheduledBackupWorkScheduler, Points.Platforms.Android.AndroidScheduledBackupWorkScheduler>();
+#elif IOS
+            builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
+            builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
+            builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
+            builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
+            builder.Services.AddSingleton<IScheduledBackupWorkScheduler, Points.Platforms.iOS.IosScheduledBackupWorkScheduler>();
+#elif WINDOWS
+            builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
+            builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
+            builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
+            builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
+            builder.Services.AddSingleton<IScheduledBackupWorkScheduler, Points.Platforms.Windows.WindowsScheduledBackupWorkScheduler>();
 #else
             builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
             builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
             builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
+            builder.Services.AddSingleton<IScheduledBackupWorkScheduler, NullScheduledBackupWorkScheduler>();
 #endif
             builder.Services.AddSingleton<IClock, SystemClock>();
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
@@ -67,6 +82,18 @@ namespace Points
             builder.Services.AddSingleton<IAppPageService, MauiPageService>();
             builder.Services.AddSingleton<IPopupService, MauiPopupService>();
             builder.Services.AddSingleton<INotificationScheduleCoordinator, NotificationScheduleCoordinator>();
+            builder.Services.AddSingleton<IBackupFileStorageService, BackupFileStorageService>();
+            builder.Services.AddSingleton<IScheduledBackupConfigStore, JsonScheduledBackupConfigStore>();
+            builder.Services.AddSingleton<IScheduledBackupLogStore, JsonLinesScheduledBackupLogStore>();
+            builder.Services.AddSingleton<IScheduledBackupPackageCreator, BackupPackageScheduledBackupPackageCreator>();
+            builder.Services.AddSingleton<IScheduledBackupLocalStorage, AppPrivateScheduledBackupLocalStorage>();
+            builder.Services.AddSingleton<HttpClient>();
+            builder.Services.AddSingleton<IGoogleDriveOAuthClientConfigProvider, JsonGoogleDriveOAuthClientConfigProvider>();
+            builder.Services.AddSingleton<IGoogleDriveTokenStore, SecureStorageGoogleDriveTokenStore>();
+            builder.Services.AddSingleton<GoogleDriveBackupService>();
+            builder.Services.AddSingleton<IGoogleDriveBackupConnector>(sp => sp.GetRequiredService<GoogleDriveBackupService>());
+            builder.Services.AddSingleton<IScheduledBackupRemoteStorage>(sp => sp.GetRequiredService<GoogleDriveBackupService>());
+            builder.Services.AddSingleton<IScheduledBackupRunner, ScheduledBackupRunner>();
 
             builder.Services.AddTransient<HomePage>();      // <-- add this
             builder.Services.AddTransient<HomeViewModel>();

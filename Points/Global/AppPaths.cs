@@ -17,8 +17,13 @@ namespace Points.Global
         public static string MissionResourcesFolder => Ensure("resources");
         public static string ImageMetadataFolder => Ensure("ImageMetadata");
         public static string ExportsFolder => Ensure("exports");
+        public static string ScheduledBackupExportsFolder => Ensure(Path.Combine("exports", "scheduled"));
+        public static string BackupAutomationFolder => Ensure("backup_automation");
 
         public static string DatabasePath => Path.Combine(DbFolder, "points.db3");
+        public static string BackupAutomationConfigPath => Path.Combine(BackupAutomationFolder, "backup_automation.json");
+        public static string BackupAutomationLogPath => Path.Combine(BackupAutomationFolder, "backup_automation.log.jsonl");
+        public static string GoogleDriveOAuthClientConfigPath => Path.Combine(BackupAutomationFolder, "google_drive_oauth_client.json");
 
         public static string GetAchievementTrophiesPath(int achievementID)
         {

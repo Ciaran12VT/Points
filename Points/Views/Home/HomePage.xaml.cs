@@ -1,6 +1,8 @@
 using Points.Helpers;
 using Points.Interfaces;
 using Points.Models;
+using Points.Services.Backup;
+using Points.Services.Diagnostics;
 using Points.ViewModels.Home;
 
 namespace Points.Views.Home;
@@ -9,7 +11,10 @@ public partial class HomePage : ContentPage
 {
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
+    private PeriodicTimer? _scheduledBackupTimer;
+    private CancellationTokenSource? _scheduledBackupCts;
     readonly IAudioFeedback _audio;
+    private readonly IScheduledBackupRunner _scheduledBackupRunner;
     int _lastPos = -1;
     private readonly Dictionary<HomePageModel, CollectionView> _cardsListsByPage = new();
     private static readonly TimeSpan ScrollInteractionSettleDelay = TimeSpan.FromMilliseconds(180);
@@ -19,11 +24,12 @@ public partial class HomePage : ContentPage
     private IDisposable? _carouselScrollSuppressionHandle;
 
 
-    public HomePage(HomeViewModel vm, IAudioFeedback audio)
+    public HomePage(HomeViewModel vm, IAudioFeedback audio, IScheduledBackupRunner scheduledBackupRunner)
 	{
 		InitializeComponent();
         BindingContext = vm;
         _audio = audio;
+        _scheduledBackupRunner = scheduledBackupRunner ?? throw new ArgumentNullException(nameof(scheduledBackupRunner));
 
         vm.ScrollToCardRequested = ScrollToCard;
         vm.ScrollToAnyCardByIdRequested = ScrollToCardById;
@@ -248,12 +254,14 @@ public partial class HomePage : ContentPage
         }
 
         StartTicker();
+        StartScheduledBackupChecks();
         _hasAppearedOnce = true;
     }
 
     protected override void OnDisappearing()
     {
         StopTicker();
+        StopScheduledBackupChecks();
         ReleaseCardsScrollInteraction();
         ReleaseCarouselInteraction();
         base.OnDisappearing();
@@ -288,6 +296,50 @@ public partial class HomePage : ContentPage
 
         _timer?.Dispose();
         _timer = null;
+    }
+
+    private void StartScheduledBackupChecks()
+    {
+        StopScheduledBackupChecks();
+
+        _scheduledBackupCts = new CancellationTokenSource();
+        _scheduledBackupTimer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+
+        var token = _scheduledBackupCts.Token;
+        var timer = _scheduledBackupTimer;
+
+        QueueScheduledBackupCheck();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (await timer.WaitForNextTickAsync(token))
+                {
+                    QueueScheduledBackupCheck();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        });
+    }
+
+    private void QueueScheduledBackupCheck()
+    {
+        TaskSupervisor.Forget(
+            _scheduledBackupRunner.RunDueAsync(),
+            "Scheduled automatic export");
+    }
+
+    private void StopScheduledBackupChecks()
+    {
+        _scheduledBackupCts?.Cancel();
+        _scheduledBackupCts?.Dispose();
+        _scheduledBackupCts = null;
+
+        _scheduledBackupTimer?.Dispose();
+        _scheduledBackupTimer = null;
     }
 
 }

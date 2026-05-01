@@ -87,7 +87,15 @@
     <Compile Include="..\Points\Services\Persistence\*.cs" Link="App\Persistence\%(Filename)%(Extension)" />
     <Compile Include="..\Points\Services\Sqlite\ISqliteConnectionContext.cs" Link="App\Sqlite\ISqliteConnectionContext.cs" />
     <Compile Include="..\Points\Services\Sqlite\Queries\TatSql.cs" Link="App\Sqlite\Queries\TatSql.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupModels.cs" Link="App\AppBackup\ScheduledBackupModels.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupConfigStore.cs" Link="App\AppBackup\ScheduledBackupConfigStore.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupLogStore.cs" Link="App\AppBackup\ScheduledBackupLogStore.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupLocalStorage.cs" Link="App\AppBackup\ScheduledBackupLocalStorage.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupRemoteStorage.cs" Link="App\AppBackup\ScheduledBackupRemoteStorage.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupWorkScheduler.cs" Link="App\AppBackup\ScheduledBackupWorkScheduler.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupRunner.cs" Link="App\AppBackup\ScheduledBackupRunner.cs" />
     <Compile Include="..\Points\Services\Time\*.cs" Link="App\Time\%(Filename)%(Extension)" />
+    <Compile Include="..\Points\Services\Scheduling\CardScheduleOccurrenceCalculator.cs" Link="App\Scheduling\CardScheduleOccurrenceCalculator.cs" />
     <Compile Include="..\Points\Services\Scheduling\WallClockScheduleTime.cs" Link="App\Scheduling\WallClockScheduleTime.cs" />
   </ItemGroup>
 

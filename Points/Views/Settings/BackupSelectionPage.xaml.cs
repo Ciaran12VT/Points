@@ -17,7 +17,8 @@ public partial class BackupSelectionPage : ContentPage
         string confirmText,
         IEnumerable<BackupResourceOption> options,
         IAppNavigationService navigation,
-        IAppDialogService dialogs)
+        IAppDialogService dialogs,
+        IEnumerable<string>? selectedKeys = null)
     {
         InitializeComponent();
 
@@ -28,8 +29,11 @@ public partial class BackupSelectionPage : ContentPage
         PageTitle = pageTitle;
         Message = message;
         ConfirmText = confirmText;
+        var selectedKeySet = selectedKeys?.ToHashSet(StringComparer.Ordinal);
         Items = new ObservableCollection<BackupSelectionItem>(
-            options.Select(option => new BackupSelectionItem(option)));
+            options.Select(option => new BackupSelectionItem(
+                option,
+                selectedKeySet == null || selectedKeySet.Contains(option.Key))));
 
         BindingContext = this;
     }
