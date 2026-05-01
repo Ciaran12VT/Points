@@ -117,7 +117,7 @@ public sealed class ValueTrackerDetailsViewModel : Models.ObservableObject
     {
         var confirmed = await _dialogs.DisplayAlertAsync(
             "Delete Arc?",
-            "This will delete this Arc and its saved values. Continue?",
+            "Cards with saved values are archived for reporting. Empty cards are deleted.",
             "Delete",
             "Cancel");
 

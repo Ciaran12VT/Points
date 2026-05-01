@@ -213,6 +213,7 @@ namespace Points.Services.Sqlite
                     ValueTrackerCardID  INTEGER PRIMARY KEY,
                     CardID              INTEGER NOT NULL,
 
+                    Status              TEXT    NOT NULL DEFAULT '',
                     Unit                TEXT    NOT NULL DEFAULT '',
                     CreatedDate         TEXT    NOT NULL, -- ISO-8601 datetime
                     RangeStart          TEXT    NOT NULL, -- ISO-8601 datetime
@@ -227,6 +228,7 @@ namespace Points.Services.Sqlite
                     EventTrackerCardID  INTEGER PRIMARY KEY,
                     CardID              INTEGER NOT NULL,
 
+                    Status              TEXT    NOT NULL DEFAULT '',
                     Unit                TEXT    NOT NULL DEFAULT '',
                     CreatedDate         TEXT    NOT NULL, -- ISO-8601 datetime
                     RangeStart          TEXT    NOT NULL, -- ISO-8601 datetime

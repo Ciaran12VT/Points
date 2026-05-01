@@ -20,7 +20,7 @@ namespace Points.ViewModels.Tat
     {
         private TatCardModel _model = null!;
         private Action<TatCardModel> _onSaved;
-        private Action<TatCardModel> _onDelete;
+        private Func<TatCardModel, Task> _onDelete;
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
         private readonly ActiveCardDetailsInteractionCoordinator _detailsInteractions;
@@ -102,7 +102,7 @@ namespace Points.ViewModels.Tat
         public TatDetailsViewModel(
             TatCardModel model,
             Action<TatCardModel> onSaved,
-            Action<TatCardModel> onDelete,
+            Func<TatCardModel, Task> onDelete,
             List<string> availableTagsList,
             ILockService locks,
             IActivityService activity,
@@ -318,7 +318,7 @@ namespace Points.ViewModels.Tat
 
             if (choice == "Delete")
             {
-                _onDelete?.Invoke(_model);
+                await _onDelete(_model);
                 await _navigation.PopAsync();
             }
         }

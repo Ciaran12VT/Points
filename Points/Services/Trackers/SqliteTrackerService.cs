@@ -31,6 +31,7 @@ public sealed class SqliteTrackerService : ITrackerService
                 vt.CardID             AS CardID,
                 c.Title               AS Title,
                 c.Tags                AS Tags,
+                vt.Status             AS Status,
                 vt.Unit               AS Unit,
                 vt.CreatedDate        AS CreatedDate,
                 vt.RangeStart         AS RangeStart,
@@ -62,6 +63,7 @@ public sealed class SqliteTrackerService : ITrackerService
                 vt.CardID             AS CardID,
                 c.Title               AS Title,
                 c.Tags                AS Tags,
+                vt.Status             AS Status,
                 vt.Unit               AS Unit,
                 vt.CreatedDate        AS CreatedDate,
                 vt.RangeStart         AS RangeStart,
@@ -101,6 +103,7 @@ public sealed class SqliteTrackerService : ITrackerService
                 et.CardID             AS CardID,
                 c.Title               AS Title,
                 c.Tags                AS Tags,
+                et.Status             AS Status,
                 et.Unit               AS Unit,
                 et.CreatedDate        AS CreatedDate,
                 et.RangeStart         AS RangeStart,
@@ -130,6 +133,7 @@ public sealed class SqliteTrackerService : ITrackerService
                 et.CardID             AS CardID,
                 c.Title               AS Title,
                 c.Tags                AS Tags,
+                et.Status             AS Status,
                 et.Unit               AS Unit,
                 et.CreatedDate        AS CreatedDate,
                 et.RangeStart         AS RangeStart,
@@ -168,9 +172,10 @@ public sealed class SqliteTrackerService : ITrackerService
         {
             await _context.Db.ExecuteAsync(
                 @"INSERT INTO ValueTrackerCard
-                    (CardID, Unit, CreatedDate, RangeStart, ScheduleEvery, ScheduleUnit)
-                  VALUES (?, ?, ?, ?, ?, ?);",
+                    (CardID, Status, Unit, CreatedDate, RangeStart, ScheduleEvery, ScheduleUnit)
+                  VALUES (?, ?, ?, ?, ?, ?, ?);",
                 cardId,
+                model.Status,
                 model.Unit ?? string.Empty,
                 SerializeLocalDateTimeForDb(model.CreatedDate),
                 SerializeLocalDateTimeForDb(model.RangeStart),
@@ -184,12 +189,14 @@ public sealed class SqliteTrackerService : ITrackerService
             await _context.Db.ExecuteAsync(
                 @"UPDATE ValueTrackerCard
                   SET Unit = ?,
+                      Status = ?,
                       CreatedDate = ?,
                       RangeStart = ?,
                       ScheduleEvery = ?,
                       ScheduleUnit = ?
                   WHERE CardID = ?;",
                 model.Unit ?? string.Empty,
+                model.Status,
                 SerializeLocalDateTimeForDb(model.CreatedDate),
                 SerializeLocalDateTimeForDb(model.RangeStart),
                 model.ScheduleEvery,
@@ -217,9 +224,10 @@ public sealed class SqliteTrackerService : ITrackerService
         {
             await _context.Db.ExecuteAsync(
                 @"INSERT INTO EventTrackerCard
-                    (CardID, Unit, CreatedDate, RangeStart, GroupByPeriod)
-                  VALUES (?, ?, ?, ?, ?);",
+                    (CardID, Status, Unit, CreatedDate, RangeStart, GroupByPeriod)
+                  VALUES (?, ?, ?, ?, ?, ?);",
                 cardId,
+                model.Status,
                 model.Unit ?? string.Empty,
                 SerializeLocalDateTimeForDb(model.CreatedDate),
                 SerializeLocalDateTimeForDb(model.RangeStart),
@@ -232,11 +240,13 @@ public sealed class SqliteTrackerService : ITrackerService
             await _context.Db.ExecuteAsync(
                 @"UPDATE EventTrackerCard
                   SET Unit = ?,
+                      Status = ?,
                       CreatedDate = ?,
                       RangeStart = ?,
                       GroupByPeriod = ?
                   WHERE CardID = ?;",
                 model.Unit ?? string.Empty,
+                model.Status,
                 SerializeLocalDateTimeForDb(model.CreatedDate),
                 SerializeLocalDateTimeForDb(model.RangeStart),
                 model.GroupByPeriod ?? "Day",
@@ -362,6 +372,7 @@ public sealed class SqliteTrackerService : ITrackerService
             CardID = row.CardID,
             Title = row.Title ?? string.Empty,
             Tags = row.Tags ?? string.Empty,
+            Status = row.Status ?? string.Empty,
             Unit = row.Unit ?? string.Empty,
             CreatedDate = ParseLocalDateTime(row.CreatedDate),
             RangeStart = ParseLocalDateTime(row.RangeStart),
@@ -378,6 +389,7 @@ public sealed class SqliteTrackerService : ITrackerService
             CardID = row.CardID,
             Title = row.Title ?? string.Empty,
             Tags = row.Tags ?? string.Empty,
+            Status = row.Status ?? string.Empty,
             Unit = row.Unit ?? string.Empty,
             CreatedDate = ParseLocalDateTime(row.CreatedDate),
             RangeStart = ParseLocalDateTime(row.RangeStart),
@@ -465,6 +477,7 @@ public sealed class SqliteTrackerService : ITrackerService
         public long CardID { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
+        public string? Status { get; set; }
         public string? Unit { get; set; }
         public string CreatedDate { get; set; } = "";
         public string RangeStart { get; set; } = "";
@@ -478,6 +491,7 @@ public sealed class SqliteTrackerService : ITrackerService
         public long CardID { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
+        public string? Status { get; set; }
         public string? Unit { get; set; }
         public string CreatedDate { get; set; } = "";
         public string RangeStart { get; set; } = "";

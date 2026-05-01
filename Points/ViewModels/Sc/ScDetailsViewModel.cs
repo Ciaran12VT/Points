@@ -20,7 +20,7 @@ namespace Points.ViewModels.Sc
     {
         private ScCardModel _model = null!;
         private Action<ScCardModel> _onSaved;
-        private Action<ScCardModel> _onDelete;
+        private Func<ScCardModel, Task> _onDelete;
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
         private readonly IClock _clock;
@@ -46,7 +46,7 @@ namespace Points.ViewModels.Sc
         public ScDetailsViewModel(
             ScCardModel model,
             Action<ScCardModel> onSaved,
-            Action<ScCardModel> onDelete,
+            Func<ScCardModel, Task> onDelete,
             List<string> availableTagsList,
             IAchievementService achievements,
             IActivityService activity,
@@ -286,7 +286,7 @@ namespace Points.ViewModels.Sc
 
             if (choice == "Delete")
             {
-                _onDelete?.Invoke(_model);
+                await _onDelete(_model);
                 await _navigation.PopAsync();
             }
         }

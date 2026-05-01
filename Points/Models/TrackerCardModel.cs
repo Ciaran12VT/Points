@@ -19,6 +19,7 @@ namespace Points.Models
 
         public string Tags { get; set; } = "";
 
+        public string Status { get; set; } = "In-Progress";
 
         public ObservableCollection<TrackerValueModel> Values { get; } = new();
 

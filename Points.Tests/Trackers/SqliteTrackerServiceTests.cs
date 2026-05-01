@@ -54,6 +54,7 @@ public sealed class SqliteTrackerServiceTests
 
         var row = Assert.Single(await context.GetValueTrackerRowsAsync());
         Assert.Equal(cardId, row.CardID);
+        Assert.Equal("In-Progress", row.Status);
         Assert.Equal("kg", row.Unit);
         Assert.Equal("2026-04-01T08:00:00.0000000", row.CreatedDate);
         Assert.Equal("2026-04-01T00:00:00.0000000", row.RangeStart);
@@ -147,6 +148,7 @@ public sealed class SqliteTrackerServiceTests
 
         var second = new EventTrackerCardModel
         {
+            Status = "Archived",
             Unit = "event",
             CreatedDate = Local(2026, 4, 1),
             RangeStart = Local(2026, 4, 1),
@@ -227,6 +229,7 @@ public sealed class SqliteTrackerServiceTests
                 CREATE TABLE IF NOT EXISTS ValueTrackerCard (
                     ValueTrackerCardID INTEGER PRIMARY KEY AUTOINCREMENT,
                     CardID INTEGER NOT NULL,
+                    Status TEXT NOT NULL DEFAULT '',
                     Unit TEXT NOT NULL DEFAULT '',
                     CreatedDate TEXT NOT NULL,
                     RangeStart TEXT NOT NULL,
@@ -239,6 +242,7 @@ public sealed class SqliteTrackerServiceTests
                 CREATE TABLE IF NOT EXISTS EventTrackerCard (
                     EventTrackerCardID INTEGER PRIMARY KEY AUTOINCREMENT,
                     CardID INTEGER NOT NULL,
+                    Status TEXT NOT NULL DEFAULT '',
                     Unit TEXT NOT NULL DEFAULT '',
                     CreatedDate TEXT NOT NULL,
                     RangeStart TEXT NOT NULL,
@@ -303,7 +307,7 @@ public sealed class SqliteTrackerServiceTests
         {
             await InitializeAsync();
             return await Db.QueryAsync<ValueTrackerRow>(
-                @"SELECT ValueTrackerCardID, CardID, Unit, CreatedDate, RangeStart, ScheduleEvery, ScheduleUnit
+                @"SELECT ValueTrackerCardID, CardID, Status, Unit, CreatedDate, RangeStart, ScheduleEvery, ScheduleUnit
                   FROM ValueTrackerCard
                   ORDER BY ValueTrackerCardID;");
         }
@@ -373,6 +377,7 @@ public sealed class SqliteTrackerServiceTests
     {
         public long ValueTrackerCardID { get; set; }
         public long CardID { get; set; }
+        public string Status { get; set; } = "";
         public string Unit { get; set; } = "";
         public string CreatedDate { get; set; } = "";
         public string RangeStart { get; set; } = "";

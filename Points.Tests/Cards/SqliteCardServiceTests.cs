@@ -80,6 +80,39 @@ public sealed class SqliteCardServiceTests
         Assert.False(Directory.Exists(imageFolder));
     }
 
+    [Theory]
+    [InlineData("Tat")]
+    [InlineData("Sc")]
+    [InlineData("Budget")]
+    [InlineData("ValueTracker")]
+    [InlineData("EventTracker")]
+    public async Task DeleteCardModelAsync_ArchivesCardsWithTransactionalData(string kind)
+    {
+        await using var context = new TestSqliteConnectionContext();
+        var harness = CreateHarness(context);
+        var model = await context.InsertCardWithTransactionalDataAsync(kind);
+
+        await harness.Service.DeleteCardModelAsync(model);
+
+        Assert.Equal(1, await context.CountAsync("Card"));
+        Assert.True(model.CardID > 0);
+        Assert.True(model.Id > 0);
+        Assert.Equal("Archived", await context.GetSubtypeStatusAsync(model));
+
+        switch (model)
+        {
+            case TatCardModel tat:
+                Assert.Equal("Archived", tat.Status);
+                break;
+            case BudgetCardModel budget:
+                Assert.Equal("Archived", budget.Status);
+                break;
+            case TrackerCardModel tracker:
+                Assert.Equal("Archived", tracker.Status);
+                break;
+        }
+    }
+
     [Fact]
     public async Task GetHomeSeedDataAsync_ComposesBucketsFiltersCompletedMissionsAndPopulatesLocks()
     {
@@ -96,12 +129,17 @@ public sealed class SqliteCardServiceTests
         completedOutsideRange.Complete(Utc(2026, 4, 28, 12));
 
         harness.Tat.Models.Add(tat);
+        harness.Tat.Models.Add(new TatCardModel { CardID = 10, Title = "Archived Tat", Status = "Archived" });
         harness.Sc.Models.Add(sc);
+        harness.Sc.Models.Add(new ScCardModel { CardID = 11, Title = "Archived Sc", Status = "Archived" });
         harness.Mission.Models.AddRange(new[] { openMission, completedInRange, completedOutsideRange });
         harness.Budget.Models.Add(new BudgetCardModel { CardID = 6, Title = "Budget", Tags = "money" });
+        harness.Budget.Models.Add(new BudgetCardModel { CardID = 12, Title = "Archived Budget", Status = "Archived" });
         harness.Achievement.Models.Add(new AchievementCardModel { CardID = 7, Title = "Achievement", Tags = "work" });
         harness.Tracker.ValueTrackers.Add(new ValueTrackerCardModel { CardID = 8, Title = "Weight", Tags = "health" });
+        harness.Tracker.ValueTrackers.Add(new ValueTrackerCardModel { CardID = 13, Title = "Archived Value", Status = "Archived" });
         harness.Tracker.EventTrackers.Add(new EventTrackerCardModel { CardID = 9, Title = "Headache", Tags = "health" });
+        harness.Tracker.EventTrackers.Add(new EventTrackerCardModel { CardID = 14, Title = "Archived Event", Status = "Archived" });
 
         var seed = await harness.Service.GetHomeSeedDataAsync(rangeStart, rangeEnd);
 
@@ -146,6 +184,11 @@ public sealed class SqliteCardServiceTests
     private static DateTime Utc(int year, int month, int day, int hour, int minute = 0)
     {
         return new DateTime(year, month, day, hour, minute, 0, DateTimeKind.Utc);
+    }
+
+    private static DateTime Local(int year, int month, int day, int hour = 0, int minute = 0)
+    {
+        return new DateTime(year, month, day, hour, minute, 0, DateTimeKind.Unspecified);
     }
 
     private sealed record ServiceHarness(
@@ -441,6 +484,104 @@ public sealed class SqliteCardServiceTests
                 );
                 """);
             await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS TatCard (
+                    TatCardID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID INTEGER NOT NULL,
+                    ValuePerMinute REAL NOT NULL,
+                    Status TEXT NOT NULL DEFAULT '',
+                    Description TEXT NOT NULL DEFAULT '',
+                    TargetActiveTimeSeconds INTEGER NULL,
+                    FOREIGN KEY(CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS Activity (
+                    ActivityID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID INTEGER NOT NULL,
+                    Start TEXT NOT NULL,
+                    "End" TEXT NULL,
+                    ValueRateName TEXT NOT NULL DEFAULT '',
+                    ValuePerMinute REAL NOT NULL,
+                    FOREIGN KEY(CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS ScCardStep (
+                    ScCardStepID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ScCardID INTEGER NOT NULL,
+                    SortOrder INTEGER NOT NULL,
+                    Title TEXT NOT NULL DEFAULT '',
+                    StepValue REAL NOT NULL,
+                    FOREIGN KEY(ScCardID) REFERENCES ScCard(ScCardID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS ScCardStepRep (
+                    ScCardStepID INTEGER NOT NULL,
+                    TimeStamp TEXT NOT NULL,
+                    StepValue REAL NOT NULL,
+                    PRIMARY KEY (ScCardStepID, TimeStamp),
+                    FOREIGN KEY(ScCardStepID) REFERENCES ScCardStep(ScCardStepID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS BudgetCard (
+                    BudgetCardID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID INTEGER NOT NULL,
+                    Status TEXT NOT NULL DEFAULT '',
+                    Description TEXT NOT NULL DEFAULT '',
+                    Currency TEXT NOT NULL DEFAULT '',
+                    ExchangeRate REAL NOT NULL,
+                    StartDate TEXT NOT NULL,
+                    InitialBalance REAL NOT NULL,
+                    FOREIGN KEY(CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS BudgetCardTransaction (
+                    BudgetCardTransactionID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    BudgetCardID INTEGER NOT NULL,
+                    Amount REAL NOT NULL,
+                    Type TEXT NOT NULL DEFAULT '',
+                    TimeStamp TEXT NOT NULL,
+                    FOREIGN KEY(BudgetCardID) REFERENCES BudgetCard(BudgetCardID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS ValueTrackerCard (
+                    ValueTrackerCardID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID INTEGER NOT NULL,
+                    Status TEXT NOT NULL DEFAULT '',
+                    Unit TEXT NOT NULL DEFAULT '',
+                    CreatedDate TEXT NOT NULL,
+                    RangeStart TEXT NOT NULL,
+                    ScheduleEvery INTEGER NOT NULL DEFAULT 1,
+                    ScheduleUnit TEXT NOT NULL DEFAULT 'Week',
+                    FOREIGN KEY(CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS EventTrackerCard (
+                    EventTrackerCardID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID INTEGER NOT NULL,
+                    Status TEXT NOT NULL DEFAULT '',
+                    Unit TEXT NOT NULL DEFAULT '',
+                    CreatedDate TEXT NOT NULL,
+                    RangeStart TEXT NOT NULL,
+                    GroupByPeriod TEXT NOT NULL DEFAULT 'Day',
+                    FOREIGN KEY(CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS TrackerValue (
+                    TrackerValueID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID INTEGER NOT NULL,
+                    TimeStamp TEXT NOT NULL,
+                    Value REAL NOT NULL,
+                    FOREIGN KEY(CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
                 CREATE TABLE IF NOT EXISTS Shortcut (
                     ShortcutId INTEGER PRIMARY KEY AUTOINCREMENT,
                     TargetCardId INTEGER NOT NULL
@@ -499,6 +640,159 @@ public sealed class SqliteCardServiceTests
             await Db.ExecuteAsync("INSERT INTO LockSchedule (LockId) VALUES (?);", lockId);
             await Db.ExecuteAsync("INSERT INTO LockTaskDependency (LockId, TaskDependencyCardId) VALUES (?, ?);", lockId, 999);
             await Db.ExecuteAsync("INSERT INTO LockTaskDependency (LockId, TaskDependencyCardId) VALUES (?, ?);", 999, cardId);
+        }
+
+        public async Task<ICardModel> InsertCardWithTransactionalDataAsync(string kind)
+        {
+            await InitializeAsync();
+
+            var title = kind + " card";
+            var cardId = await InsertCardAsync(title, "test");
+            var timestamp = StrictTimeSerializer.SerializeUtcInstant(Utc(2026, 4, 29, 9));
+
+            switch (kind)
+            {
+                case "Tat":
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO TatCard (CardID, ValuePerMinute, Status, Description)
+                          VALUES (?, ?, ?, ?);",
+                        cardId,
+                        1,
+                        "In-Progress",
+                        "");
+                    var tatId = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO Activity (CardID, Start, ""End"", ValueRateName, ValuePerMinute)
+                          VALUES (?, ?, ?, ?, ?);",
+                        cardId,
+                        timestamp,
+                        StrictTimeSerializer.SerializeUtcInstant(Utc(2026, 4, 29, 10)),
+                        "Base",
+                        1);
+                    return new TatCardModel { Id = tatId, CardID = cardId, Status = "In-Progress" };
+
+                case "Sc":
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO ScCard (CardID, Status, Description)
+                          VALUES (?, ?, ?);",
+                        cardId,
+                        "In-Progress",
+                        "");
+                    var scId = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO ScCardStep (ScCardID, SortOrder, Title, StepValue)
+                          VALUES (?, ?, ?, ?);",
+                        scId,
+                        1,
+                        "Step",
+                        1);
+                    var stepId = await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO ScCardStepRep (ScCardStepID, TimeStamp, StepValue)
+                          VALUES (?, ?, ?);",
+                        stepId,
+                        timestamp,
+                        1);
+                    return new ScCardModel { Id = scId, CardID = cardId, Status = "In-Progress" };
+
+                case "Budget":
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO BudgetCard
+                            (CardID, Status, Description, Currency, ExchangeRate, StartDate, InitialBalance)
+                          VALUES (?, ?, ?, ?, ?, ?, ?);",
+                        cardId,
+                        "In-Progress",
+                        "",
+                        "EUR",
+                        1,
+                        StrictTimeSerializer.SerializeLocalDateTime(Local(2026, 4, 1)),
+                        0);
+                    var budgetId = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO BudgetCardTransaction (BudgetCardID, Amount, Type, TimeStamp)
+                          VALUES (?, ?, ?, ?);",
+                        budgetId,
+                        10,
+                        "Spend",
+                        timestamp);
+                    return new BudgetCardModel { Id = budgetId, CardID = cardId, Status = "In-Progress" };
+
+                case "ValueTracker":
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO ValueTrackerCard
+                            (CardID, Status, Unit, CreatedDate, RangeStart, ScheduleEvery, ScheduleUnit)
+                          VALUES (?, ?, ?, ?, ?, ?, ?);",
+                        cardId,
+                        "In-Progress",
+                        "kg",
+                        StrictTimeSerializer.SerializeLocalDateTime(Local(2026, 4, 1)),
+                        StrictTimeSerializer.SerializeLocalDateTime(Local(2026, 4, 1)),
+                        1,
+                        "Week");
+                    var valueTrackerId = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO TrackerValue (CardID, TimeStamp, Value)
+                          VALUES (?, ?, ?);",
+                        cardId,
+                        timestamp,
+                        1);
+                    return new ValueTrackerCardModel { Id = valueTrackerId, CardID = cardId, Status = "In-Progress" };
+
+                case "EventTracker":
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO EventTrackerCard
+                            (CardID, Status, Unit, CreatedDate, RangeStart, GroupByPeriod)
+                          VALUES (?, ?, ?, ?, ?, ?);",
+                        cardId,
+                        "In-Progress",
+                        "event",
+                        StrictTimeSerializer.SerializeLocalDateTime(Local(2026, 4, 1)),
+                        StrictTimeSerializer.SerializeLocalDateTime(Local(2026, 4, 1)),
+                        "Day");
+                    var eventTrackerId = (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+                    await Db.ExecuteAsync(
+                        @"INSERT INTO TrackerValue (CardID, TimeStamp, Value)
+                          VALUES (?, ?, ?);",
+                        cardId,
+                        timestamp,
+                        1);
+                    return new EventTrackerCardModel { Id = eventTrackerId, CardID = cardId, Status = "In-Progress" };
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
+            }
+        }
+
+        public async Task<long> InsertCardAsync(string title, string tags)
+        {
+            await InitializeAsync();
+            await Db.ExecuteAsync("INSERT INTO Card (Title, Tags) VALUES (?, ?);", title, tags);
+            return await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+        }
+
+        public async Task<string> GetSubtypeStatusAsync(ICardModel model)
+        {
+            await InitializeAsync();
+
+            return model switch
+            {
+                ScCardModel => await Db.ExecuteScalarAsync<string>(
+                    "SELECT Status FROM ScCard WHERE CardID = ?;",
+                    model.CardID),
+                TatCardModel => await Db.ExecuteScalarAsync<string>(
+                    "SELECT Status FROM TatCard WHERE CardID = ?;",
+                    model.CardID),
+                BudgetCardModel => await Db.ExecuteScalarAsync<string>(
+                    "SELECT Status FROM BudgetCard WHERE CardID = ?;",
+                    model.CardID),
+                ValueTrackerCardModel => await Db.ExecuteScalarAsync<string>(
+                    "SELECT Status FROM ValueTrackerCard WHERE CardID = ?;",
+                    model.CardID),
+                EventTrackerCardModel => await Db.ExecuteScalarAsync<string>(
+                    "SELECT Status FROM EventTrackerCard WHERE CardID = ?;",
+                    model.CardID),
+                _ => ""
+            };
         }
 
         public async Task<int> CountAsync(string table)

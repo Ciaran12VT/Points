@@ -13,7 +13,7 @@ public partial class TatDetailsPage : ContentPage
     public TatDetailsPage(
         TatCardModel model,
         Action<TatCardModel> onSaved,
-        Action<TatCardModel> onDelete,
+        Func<TatCardModel, Task> onDelete,
         List<string> availableTagsList,
         ILockService locks,
         IActivityService activity,

@@ -72,6 +72,7 @@ namespace Points.Services.Sqlite
 
                 await EnsureGoalSchemaAsync();
                 await EnsureAchievementCardSchemaAsync();
+                await EnsureTrackerCardSchemaAsync();
                 await EnsureTimeHandlingMigrationAsync();
                 await SaveBuiltInSettingDefinitionsAsync();
             }
@@ -266,6 +267,29 @@ namespace Points.Services.Sqlite
 
             foreach (var sql in alterStatements)
                 await Db.ExecuteAsync(sql);
+        }
+
+        private async Task EnsureTrackerCardSchemaAsync()
+        {
+            if (_db == null)
+                throw new InvalidOperationException("Database must be initialized before schema migration.");
+
+            await AddColumnIfMissingAsync("ValueTrackerCard", "Status", "TEXT NOT NULL DEFAULT ''");
+            await AddColumnIfMissingAsync("EventTrackerCard", "Status", "TEXT NOT NULL DEFAULT ''");
+        }
+
+        private async Task AddColumnIfMissingAsync(string tableName, string columnName, string definition)
+        {
+            var cols = await Db.QueryAsync<PragmaTableInfo>($"PRAGMA table_info({tableName});");
+            var existing = cols
+                .Select(c => c.name)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (existing.Contains(columnName))
+                return;
+
+            await Db.ExecuteAsync($"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};");
         }
 
         private async Task EnsureTimeHandlingMigrationAsync()

@@ -11,7 +11,7 @@ public partial class BudgetDetailsPage : ContentPage
     public BudgetDetailsPage(
         BudgetCardModel model,
         Action<BudgetCardModel> onSaved,
-        Action<BudgetCardModel> onDelete,
+        Func<BudgetCardModel, Task> onDelete,
         List<string> availableTagsList,
         IUdmdService udmd,
         IClock clock,

@@ -14,7 +14,7 @@ public partial class ScDetailsPage : ContentPage
     public ScDetailsPage(
         ScCardModel model,
         Action<ScCardModel> onSaved,
-        Action<ScCardModel> onDelete,
+        Func<ScCardModel, Task> onDelete,
         List<string> availableTagsList,
         IAchievementService achievements,
         IActivityService activity,

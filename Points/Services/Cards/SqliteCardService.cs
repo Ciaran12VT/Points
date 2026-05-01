@@ -11,6 +11,8 @@ namespace Points.Services.Cards;
 
 public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPlannerCardSource
 {
+    private const string ArchivedStatus = "Archived";
+
     private readonly ISqliteConnectionContext _context;
     private readonly ITimeZoneService _timeZoneService;
     private readonly ITatCardService _tatCards;
@@ -63,14 +65,20 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
                         InstantFallsInUtcRange(ToUtcInstantForWrite(m.CompletedDate.Value), missionRangeUtc))
             .ToList();
 
-        var budget = await _budgets.GetBudgetCardModelsDataAsync();
+        var budget = (await _budgets.GetBudgetCardModelsDataAsync())
+            .Where(IsNotArchived)
+            .ToList();
         var achievements = await _achievements.GetAchievementCardModelsDataAsync();
 
         await _achievements.PopulateAchievementsAsync(achievements, mainQuest, mission);
         await PopulateLocksAsync(mainQuest, mission);
 
-        var valueTrackers = await _trackers.GetValueTrackerCardModelsDataAsync();
-        var eventTrackers = await _trackers.GetEventTrackerCardModelsDataAsync();
+        var valueTrackers = (await _trackers.GetValueTrackerCardModelsDataAsync())
+            .Where(IsNotArchived)
+            .ToList();
+        var eventTrackers = (await _trackers.GetEventTrackerCardModelsDataAsync())
+            .Where(IsNotArchived)
+            .ToList();
 
         return new HomeSeedData
         {
@@ -85,8 +93,12 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
 
     public async Task<List<IActiveCardModel>> GetMainQuestModelsDataAsync(DateTime rangeStart, DateTime rangeEnd)
     {
-        var tats = await _tatCards.GetTatModelsDataAsync(rangeStart, rangeEnd);
-        var scs = await _scCards.GetScModelsDataAsync(rangeStart, rangeEnd);
+        var tats = (await _tatCards.GetTatModelsDataAsync(rangeStart, rangeEnd))
+            .Where(IsNotArchived)
+            .ToList();
+        var scs = (await _scCards.GetScModelsDataAsync(rangeStart, rangeEnd))
+            .Where(IsNotArchived)
+            .ToList();
 
         var mainQuest = new List<IActiveCardModel>();
         mainQuest.AddRange(tats);
@@ -173,24 +185,28 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
             cardId = resolvedCardId.Value;
         }
 
+        var archived = false;
+
         await _context.Db.RunInTransactionAsync(conn =>
         {
-            conn.Execute("DELETE FROM Shortcut WHERE TargetCardId = ?;", cardId);
-            conn.Execute("DELETE FROM NotificationLog WHERE CardId = ?;", cardId);
-            conn.Execute("DELETE FROM CardSchedule WHERE CardId = ?;", cardId);
-            conn.Execute("DELETE FROM LockTaskDependency WHERE TaskDependencyCardId = ?;", cardId);
+            if (HasTransactionalData(conn, model, cardId))
+            {
+                ArchiveSubtype(conn, model, cardId);
+                archived = true;
+                return;
+            }
 
-            var lockIds = conn.QueryScalars<long>("SELECT LockId FROM Lock WHERE CardId = ?;", cardId);
-            var lockIdList = lockIds.ToList();
-            DeleteByIds(conn, "LockSchedule", "LockId", lockIdList);
-            DeleteByIds(conn, "LockTaskDependency", "LockId", lockIdList);
-            conn.Execute("DELETE FROM Lock WHERE CardId = ?;", cardId);
-
+            DeleteCommonCardRows(conn, cardId);
             conn.Execute("DELETE FROM Card WHERE CardID = ?;", cardId);
         });
 
-        UdmdImageFileStore.TryDeleteCardFolder(cardId);
+        if (archived)
+        {
+            SetModelArchived(model);
+            return;
+        }
 
+        UdmdImageFileStore.TryDeleteCardFolder(cardId);
         model.Id = 0;
         model.CardID = 0;
     }
@@ -298,6 +314,9 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
 
     private static void DeleteByIds(SQLiteConnection conn, string table, string idColumn, List<long> ids)
     {
+        if (ids.Count == 0)
+            return;
+
         const int chunkSize = 500;
 
         for (var i = 0; i < ids.Count; i += chunkSize)
@@ -307,6 +326,130 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
             var sql = $"DELETE FROM {table} WHERE {idColumn} IN ({placeholders});";
             conn.Execute(sql, chunk.Cast<object>().ToArray());
         }
+    }
+
+    private static void DeleteCommonCardRows(SQLiteConnection conn, long cardId)
+    {
+        conn.Execute("DELETE FROM Shortcut WHERE TargetCardId = ?;", cardId);
+        conn.Execute("DELETE FROM NotificationLog WHERE CardId = ?;", cardId);
+        conn.Execute("DELETE FROM CardSchedule WHERE CardId = ?;", cardId);
+        conn.Execute("DELETE FROM LockTaskDependency WHERE TaskDependencyCardId = ?;", cardId);
+
+        var lockIds = conn.QueryScalars<long>("SELECT LockId FROM Lock WHERE CardId = ?;", cardId);
+        var lockIdList = lockIds.ToList();
+        DeleteByIds(conn, "LockSchedule", "LockId", lockIdList);
+        DeleteByIds(conn, "LockTaskDependency", "LockId", lockIdList);
+        conn.Execute("DELETE FROM Lock WHERE CardId = ?;", cardId);
+    }
+
+    private static bool HasTransactionalData(SQLiteConnection conn, ICardModel model, long cardId)
+    {
+        return model switch
+        {
+            ScCardModel => HasActivityRows(conn, cardId) || HasScRepRows(conn, cardId),
+            TatCardModel => HasActivityRows(conn, cardId),
+            BudgetCardModel => HasBudgetTransactionRows(conn, model.Id, cardId),
+            TrackerCardModel => HasTrackerValueRows(conn, cardId),
+            _ => false
+        };
+    }
+
+    private static bool HasActivityRows(SQLiteConnection conn, long cardId)
+    {
+        return HasRows(conn, "SELECT 1 FROM Activity WHERE CardID = ? LIMIT 1;", cardId);
+    }
+
+    private static bool HasScRepRows(SQLiteConnection conn, long cardId)
+    {
+        return HasRows(
+            conn,
+            @"SELECT 1
+              FROM ScCard sc
+              JOIN ScCardStep step ON step.ScCardID = sc.ScCardID
+              JOIN ScCardStepRep rep ON rep.ScCardStepID = step.ScCardStepID
+              WHERE sc.CardID = ?
+              LIMIT 1;",
+            cardId);
+    }
+
+    private static bool HasBudgetTransactionRows(SQLiteConnection conn, int modelId, long cardId)
+    {
+        var budgetCardId = modelId > 0
+            ? modelId
+            : (int)conn.QueryScalars<long>(
+                "SELECT BudgetCardID FROM BudgetCard WHERE CardID = ? LIMIT 1;",
+                cardId).FirstOrDefault();
+
+        return budgetCardId > 0 &&
+               HasRows(conn, "SELECT 1 FROM BudgetCardTransaction WHERE BudgetCardID = ? LIMIT 1;", budgetCardId);
+    }
+
+    private static bool HasTrackerValueRows(SQLiteConnection conn, long cardId)
+    {
+        return HasRows(conn, "SELECT 1 FROM TrackerValue WHERE CardID = ? LIMIT 1;", cardId);
+    }
+
+    private static bool HasRows(SQLiteConnection conn, string sql, params object[] args)
+    {
+        return conn.QueryScalars<int>(sql, args).FirstOrDefault() != 0;
+    }
+
+    private static void ArchiveSubtype(SQLiteConnection conn, ICardModel model, long cardId)
+    {
+        switch (model)
+        {
+            case ScCardModel:
+                conn.Execute("UPDATE ScCard SET Status = ? WHERE CardID = ?;", ArchivedStatus, cardId);
+                break;
+            case TatCardModel:
+                conn.Execute("UPDATE TatCard SET Status = ? WHERE CardID = ?;", ArchivedStatus, cardId);
+                break;
+            case BudgetCardModel:
+                conn.Execute("UPDATE BudgetCard SET Status = ? WHERE CardID = ?;", ArchivedStatus, cardId);
+                break;
+            case ValueTrackerCardModel:
+                conn.Execute("UPDATE ValueTrackerCard SET Status = ? WHERE CardID = ?;", ArchivedStatus, cardId);
+                break;
+            case EventTrackerCardModel:
+                conn.Execute("UPDATE EventTrackerCard SET Status = ? WHERE CardID = ?;", ArchivedStatus, cardId);
+                break;
+        }
+    }
+
+    private static void SetModelArchived(ICardModel model)
+    {
+        switch (model)
+        {
+            case BudgetCardModel budget:
+                budget.Status = ArchivedStatus;
+                break;
+            case TrackerCardModel tracker:
+                tracker.Status = ArchivedStatus;
+                break;
+            case TatCardModel tat:
+                tat.Status = ArchivedStatus;
+                break;
+        }
+    }
+
+    private static bool IsNotArchived(TatCardModel card)
+    {
+        return !IsArchivedStatus(card.Status);
+    }
+
+    private static bool IsNotArchived(BudgetCardModel card)
+    {
+        return !IsArchivedStatus(card.Status);
+    }
+
+    private static bool IsNotArchived(TrackerCardModel card)
+    {
+        return !IsArchivedStatus(card.Status);
+    }
+
+    private static bool IsArchivedStatus(string? status)
+    {
+        return string.Equals(status?.Trim(), ArchivedStatus, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class CardTitleRow

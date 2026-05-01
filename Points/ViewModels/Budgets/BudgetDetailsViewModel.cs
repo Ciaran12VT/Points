@@ -17,7 +17,7 @@ namespace Points.ViewModels.Budgets
     {
         private readonly BudgetCardModel _model;
         private readonly Action<BudgetCardModel> _onSaved;
-        private Action<BudgetCardModel> _onDelete;
+        private Func<BudgetCardModel, Task> _onDelete;
         private readonly IUdmdService _udmd;
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
@@ -44,7 +44,7 @@ namespace Points.ViewModels.Budgets
         public BudgetDetailsViewModel(
             BudgetCardModel model,
             Action<BudgetCardModel> onSaved,
-            Action<BudgetCardModel> onDelete,
+            Func<BudgetCardModel, Task> onDelete,
             List<string> availableTagsList,
             IUdmdService udmd,
             IAppNavigationService navigation,
@@ -250,7 +250,7 @@ namespace Points.ViewModels.Budgets
 
             if (choice == "Delete")
             {
-                _onDelete?.Invoke(_model);
+                await _onDelete(_model);
                 await _navigation.PopAsync();
             }
         }

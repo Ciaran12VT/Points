@@ -79,7 +79,7 @@ namespace Points.ViewModels.Home
                     new ScDetailsPage(
                         sc,
                         saved => _cardLifecycle.CommitCardToPage(page, saved),
-                        deleted => _cardLifecycle.RemoveCardFromPage(page, deleted),
+                        deleted => _cardLifecycle.DeleteCardFromPageAndDbAsync(page, deleted),
                         _getTags(),
                         _achievements,
                         _activity,
@@ -101,7 +101,7 @@ namespace Points.ViewModels.Home
                     new TatDetailsPage(
                         tat,
                         saved => _cardLifecycle.CommitCardToPage(page, saved),
-                        deleted => _cardLifecycle.RemoveCardFromPage(page, deleted),
+                        deleted => _cardLifecycle.DeleteCardFromPageAndDbAsync(page, deleted),
                         _getTags(),
                         _locks,
                         _activity,
@@ -142,7 +142,7 @@ namespace Points.ViewModels.Home
                     new BudgetDetailsPage(
                         budget,
                         saved => _cardLifecycle.CommitCardToPage(page, saved),
-                        deleted => _cardLifecycle.RemoveCardFromPage(page, deleted),
+                        deleted => _cardLifecycle.DeleteCardFromPageAndDbAsync(page, deleted),
                         _getTags(),
                         _udmd,
                         _clock,
