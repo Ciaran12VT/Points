@@ -98,7 +98,7 @@ namespace Points.ViewModels.Home
 
             return _pages.Count > 0 && position >= 0 && position < _pages.Count
                 ? _pages[position].Name
-                : "Main Quest";
+                : "Dashboard";
         }
 
         private void HydratePages(
