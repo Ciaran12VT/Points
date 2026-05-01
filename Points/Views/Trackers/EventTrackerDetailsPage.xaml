@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Points.Views.Trackers.EventTrackerDetailsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Event Tracker">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <!-- Title -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                <Label Text="Title"
+                       FontAttributes="Bold"
+                       FontSize="14"
+                       VerticalOptions="Center" />
+
+                <Button Grid.Column="1"
+                        Text="X"
+                        BackgroundColor="DarkRed"
+                        TextColor="White"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"
+                        Command="{Binding DeleteCommand}" />
+            </Grid>
+
+            <Entry x:Name="TitleEntry"
+                   Placeholder="e.g. Gym session, Cigarettes, Meditations"
+                   Text="{Binding Title}" />
+
+            <!-- Start Date -->
+            <Label Text="Start date" FontAttributes="Bold" FontSize="14" />
+            <DatePicker x:Name="StartDatePicker"
+                        Date="{Binding StartDate}"
+                        HorizontalOptions="Fill" />
+
+            <!-- Group By -->
+            <Label Text="Aggregate period" FontAttributes="Bold" FontSize="14" />
+            <Label Text="Graph will show totals per period (e.g. 3 taps per day)."
+                   FontSize="12"
+                   Opacity="0.65" />
+
+            <Picker x:Name="GroupByPicker"
+                    Title="Select period"
+                    HorizontalOptions="Fill"
+                    ItemsSource="{Binding GroupByOptions}"
+                    SelectedItem="{Binding SelectedGroupByPeriod}" />
+
+            <!-- Initial Events -->
+            <Label Text="Initial events (optional)" FontAttributes="Bold" FontSize="14" />
+            <Label Text="Comma separated date/times (e.g. 2026-01-01 09:30, 2026-01-02 18:10). New lines also work."
+                   FontSize="12"
+                   Opacity="0.65" />
+            <Editor x:Name="EventsEditor"
+                    AutoSize="TextChanges"
+                    HeightRequest="100"
+                    Placeholder="2026-01-01 09:30, 2026-01-02 18:10"
+                    Text="{Binding InitialEventsText}" />
+
+            <Button Text="Metadata Fields"
+                    TextColor="White"
+                    BackgroundColor="DodgerBlue"
+                    CornerRadius="12"
+                    Command="{Binding EditUdmdCommand}" />
+
+            <Label Text="Recorded Metadata"
+                   FontAttributes="Bold"
+                   FontSize="14"
+                   IsVisible="{Binding HasMetadataHistory}" />
+            <VerticalStackLayout Spacing="6"
+                                 IsVisible="{Binding HasMetadataHistory}"
+                                 BindableLayout.ItemsSource="{Binding MetadataHistoryRows}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <Label Text="{Binding .}"
+                               FontSize="13"
+                               Opacity="0.8" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <!-- Error -->
+            <Label Text="{Binding ErrorText}"
+                   TextColor="OrangeRed"
+                   IsVisible="{Binding HasError}" />
+
+            <!-- Buttons -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,10,0,0">
+                <Button Grid.Column="0"
+                        Text="Cancel"
+                        BackgroundColor="Gray"
+                        TextColor="White"
+                        FontAttributes="Bold"
+                        FontSize="21"
+                        HeightRequest="48"
+                        CornerRadius="12"
+                        Command="{Binding CancelCommand}" />
+
+                <Button Grid.Column="1"
+                        Text="OK"
+                        BackgroundColor="Green"
+                        TextColor="White"
+                        FontAttributes="Bold"
+                        FontSize="21"
+                        HeightRequest="48"
+                        CornerRadius="12"
+                        Command="{Binding SaveCommand}" />
+            </Grid>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
+
+    
+    

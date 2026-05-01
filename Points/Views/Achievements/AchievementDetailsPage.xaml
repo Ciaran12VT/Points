@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:Points.Models"
+             x:Class="Points.Views.Achievements.AchievementDetailsPage"
+             Title="Achievement Details">
+
+    <Grid RowDefinitions="*,Auto" Padding="12" Margin="0,0,0,24">
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="14">
+
+                <!-- Title + Pinned -->
+                <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center">
+                    <Label Text="Title" FontAttributes="Bold" VerticalOptions="Center"/>
+
+                    <HorizontalStackLayout 
+                        Grid.Column="1"
+                        Spacing="6"
+                        VerticalOptions="Center">
+
+                        <Button 
+                            Text="✕" 
+                            WidthRequest="36" 
+                            HeightRequest="36" 
+                            CornerRadius="18" 
+                            Padding="0" 
+                            Margin="0" 
+                            TextColor="White" 
+                            BackgroundColor="DarkRed" 
+                            Command="{Binding CancelCommand}"
+                            VerticalOptions="Center"/>
+
+                        <CheckBox IsChecked="{Binding IsPinned}" IsEnabled="{Binding CanEdit}"/>
+                      <Label Text="Pinned" VerticalOptions="Center" FontSize="12"/>
+                    </HorizontalStackLayout>
+                </Grid>
+
+                <Entry Text="{Binding Title}" Placeholder="Enter title" x:Name="TitleEntry" IsEnabled="{Binding CanEdit}"/>
+
+
+                <!-- Status (read-only) -->
+                <Label Text="Status" FontAttributes="Bold"/>
+                <Label Text="{Binding StatusDisplay}" TextColor="Gray"/>
+
+                <!-- Read-only / finalized message -->
+                <Label Text="{Binding ReadOnlyMessage}"
+                       TextColor="DarkRed"
+                       FontAttributes="Bold"
+                       IsVisible="{Binding IsDeadlineReadOnlyStatusVisible}" />
+
+                <!-- Validation -->
+                <Label Text="{Binding ValidationMessage}"
+                       TextColor="DarkRed"
+                       IsVisible="{Binding HasValidationMessage}" />
+
+                <!-- Tags -->
+                <Label Text="Tags" FontAttributes="Bold"/>
+
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+
+                    <!-- Read-only display -->
+                    <Entry x:Name="TagsEntry"
+                       Text="{Binding Tags}"
+                       IsReadOnly="True"
+                       IsEnabled="{Binding CanEdit}"
+                       Placeholder="Tap edit to select tags"
+                       VerticalOptions="Center"/>
+
+                    <!-- Edit -->
+                    <Button Grid.Column="1"
+                        Text="✎"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Command="{Binding EditTagsCommand}"
+                        VerticalOptions="Center"
+                        IsEnabled="{Binding CanEdit}"/>
+
+                    <!-- Clear -->
+                    <Button Grid.Column="2"
+                        Text="✕"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="DarkRed"
+                        Command="{Binding ClearTagsCommand}"
+                        VerticalOptions="Center"
+                        IsEnabled="{Binding CanEdit}"/>
+
+                </Grid>
+
+
+                <!-- Target Type -->
+                <Label Text="Target Type" FontAttributes="Bold"/>
+                <Picker x:Name="TargetTypePicker"
+                    Title="Select target type"
+                    ItemsSource="{Binding TargetTypeOptions}"
+                    SelectedItem="{Binding TargetType}"
+                    IsEnabled="{Binding CanEdit}"/>
+
+                <!-- Difficulty Level -->
+                <Label Text="Difficulty Level" FontAttributes="Bold"/>
+                <Picker x:Name="DifficultyLevelPicker"
+                        Title="Select difficulty level"
+                        ItemsSource="{Binding DifficultyLevelOptions}"
+                        SelectedItem="{Binding DifficultyLevel}"
+                        IsEnabled="{Binding CanEdit}" />
+
+                <!-- Target for VALUE -->
+                <VerticalStackLayout IsVisible="{Binding IsValueTargetVisible}">
+                    <Label Text="Target Value" FontAttributes="Bold"/>
+                    <Entry Text="{Binding TargetValueText}"
+                       Keyboard="Numeric"
+                       Placeholder="e.g. 100" 
+                       IsEnabled="{Binding CanEdit}"/>
+                </VerticalStackLayout>
+
+                <!-- Target for ACTIVE TIME -->
+                <VerticalStackLayout IsVisible="{Binding IsActiveTimeTargetVisible}">
+                    <!-- Target (Active Time) -->
+                    <Label Text="Target (Active Time)" FontAttributes="Bold"/>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <!-- Read-only display -->
+                        <Entry x:Name="ActiveTimeTargetEntry"
+                           Text="{Binding ActiveTimeTargetText}"
+                           IsReadOnly="True"
+                           Placeholder="hh:mm:ss"
+                           VerticalOptions="Center"
+                           IsEnabled="{Binding CanEdit}"/>
+
+                        <!-- Edit button -->
+                        <Button Grid.Column="1"
+                            Text="✎"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="Black"
+                            Command="{Binding EditActiveTimeTargetCommand}"
+                            VerticalOptions="Center"
+                            IsEnabled="{Binding CanEdit}"/>
+                    </Grid>
+
+
+                </VerticalStackLayout>
+
+                <!-- Target for Steps -->
+                <VerticalStackLayout IsVisible="{Binding IsStepTargetVisible}">
+                    <Label Text="Step" FontAttributes="Bold"/>
+                    <Picker x:Name="StepPicker"
+                            Title="Select step"
+                            ItemsSource="{Binding StepNameOptions}"
+                            SelectedItem="{Binding StepName}"
+                            IsEnabled="{Binding CanEdit}"/>
+                    <Label Text="Target" FontAttributes="Bold"/>
+                    <Entry Text="{Binding TargetValueText}"
+                           Keyboard="Numeric"
+                           Placeholder="e.g. 50" 
+                           IsEnabled="{Binding CanEdit}"/>
+                </VerticalStackLayout>
+                
+                <!-- Target for Custom (Reports) -->
+                <VerticalStackLayout IsVisible="{Binding IsCustomReportTargetVisible}">
+                    <Label Text="Report" FontAttributes="Bold"/>
+                    <Picker x:Name="CustomReportPicker"
+                            Title="Select report"
+                            ItemsSource="{Binding ReportNameOptions}"
+                            SelectedItem="{Binding ReportName}"
+                            IsEnabled="{Binding CanEdit}"/>
+                </VerticalStackLayout>
+
+                <!-- Target for Achievements -->
+                <VerticalStackLayout IsVisible="{Binding IsAchievementTargetVisible}">
+                    <Label Text="Achievements" FontAttributes="Bold"/>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <!-- Read-only display -->
+                        <Entry x:Name="AchievementsEntry"
+                               Text="{Binding AchievementTitle}"
+                               IsReadOnly="True"
+                               Placeholder="Tap edit to select"
+                               VerticalOptions="Center"
+                               IsEnabled="{Binding CanEdit}"/>
+
+                        <!-- Edit -->
+                        <Button Grid.Column="1"
+                                Text="✎"
+                                WidthRequest="36"
+                                HeightRequest="36"
+                                CornerRadius="18"
+                                Padding="0"
+                                Margin="0"
+                                TextColor="White"
+                                BackgroundColor="Black"
+                                Command="{Binding EditAchievementsCommand}"
+                                VerticalOptions="Center"
+                                IsEnabled="{Binding CanEdit}"/>
+
+                        <!-- Clear -->
+                        <Button Grid.Column="2"
+                                Text="✕"
+                                WidthRequest="36"
+                                HeightRequest="36"
+                                CornerRadius="18"
+                                Padding="0"
+                                Margin="0"
+                                TextColor="White"
+                                BackgroundColor="DarkRed"
+                                Command="{Binding ClearAchievementsCommand}"
+                                VerticalOptions="Center"
+                                IsEnabled="{Binding CanEdit}"/>
+                    </Grid>
+                </VerticalStackLayout>
+
+
+                <!-- Completion Type -->
+                <Label Text="Completion Type" FontAttributes="Bold"/>
+                <Picker x:Name="CompletionTypePicker"
+                        Title="Select completion type"
+                        ItemsSource="{Binding CompletionTypeOptions}"
+                        SelectedItem="{Binding CompletionType}"
+                        IsEnabled="{Binding CanEdit}" />
+
+
+                <!-- Range -->
+                <VerticalStackLayout IsVisible="{Binding IsRangeVisible}">
+                    <Label Text="Completion Range" FontAttributes="Bold"/>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Picker Grid.Column="0"
+                                x:Name="RangeUnitPicker"
+                                Title="Unit"
+                                ItemsSource="{Binding RangeUnitOptions}"
+                                SelectedItem="{Binding RangeUnit}"
+                                IsEnabled="{Binding CanEdit}" />
+
+
+                        <Entry Grid.Column="1"
+                               WidthRequest="90"
+                               Text="{Binding RangeAmountText}"
+                               Keyboard="Numeric"
+                               HorizontalTextAlignment="End"
+                               Placeholder="7" 
+                               IsEnabled="{Binding CanEdit}"/>
+                    </Grid>
+                </VerticalStackLayout>
+
+                <!-- Deadline -->
+                <VerticalStackLayout IsVisible="{Binding IsDeadlineVisible}" Spacing="8">
+
+                    <Label Text="Deadline Start" FontAttributes="Bold"/>
+                    <DatePicker Date="{Binding DeadlineStartDate}" IsEnabled="{Binding CanEdit}" />
+                    <TimePicker Time="{Binding DeadlineStartTime}" IsEnabled="{Binding CanEdit}" />
+
+                    <Label Text="Deadline End" FontAttributes="Bold"/>
+                    <DatePicker Date="{Binding DeadlineDate}" IsEnabled="{Binding CanEdit}" />
+                    <TimePicker Time="{Binding DeadlineTime}" IsEnabled="{Binding CanEdit}" />
+
+                </VerticalStackLayout>
+
+                <!-- Trophies -->
+                <Label Text="Trophies" FontAttributes="Bold"/>
+
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+                    <!-- Add Photo -->
+                    <Button  Grid.Column="0"
+                        Text="🖼"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Command="{Binding AddTrophyPhotoCommand}"
+                        IsEnabled="{Binding CanEdit}"/>
+
+                    <!-- Add File -->
+                    <Button Grid.Column="1"
+                        Text="📎"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Command="{Binding AddTrophyFileCommand}"
+                        IsEnabled="{Binding CanEdit}"/>
+
+                    <!-- Count -->
+                    <HorizontalStackLayout
+                        Grid.Column="2"
+                        Spacing="6"
+                        VerticalOptions="Center">
+
+                        <Label
+                            Text="{Binding TrophyCount, StringFormat='Available: {0}'}"
+                            VerticalTextAlignment="Center"
+                            TextColor="Gray" />
+
+                        <Label
+                            Text="{Binding PendingTrophyCountText}"
+                            VerticalTextAlignment="Center"
+                            TextColor="Green"
+                            IsVisible="{Binding HasPendingTrophies}" />
+
+                    </HorizontalStackLayout>
+
+                    <Button 
+                        Grid.Column="3" 
+                        HorizontalOptions="End"
+                        Text="👁" 
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        BackgroundColor="Black"
+                        Command="{Binding ViewTrophiesCommand}" />
+
+                    <!-- Clear -->
+                    <Button 
+                        Grid.Column="4"
+                        Text="✕"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="DarkRed"
+                        Command="{Binding ClearTrophiesCommand}"
+                        IsEnabled="{Binding CanEdit}"/>
+                    
+                </Grid>
+
+
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button Grid.Row="1"
+                Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48"
+                IsEnabled="{Binding CanEdit}"/>
+    </Grid>
+</ContentPage>

@@ -41,11 +41,11 @@
               ColumnDefinitions="*,*"
               ColumnSpacing="12">
             <Button Text="Cancel"
-                    Clicked="OnCancelClicked" />
+                    Command="{Binding CancelCommand}" />
 
             <Button Grid.Column="1"
                     Text="{Binding ConfirmText}"
-                    Clicked="OnConfirmClicked" />
+                    Command="{Binding ConfirmCommand}" />
         </Grid>
     </Grid>
 </ContentPage>

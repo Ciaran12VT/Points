@@ -1,4 +1,4 @@
-﻿using Points.Views;
+using Points.Views.Home;
 
 namespace Points
 {

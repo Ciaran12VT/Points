@@ -24,7 +24,10 @@ namespace Points.Helpers
             if (element is T t)
                 yield return t;
 
-            foreach (var child in element.LogicalChildren)
+            if (element is not IVisualTreeElement visualTreeElement)
+                yield break;
+
+            foreach (var child in visualTreeElement.GetVisualChildren())
             {
                 if (child is Element e)
                 {

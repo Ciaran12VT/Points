@@ -10,11 +10,6 @@ namespace Points.Services
 {
     public class NullActiveCardNotificationService : IActiveCardNotificationService
     {
-        public void DebugBeep()
-        {
-            // intentionally does nothing
-        }
-
         public void UpdateActiveCardNotification(IActiveCardModel? activeCardModel)
         {
             // intentionally does nothing

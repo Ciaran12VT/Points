@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Points.Views.Settings.DatabaseSettingsPage"
+             x:Name="DatabaseSettings"
              Title="Database Settings">
 
     <ScrollView>
@@ -17,13 +18,13 @@
                     <Button Text="Wipe"
                             BackgroundColor="#B00020"
                             TextColor="White"
-                            Clicked="OnWipeDbClicked" />
+                            Command="{Binding WipeDatabaseCommand}" />
 
                     <Button Text="Export"
-                            Clicked="OnExportDBClicked" />
+                            Command="{Binding Source={x:Reference DatabaseSettings}, Path=ExportDatabaseCommand}" />
 
                     <Button Text="Import"
-                            Clicked="OnImportDBClicked" />
+                            Command="{Binding Source={x:Reference DatabaseSettings}, Path=ImportDatabaseCommand}" />
 
                 </VerticalStackLayout>
             </Frame>

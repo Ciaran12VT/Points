@@ -1,6 +1,7 @@
+using Points.Services.Sqlite;
 using Microsoft.Maui.Graphics;
 using Points.Models;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 
 namespace Points.Services.Shortcuts
 {

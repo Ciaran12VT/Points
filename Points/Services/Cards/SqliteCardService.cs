@@ -1,7 +1,8 @@
+using Points.Services.Sqlite;
 using Points.Models;
 using Points.Services;
 using Points.Services.Planner;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
 using Points.Services.Trackers;
 using SQLite;

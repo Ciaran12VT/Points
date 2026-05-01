@@ -83,28 +83,8 @@
     <Compile Include="..\Points\Services\Tat\SqliteTatCardService.cs" Link="App\Tat\SqliteTatCardService.cs" />
     <Compile Include="..\Points\Services\Trackers\SqliteTrackerService.cs" Link="App\Trackers\SqliteTrackerService.cs" />
     <Compile Include="..\Points\Services\Udmd\SqliteUdmdService.cs" Link="App\Udmd\SqliteUdmdService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IAchievementService.cs" Link="App\Sqlite\Interfaces\IAchievementService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IActivityService.cs" Link="App\Sqlite\Interfaces\IActivityService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IBudgetService.cs" Link="App\Sqlite\Interfaces\IBudgetService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\ICardReadService.cs" Link="App\Sqlite\Interfaces\ICardReadService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\ICardScheduleService.cs" Link="App\Sqlite\Interfaces\ICardScheduleService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\ICardWriteService.cs" Link="App\Sqlite\Interfaces\ICardWriteService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IDatabaseInitializationService.cs" Link="App\Sqlite\Interfaces\IDatabaseInitializationService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IDatabaseMaintenanceService.cs" Link="App\Sqlite\Interfaces\IDatabaseMaintenanceService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\HomeSeedData.cs" Link="App\Sqlite\Interfaces\HomeSeedData.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IGoalService.cs" Link="App\Sqlite\Interfaces\IGoalService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\ILockService.cs" Link="App\Sqlite\Interfaces\ILockService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IMissionCardService.cs" Link="App\Sqlite\Interfaces\IMissionCardService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\INotificationLogService.cs" Link="App\Sqlite\Interfaces\INotificationLogService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IPlannerService.cs" Link="App\Sqlite\Interfaces\IPlannerService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IReportService.cs" Link="App\Sqlite\Interfaces\IReportService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IScCardService.cs" Link="App\Sqlite\Interfaces\IScCardService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\ISettingsService.cs" Link="App\Sqlite\Interfaces\ISettingsService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IShortcutService.cs" Link="App\Sqlite\Interfaces\IShortcutService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\ISqliteConnectionContext.cs" Link="App\Sqlite\Interfaces\ISqliteConnectionContext.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\ITatCardService.cs" Link="App\Sqlite\Interfaces\ITatCardService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\ITrackerService.cs" Link="App\Sqlite\Interfaces\ITrackerService.cs" />
-    <Compile Include="..\Points\Services\Sqlite\Interfaces\IUdmdService.cs" Link="App\Sqlite\Interfaces\IUdmdService.cs" />
+    <Compile Include="..\Points\Services\Persistence\*.cs" Link="App\Persistence\%(Filename)%(Extension)" />
+    <Compile Include="..\Points\Services\Sqlite\ISqliteConnectionContext.cs" Link="App\Sqlite\ISqliteConnectionContext.cs" />
     <Compile Include="..\Points\Services\Sqlite\Queries\TatSql.cs" Link="App\Sqlite\Queries\TatSql.cs" />
     <Compile Include="..\Points\Services\Time\*.cs" Link="App\Time\%(Filename)%(Extension)" />
     <Compile Include="..\Points\Services\Scheduling\WallClockScheduleTime.cs" Link="App\Scheduling\WallClockScheduleTime.cs" />

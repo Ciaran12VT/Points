@@ -1,4 +1,3 @@
-using System.Globalization;
 using Points.Services.Scheduling;
 using Points.Services.Time;
 using SQLite;
@@ -8,14 +7,6 @@ namespace Points.Services.Sqlite;
 internal sealed class TimeHandlingDatabaseMigration
 {
     private const string MigrationKey = "2026-04-time-handling-normalization-v1";
-
-    private static readonly string[] LocalTimeFormats =
-    {
-        StrictTimeSerializer.LocalTimeFormat,
-        "HH:mm",
-        "H:mm:ss",
-        "H:mm"
-    };
 
     private readonly SQLiteAsyncConnection _db;
     private readonly ITimeZoneService _timeZoneService;
@@ -346,29 +337,8 @@ internal sealed class TimeHandlingDatabaseMigration
 
         try
         {
-            var trimmed = value.Trim();
-            foreach (var format in LocalTimeFormats)
-            {
-                if (TimeOnly.TryParseExact(
-                        trimmed,
-                        format,
-                        CultureInfo.InvariantCulture,
-                        DateTimeStyles.None,
-                        out var exactTime))
-                {
-                    normalized = StrictTimeSerializer.SerializeLocalTime(exactTime);
-                    return true;
-                }
-            }
-
-            if (TimeOnly.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedTime))
-            {
-                normalized = StrictTimeSerializer.SerializeLocalTime(parsedTime);
-                return true;
-            }
-
-            var localDateTime = LegacyTimeReader.ReadLocalDateTime(trimmed).LocalDateTime;
-            normalized = StrictTimeSerializer.SerializeLocalTime(TimeOnly.FromDateTime(localDateTime));
+            var localTime = LegacyTimeReader.ReadLocalTime(value).LocalTime;
+            normalized = StrictTimeSerializer.SerializeLocalTime(localTime);
             return true;
         }
         catch

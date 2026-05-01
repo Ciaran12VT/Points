@@ -22,21 +22,21 @@
 
             <Button Grid.Column="0"
                     Text="Save As"
-                    Clicked="OnSaveAsClicked"
+                    Command="{Binding SaveAsCommand}"
                     TextColor="White"
                     BackgroundColor="#222"
                     CornerRadius="10" />
 
             <Button Grid.Column="1"
                     Text="Share"
-                    Clicked="OnShareClicked"
+                    Command="{Binding ShareCommand}"
                     TextColor="White"
                     BackgroundColor="#222"
                     CornerRadius="10" />
 
             <Button Grid.Column="2"
                     Text="Delete"
-                    Clicked="OnDeleteClicked"
+                    Command="{Binding DeleteCommand}"
                     TextColor="White"
                     BackgroundColor="#8B0000"
                     CornerRadius="10" />

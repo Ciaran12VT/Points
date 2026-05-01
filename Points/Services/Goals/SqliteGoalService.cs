@@ -1,7 +1,7 @@
+using Points.Services.Sqlite;
 using Points.Models;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
-using System.Globalization;
 
 namespace Points.Services.Goals
 {
@@ -128,10 +128,7 @@ namespace Points.Services.Goals
             if (string.IsNullOrWhiteSpace(value))
                 return null;
 
-            if (StrictTimeSerializer.TryParseLocalTime(value, out var strictTime))
-                return strictTime;
-
-            return TimeOnly.Parse(value, CultureInfo.InvariantCulture);
+            return LegacyTimeReader.ReadLocalTime(value).LocalTime;
         }
 
         private sealed class GoalRow

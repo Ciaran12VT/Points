@@ -1,7 +1,8 @@
+using Points.Services.Sqlite;
 using Microsoft.Maui.Graphics;
 using Points.Models;
 using Points.Services.Shortcuts;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using SQLite;
 using SQLitePCL;
 using Xunit;

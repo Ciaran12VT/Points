@@ -1,9 +1,9 @@
+using Points.Services.Sqlite;
 using Points.Models;
 using Points.Services.Scheduling;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
 using SQLite;
-using System.Globalization;
 
 namespace Points.Services.Locks
 {
@@ -218,10 +218,7 @@ namespace Points.Services.Locks
 
         private static TimeOnly ParseLocalTime(string value)
         {
-            if (StrictTimeSerializer.TryParseLocalTime(value, out var strictTime))
-                return strictTime;
-
-            return TimeOnly.Parse(value, CultureInfo.InvariantCulture);
+            return LegacyTimeReader.ReadLocalTime(value).LocalTime;
         }
 
         private sealed class LockRow

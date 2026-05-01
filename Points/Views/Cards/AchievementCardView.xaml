@@ -123,7 +123,9 @@
         </Grid>
 
         <Frame.GestureRecognizers>
-            <TapGestureRecognizer Tapped="OnCardTapped" />
+            <TapGestureRecognizer
+                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenAchievementDetailsCommand}"
+                CommandParameter="{Binding .}" />
         </Frame.GestureRecognizers>
 
 

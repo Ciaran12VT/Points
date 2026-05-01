@@ -6,11 +6,14 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Points.Services.Time;
 
 namespace Points.Converters
 {
     public sealed class LockTitleColorConverter : IMultiValueConverter
     {
+        private static readonly IClock Clock = new SystemClock();
+
         // values[0] = original title color (string or Color)
         // values[1] = card (IActiveCardModel)
         // values[2] = now (DateTime)
@@ -22,7 +25,7 @@ namespace Points.Converters
 
             var original = values[0];
             var card = values[1] as IActiveCardModel;
-            var now = values[2] is DateTime dt ? dt : DateTime.Now;
+            var now = values[2] is DateTime dt ? dt : Clock.LocalNow;
             var allCards = values[3] as IEnumerable<IActiveCardModel>;
 
             if (card != null && allCards != null)

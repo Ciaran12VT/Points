@@ -9,7 +9,7 @@ namespace Points.Evaluators
 {
     public class TimeValueAchievementEvaluator
     {
-        public List<TimeValueAchievementEvaluation> Evaluations { get; set; }
+        public List<TimeValueAchievementEvaluation> Evaluations { get; set; } = new();
 
         public List<AchievementCardModel> CheckForEarnedAchievements(double additionalTime, double additionalValue, DateTime? evaluatedAt = null)
         {
@@ -54,7 +54,7 @@ namespace Points.Evaluators
 
     public class TimeValueAchievementEvaluation
     {
-        public AchievementCardModel AchievementCard {  get; set; } 
+        public AchievementCardModel AchievementCard { get; set; } = null!;
 
         public double CurrentValue { get; set; }
 

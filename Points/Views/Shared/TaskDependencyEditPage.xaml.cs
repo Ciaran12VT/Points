@@ -1,25 +1,36 @@
 using Points.Models;
+using Points.Services.Navigation;
 using System.Globalization;
 
 namespace Points.Views.Shared;
 
 public partial class TaskDependencyEditPage : ContentPage
 {
+    private readonly IAppNavigationService _navigation;
+    private readonly IAppDialogService _dialogs;
     private readonly TaskCompletionSource<LockTaskDependencyModel> _tcs;
     private readonly List<DependencyTaskOption> _tasks;
     private readonly LockTaskDependencyModel _working;
 
+    public Command DoneCommand { get; }
+
     public TaskDependencyEditPage(
         IEnumerable<DependencyTaskOption> tasks,
         LockTaskDependencyModel? initial,
-        TaskCompletionSource<LockTaskDependencyModel> tcs)
+        TaskCompletionSource<LockTaskDependencyModel> tcs,
+        IAppNavigationService navigation,
+        IAppDialogService dialogs)
     {
+        DoneCommand = new Command(async () => await DoneAsync());
+
         InitializeComponent();
 
+        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
         _tcs = tcs;
         _tasks = tasks.ToList();
 
-        // Work on a copy so Cancel/back doesn�t mutate caller state
+        // Work on a copy so Cancel/back doesn't mutate caller state
         _working = initial == null
             ? new LockTaskDependencyModel()
             : Clone(initial);
@@ -53,41 +64,41 @@ public partial class TaskDependencyEditPage : ContentPage
         TargetEntry.Text = _working.TargetValue.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
-    private async void OnDoneClicked(object sender, EventArgs e)
+    private async Task DoneAsync()
     {
         if (TaskPicker.SelectedIndex < 0)
         {
-            await DisplayAlert("Missing field", "Please select a Task.", "OK");
+            await _dialogs.DisplayAlertAsync("Missing field", "Please select a Task.", "OK");
             return;
         }
 
         if (MetricPicker.SelectedIndex < 0)
         {
-            await DisplayAlert("Missing field", "Please select a Metric.", "OK");
+            await _dialogs.DisplayAlertAsync("Missing field", "Please select a Metric.", "OK");
             return;
         }
 
         if (TimeScopePicker.SelectedIndex < 0)
         {
-            await DisplayAlert("Missing field", "Please select a TimeScope.", "OK");
+            await _dialogs.DisplayAlertAsync("Missing field", "Please select a TimeScope.", "OK");
             return;
         }
 
         if (!double.TryParse(TargetEntry.Text?.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var target))
         {
-            await DisplayAlert("Invalid Target", "Target must be a number (e.g. 8 or 5.2).", "OK");
+            await _dialogs.DisplayAlertAsync("Invalid Target", "Target must be a number (e.g. 8 or 5.2).", "OK");
             return;
         }
 
         if (target <= 0)
         {
-            await DisplayAlert("Invalid Target", "Target must be greater than 0.", "OK");
+            await _dialogs.DisplayAlertAsync("Invalid Target", "Target must be greater than 0.", "OK");
             return;
         }
 
         if (ValencePicker.SelectedIndex < 0)
         {
-            await DisplayAlert("Missing field", "Please select a Condition.", "OK");
+            await _dialogs.DisplayAlertAsync("Missing field", "Please select a Condition.", "OK");
             return;
         }
 
@@ -107,7 +118,7 @@ public partial class TaskDependencyEditPage : ContentPage
                 : TargetValence.MustBeGreaterThan;
 
         _tcs.TrySetResult(_working);
-        await Navigation.PopAsync();
+        await _navigation.PopAsync();
     }
 
     protected override bool OnBackButtonPressed()

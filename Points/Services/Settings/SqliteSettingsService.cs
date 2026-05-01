@@ -1,6 +1,7 @@
+using Points.Services.Sqlite;
 using Points.Global;
 using Points.Models.DbModels;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using System.Globalization;
 
 namespace Points.Services.Settings

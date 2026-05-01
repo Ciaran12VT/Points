@@ -1,7 +1,8 @@
+using Points.Services.Sqlite;
 using Points.Evaluators;
 using Points.Global;
 using Points.Models;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
 using SQLite;
 using System.Security.Cryptography;

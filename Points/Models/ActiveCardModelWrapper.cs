@@ -9,7 +9,7 @@ namespace Points.Models
 {
     public class ActiveCardModelWrapper
     {
-        public string Type { get; set; }
+        public string Type { get; set; } = "";
         public JsonElement Data { get; set; }
     }
 }

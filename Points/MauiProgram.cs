@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Maui;
+using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using Points.Helpers;
 using Points.Interfaces;
@@ -11,6 +11,7 @@ using Points.Services.Cards;
 using Points.Services.Goals;
 using Points.Services.Locks;
 using Points.Services.Missions;
+using Points.Services.Navigation;
 using Points.Services.Notifications;
 using Points.Services.Planner;
 using Points.Services.Reports;
@@ -20,13 +21,13 @@ using Points.Services.Sc;
 using Points.Services.Settings;
 using Points.Services.Shortcuts;
 using Points.Services.Sqlite;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Tat;
 using Points.Services.Time;
 using Points.Services.Trackers;
 using Points.Services.Udmd;
-using Points.ViewModels;
-using Points.Views;
+using Points.ViewModels.Home;
+using Points.Views.Home;
 
 namespace Points
 {
@@ -61,6 +62,10 @@ namespace Points
 #endif
             builder.Services.AddSingleton<IClock, SystemClock>();
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
+            builder.Services.AddSingleton<IAppNavigationService, MauiAppNavigationService>();
+            builder.Services.AddSingleton<IAppDialogService, MauiDialogService>();
+            builder.Services.AddSingleton<IAppPageService, MauiPageService>();
+            builder.Services.AddSingleton<IPopupService, MauiPopupService>();
             builder.Services.AddSingleton<INotificationScheduleCoordinator, NotificationScheduleCoordinator>();
 
             builder.Services.AddTransient<HomePage>();      // <-- add this

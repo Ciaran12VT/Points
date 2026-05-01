@@ -1,5 +1,6 @@
 using Points.Models;
-using Points.ViewModels;
+using Points.ViewModels.Goals;
+using Points.ViewModels.Home;
 using System;
 using System.Collections.Generic;
 using System.Linq;

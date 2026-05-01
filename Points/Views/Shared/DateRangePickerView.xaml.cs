@@ -9,7 +9,7 @@ public partial class DateRangePickerView : ContentView
             nameof(RangeStart),
             typeof(DateTime),
             typeof(DateRangePickerView),
-            DateTime.Today,
+            default(DateTime),
             BindingMode.TwoWay,
             propertyChanged: (_, __, ___) => { });
 
@@ -18,9 +18,16 @@ public partial class DateRangePickerView : ContentView
             nameof(RangeEnd),
             typeof(DateTime),
             typeof(DateRangePickerView),
-            DateTime.Today.AddDays(1).AddTicks(-1),
+            default(DateTime),
             BindingMode.TwoWay,
             propertyChanged: (_, __, ___) => { });
+
+    public static readonly BindableProperty CurrentLocalNowProperty =
+        BindableProperty.Create(
+            nameof(CurrentLocalNow),
+            typeof(DateTime),
+            typeof(DateRangePickerView),
+            default(DateTime));
 
     public DateTime RangeStart
     {
@@ -34,15 +41,19 @@ public partial class DateRangePickerView : ContentView
         set => SetValue(RangeEndProperty, value);
     }
 
+    public DateTime CurrentLocalNow
+    {
+        get => (DateTime)GetValue(CurrentLocalNowProperty);
+        set => SetValue(CurrentLocalNowProperty, value);
+    }
+
     bool _suppress;
 
     public DateRangePickerView()
     {
         InitializeComponent();
 
-        // Default selection
         RangeModePicker.SelectedIndex = 0; // Today
-        ApplyPreset("Today");
     }
 
     void OnRangeModeChanged(object sender, EventArgs e)
@@ -112,7 +123,7 @@ public partial class DateRangePickerView : ContentView
 
     void ApplyPreset(string mode)
     {
-        var now = DateTime.Now;
+        var now = CurrentLocalNow == default ? RangeStart : CurrentLocalNow;
         DateTime start;
         DateTime end;
 

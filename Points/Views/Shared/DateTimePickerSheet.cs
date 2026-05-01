@@ -1,5 +1,6 @@
-﻿using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
+using Points.Services.Navigation;
 using Points.Services.Time;
 
 namespace Points.Views.Shared;
@@ -13,6 +14,7 @@ public static class DateTimePickerSheet
     /// </summary>
     public static Task<DateTime?> PickAsync(
         Page page,
+        IAppNavigationService navigation,
         DateTime initial,
         DateTime min,
         DateTime max,
@@ -20,8 +22,8 @@ public static class DateTimePickerSheet
         string title = "Edit")
     {
         if (page is null) throw new ArgumentNullException(nameof(page));
+        if (navigation is null) throw new ArgumentNullException(nameof(navigation));
         if (min > max) throw new ArgumentException("min must be <= max");
-
         var tcs = new TaskCompletionSource<DateTime?>();
 
         // Clamp initial into bounds so the modal never opens invalid
@@ -186,7 +188,7 @@ public static class DateTimePickerSheet
         cancel.Clicked += async (_, __) =>
         {
             tcs.TrySetResult(null);
-            await page.Navigation.PopModalAsync();
+            await navigation.PopModalAsync();
         };
 
         ok.Clicked += async (_, __) =>
@@ -196,7 +198,7 @@ public static class DateTimePickerSheet
             if (!ok.IsEnabled) return;
 
             tcs.TrySetResult(GetChosen());
-            await page.Navigation.PopModalAsync();
+            await navigation.PopModalAsync();
         };
 
         // Validate whenever user changes date/time
@@ -211,7 +213,7 @@ public static class DateTimePickerSheet
         // Initial validation
         _ = ValidateAndUpdateUiAsync();
 
-        _ = page.Navigation.PushModalAsync(new NavigationPage(modal));
+        _ = navigation.PushModalAsync(new NavigationPage(modal));
         return tcs.Task;
     }
 

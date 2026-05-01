@@ -1,6 +1,6 @@
 using Points.Global;
 using Points.Services.Settings;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
 using SQLite;
 using SQLitePCL;

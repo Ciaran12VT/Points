@@ -1,5 +1,5 @@
 using Points.Models;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
 
 namespace Points.Services.Scheduling

@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:Points.Converters"
+             x:Class="Points.Views.Sc.ScDetailsPage"
+             Title="SC Details">
+
+    <Grid RowDefinitions="*,Auto" Padding="12" Margin="0,0,0,24">
+
+        <ScrollView Grid.Row="0" x:Name="MainScroll">
+            <VerticalStackLayout Spacing="14" x:Name="StepList">
+
+                <!-- Title + Entry + Cancel (same row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Title"
+                           x:Name="TitleEntry"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <Entry Grid.Column="1"
+                           Text="{Binding Title}"
+                           Placeholder="Enter title"
+                           VerticalOptions="Center"/>
+
+                    <Button Grid.Column="2"
+                            Text="✕"
+                            BackgroundColor="DarkRed"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding CancelCommand}"/>
+                </Grid>
+
+                <!-- Status (read-only) (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Text="Status"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Label Grid.Column="1"
+                           Text="{Binding Status}"
+                           TextColor="Gray"
+                           VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Tags (single row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Tags"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1" x:Name="TagsEntry"
+                           Text="{Binding Tags}"
+                           IsReadOnly="True"
+                           Placeholder="e.g. PRO TAT Other"
+                           VerticalOptions="Center"/>
+                    <!--Edit-->
+                    <Button Grid.Column="2"
+                        Text="✎"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Command="{Binding EditTagsCommand}"
+                        VerticalOptions="Center"/>
+
+                    <!-- Clear -->
+                    <Button Grid.Column="3"
+                        Text="⌫"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="DarkRed"
+                        Command="{Binding ClearTagsCommand}"
+                        VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Current accrued value (read-only) (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Text="Current Accrued Value"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Label Grid.Column="1"
+                           Text="{Binding CurrentAccruedValueText}"
+                           TextColor="{Binding CurrentAccruedValueColor}"
+                           VerticalOptions="Center"/>
+                    <Button Grid.Column="2"
+                            Text="{Binding SignToggleText}"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            TextColor="{Binding ActiveTimeTargetLabelColor}"
+                            BackgroundColor="{Binding SignToggleColor}"
+                            Command="{Binding ToggleSignCommand}"
+                            VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Value Sign (already one row) --><!--
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      VerticalOptions="Center"
+                      ColumnSpacing="12"
+                      Margin="0,0,0,4">
+                    <Label Grid.Column="0"
+                           Text="Value Sign"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    --><!-- spacer --><!--
+                    <BoxView Grid.Column="1" Opacity="0" />
+
+                    <Button Grid.Column="2"
+                            Text="{Binding SignToggleText}"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            TextColor="White"
+                            BackgroundColor="{Binding SignToggleColor}"
+                            Command="{Binding ToggleSignCommand}"
+                            VerticalOptions="Center"/>
+                </Grid>-->
+
+                <!-- Active Time (label + buttons + value on same row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                      ColumnSpacing="12"
+                      VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Active Time"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <Label Grid.Column="1"
+                           Text="{Binding ActiveTimeText}"
+                           TextColor="Orange"
+                           VerticalOptions="Center"/>
+
+                    <!-- Clock -->
+                    <Button Grid.Column="2"
+                            Text="⏱"
+                            BackgroundColor="Black"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding SetActiveTimeTargetCommand}"/>
+
+                    <!-- Edit -->
+                    <Button Grid.Column="3"
+                            Text="✎"
+                            BackgroundColor="Black"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding EditActiveTimeCommand}"/>
+                </Grid>
+
+                <Label Text="Schedule" FontAttributes="Bold" FontSize="14" />
+
+                <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12"
+                  VerticalOptions="Center">
+
+                    <Label Text="{Binding ScheduleSummaryText}"
+                       Opacity="0.75"
+                       VerticalTextAlignment="Center" />
+
+                    <Button Grid.Column="1"
+                        Text="📅"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"
+                        BackgroundColor="Green"
+                        Command="{Binding EditSchedulesCommand}" />
+                </Grid>
+
+                <Button Text="Metadata Fields"
+                        TextColor="White"
+                        BackgroundColor="DodgerBlue"
+                        CornerRadius="12"
+                        Command="{Binding EditUdmdCommand}" />
+
+
+                <!-- Error -->
+                <Label Text="{Binding ErrorText}"
+                   TextColor="OrangeRed"
+                   IsVisible="{Binding HasError}" />
+
+                <!-- Description (keep as-is: label on its own row, editor on its own row) -->
+                <Label Text="Description" FontAttributes="Bold"/>
+                <Editor AutoSize="TextChanges"
+                        Text="{Binding Description}"
+                        Placeholder="Optional notes..."
+                        HeightRequest="120"/>
+
+                <!-- Steps header + add button (already one row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      VerticalOptions="Center"
+                      ColumnSpacing="12"
+                      Margin="0,0,0,4">
+                    <Label Grid.Column="0"
+                           Text="Steps"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <!-- spacer -->
+                    <BoxView Grid.Column="1" Opacity="0" />
+
+                    <Button Grid.Column="2"
+                            Text="+"
+                            Command="{Binding AddStepCommand}"
+                            BackgroundColor="Green"
+                            TextColor="White"
+                            FontAttributes="Bold"
+                            Padding="6,0"
+                            HeightRequest="30"
+                            MinimumWidthRequest="30"
+                            CornerRadius="8"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"/>
+                </Grid>
+
+                <CollectionView ItemsSource="{Binding Steps}"
+                                SelectionMode="None"
+                                Margin="0,4,0,0">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Padding="10"
+                                   Margin="0,6"
+                                   CornerRadius="10"
+                                   HasShadow="True">
+                                <Grid ColumnDefinitions="10,*,50,40,40,40"
+                                      RowDefinitions="Auto"
+                                      ColumnSpacing="10">
+
+                                    <!-- Order -->
+                                    <Label Grid.Row="0" Grid.Column="0"
+                                           Text="{Binding Order}"
+                                           VerticalOptions="Center"
+                                           TextColor="Gray"/>
+
+                                    <!-- Step title -->
+                                    <Entry Grid.Row="0" Grid.Column="1"
+                                           Text="{Binding Title}"
+                                           Placeholder="Step title"/>
+
+                                    <!-- Step value (narrower) -->
+                                    <Entry Grid.Row="0" Grid.Column="2"
+                                           Keyboard="Numeric"
+                                           Text="{Binding StepValue}"
+                                           Placeholder="Value"
+                                           HorizontalTextAlignment="End"/>
+
+                                    <!-- Count -->
+                                    <Label Grid.Row="0" Grid.Column="3"
+                                           HorizontalTextAlignment="End"
+                                           VerticalTextAlignment="Center"
+                                           TextColor="Gray">
+                                        <Label.Text>
+                                            <MultiBinding Converter="{StaticResource ScStepCountTextConverter}">
+                                                <Binding Path="." />
+                                                <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                                                         Path="BindingContext.RangeStart" />
+                                                <Binding Source="{RelativeSource AncestorType={x:Type ContentPage}}"
+                                                         Path="BindingContext.RangeEnd" />
+                                                <Binding Path="RepsVersion" />
+                                            </MultiBinding>
+                                        </Label.Text>
+                                    </Label>
+
+                                    <!-- Decrement -->
+                                    <Button Grid.Row="0" Grid.Column="4"
+                                            Text="-"
+                                            Command="{Binding DecrementCommand}"
+                                            BackgroundColor="DarkRed"
+                                            TextColor="White"
+                                            WidthRequest="36"
+                                            HeightRequest="36"
+                                            CornerRadius="8"
+                                            Padding="0"/>
+
+                                    <!-- Increment -->
+                                    <Button Grid.Row="0" Grid.Column="5"
+                                            Text="+"
+                                            Command="{Binding IncrementCommand}"
+                                            BackgroundColor="Green"
+                                            TextColor="White"
+                                            WidthRequest="36"
+                                            HeightRequest="36"
+                                            CornerRadius="8"
+                                            Padding="0"/>
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <BoxView x:Name="BottomAnchor"
+                         HeightRequest="1"
+                         Opacity="0" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button Grid.Row="1"
+                Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48"/>
+    </Grid>
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:ScStepCountTextConverter x:Key="ScStepCountTextConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+</ContentPage>

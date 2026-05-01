@@ -1,17 +1,15 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Globalization;
 using System.Windows.Input;
 using Microsoft.Maui.Controls;
-using Points.Helpers;
 using Points.Models;
 using Points.Services.Time;
-using Points.ViewModels;
 
 namespace Points.Views.Cards;
 
 public partial class TrackerCardView : ContentView
 {
+    private static readonly IClock FallbackClock = new SystemClock();
     private readonly SparklineDrawable _drawable = new();
 
     public TrackerCardView()
@@ -154,41 +152,8 @@ public partial class TrackerCardView : ContentView
         set => SetValue(AddValueCommandProperty, value);
     }
 
-    private async void OnAddValueClicked(object sender, EventArgs e)
+    private void OnAddValueClicked(object sender, EventArgs e)
     {
-        //if (BindingContext is not Points.Models.ValueTrackerCardModel t)
-        //    return;
-
-        //var unit = string.IsNullOrWhiteSpace(t.Unit) ? "" : $" ({t.Unit})";
-
-        //var input = await Shell.Current.DisplayPromptAsync(
-        //    "Add Value",
-        //    $"Enter a value for {t.Title}{unit}",
-        //    accept: "OK",
-        //    cancel: "Cancel",
-        //    placeholder: "e.g. 72.4",
-        //    keyboard: Keyboard.Numeric);
-
-        //if (string.IsNullOrWhiteSpace(input))
-        //    return;
-
-        //// Budget card uses InvariantCulture parse; we’ll keep the same pattern for consistency.
-        //// (If you want comma support later, we can add a fallback parse.)
-        //if (!double.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-        //{
-        //    await Shell.Current.DisplayAlert("Invalid number", "Please enter a valid number.", "OK");
-        //    return;
-        //}
-
-        //// Optional: prevent nonsense values (you can relax this if you want negative trackers)
-        //// If you want to allow negatives for some trackers, remove this check or add a flag on the tracker.
-        //// if (value < 0) return;
-
-        //t.AddValue(value);
-
-        //// If you have DB persistence already (or soon), this is where it should go:
-        //// await vm.AddTrackerEntryAsync(t.Id, DateTime.Now, value);
-        ///
         if (AddValueCommand?.CanExecute(null) == true)
             AddValueCommand.Execute(null);
     }
@@ -262,7 +227,7 @@ public partial class TrackerCardView : ContentView
         var first = FirstRecordedDate.HasValue
             ? TimeDisplayFormatter.ToLocalInstant(FirstRecordedDate.Value)
             : series.Min(s => s.BucketStart);
-        PeriodText = BuildOverTheLastText(first, TimeDisplayFormatter.ToLocalInstant(DateTime.UtcNow));
+        PeriodText = BuildOverTheLastText(first, FallbackClock.LocalNow);
     }
 
 
@@ -501,22 +466,5 @@ public partial class TrackerCardView : ContentView
 
         return filled;
     }
-
-    private async void OnCardTapped(object sender, TappedEventArgs e)
-    {
-        if (BindingContext is not TrackerCardModel model)
-            return;
-
-        var page = this.FindParentOfType<ContentPage>();
-        if (page?.BindingContext is HomeViewModel vm)
-        {
-            // Option A (recommended): add a tracker-specific method on the VM
-            await vm.OpenExistingCardAsync(model);
-
-            // Option B (if you already have a generic method):
-            // await vm.OpenCardDetailsAsync(model);
-        }
-    }
-
 
 }

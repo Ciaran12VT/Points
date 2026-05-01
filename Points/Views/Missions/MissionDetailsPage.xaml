@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Missions.MissionDetailsPage"
+             Title="Mission Details">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="14">
+
+                <!-- Title + Entry + Cancel (same row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Title" FontAttributes="Bold" VerticalOptions="Center"/>
+
+                    <Entry Grid.Column="1"
+                           x:Name="TitleEntry"
+                           Text="{Binding Title}"
+                           Placeholder="Enter title"
+                           IsReadOnly="{Binding IsReadOnly}"
+                           VerticalOptions="Center"/>
+
+                    <Button Grid.Column="2"
+                            Text="✕"
+                            BackgroundColor="DarkRed"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding CancelCommand}"/>
+                </Grid>
+
+                <!-- Status (read-only) (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Status" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Label Grid.Column="1" Text="{Binding Status}" TextColor="Gray" VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Tags (single row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Tags"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1" x:Name="TagsEntry"
+                           Text="{Binding Tags}"
+                           IsReadOnly="True"
+                           Placeholder="e.g. PRO TAT Other"
+                           VerticalOptions="Center"/>
+                    <!--Edit-->
+                    <Button Grid.Column="2"
+                        Text="✎"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Command="{Binding EditTagsCommand}"
+                        VerticalOptions="Center"/>
+
+                    <!-- Clear -->
+                    <Button Grid.Column="3"
+                        Text="⌫"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="DarkRed"
+                        Command="{Binding ClearTagsCommand}"
+                        VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- SubType (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="SubType" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Picker Grid.Column="1"
+                            Title="Select subtype"
+                            ItemsSource="{Binding SubTypeOptions}"
+                            SelectedItem="{Binding SelectedSubType}"
+                            IsEnabled="{Binding CanEdit}"/>
+                </Grid>
+
+                <!-- Value (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Value" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
+                           Text="{Binding ValueText}"
+                           Keyboard="Numeric"
+                           Placeholder="e.g. 25"
+                           IsReadOnly="{Binding IsReadOnly}"
+                           VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Value Per Minute (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Value Per Minute" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
+                           Text="{Binding ValuePerMinText}"
+                           Keyboard="Numeric"
+                           Placeholder="e.g. 0.1"
+                           IsReadOnly="{Binding IsReadOnly}"
+                           VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Created Date (read-only) (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Created Date" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Label Grid.Column="1" Text="{Binding CreatedDateText}" TextColor="Gray" VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Complete Date (read-only) (same row) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center" IsVisible="{Binding IsComplete}">
+                    <Label Grid.Column="0" Text="Completed Date" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Label Grid.Column="1" Text="{Binding CompletedDateText}" TextColor="Gray" VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Event Date (label + date + time + checkbox) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Event Date" FontAttributes="Bold" VerticalOptions="Center" />
+
+                    <!-- Date -->
+                    <DatePicker Grid.Column="1" Date="{Binding EventDateValue}" IsEnabled="{Binding HasEventDate}" />
+
+                    <!-- Time (no label) -->
+                    <TimePicker Grid.Column="2" Time="{Binding EventTimeValue}" IsEnabled="{Binding HasEventDate}" />
+
+                    <!-- Checkbox -->
+                    <CheckBox Grid.Column="3" IsChecked="{Binding HasEventDate}" VerticalOptions="Center" HorizontalOptions="End" />
+                </Grid>
+
+                <!-- Available From (same row: label + date + time) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Available From" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <DatePicker Grid.Column="1" Date="{Binding AvailableFromDate}" IsEnabled="{Binding CanEdit}"/>
+                    <TimePicker Grid.Column="2" Time="{Binding AvailableFromTime}" IsEnabled="{Binding CanEdit}" />
+                </Grid>
+
+                <!-- Due By (same row: label + date + time) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0" Text="Due By" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <DatePicker Grid.Column="1" Date="{Binding DueDate}" IsEnabled="{Binding CanEdit}"/>
+                    <TimePicker Grid.Column="2" Time="{Binding DueTime}" IsEnabled="{Binding CanEdit}"/>
+                </Grid>
+
+                <!-- Estimated Time (single row, with inline buttons) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Estimated Time"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <Label Grid.Column="1"
+                           Text="{Binding EstimatedTimeText}"
+                           TextColor="LightBlue"
+                           VerticalOptions="Center"/>
+
+                    <!-- Edit -->
+                    <Button Grid.Column="2"
+                            Text="✎"
+                            BackgroundColor="Black"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding EditEstimatedTimeCommand}"/>
+                </Grid>
+
+                <!-- Active Time (label + buttons + value on same row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                      ColumnSpacing="12"
+                      VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Active Time"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <Label Grid.Column="1"
+                           Text="{Binding ActiveTimeText}"
+                           TextColor="Orange"
+                           VerticalOptions="Center"/>
+
+                    <!-- Clock -->
+                    <Button Grid.Column="2"
+                            Text="⏱"
+                            BackgroundColor="Black"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding SetActiveTimeTargetCommand}"/>
+
+                    <!-- Edit -->
+                    <Button Grid.Column="3"
+                            Text="✎"
+                            BackgroundColor="Black"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding EditActiveTimeCommand}"/>
+                </Grid>
+
+                <!-- Resources -->
+                <Label Text="Resources" FontAttributes="Bold"/>
+
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+
+                    <!-- Add Images -->
+                    <Button Text="🖼"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="Black"
+                            Command="{Binding AddResourceImagesCommand}" />
+
+                    <!-- Add Files -->
+                    <Button Grid.Column="1"
+                            Text="📎"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="Black"
+                            Command="{Binding AddResourceFilesCommand}" />
+
+                    <!-- Count -->
+                    <Label Grid.Column="2"
+                           Text="{Binding ResourceCount, StringFormat='Available: {0}'}"
+                           VerticalTextAlignment="Center"
+                           TextColor="Gray"/>
+
+                    <!-- View -->
+                    <Button Grid.Column="3"
+                            Text="👁"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            BackgroundColor="Black"
+                            Command="{Binding ViewResourcesCommand}" />
+
+                    <!-- Clear -->
+                    <Button Grid.Column="4"
+                            Text="✕"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="DarkRed"
+                            Command="{Binding ClearResourcesCommand}" />
+
+                </Grid>
+
+
+                <!-- Description (UNCHANGED: stays label then editor) -->
+                <Label Text="Description" FontAttributes="Bold" />
+                <Editor AutoSize="TextChanges"
+                        Text="{Binding Description}"
+                        Placeholder="Optional notes..."
+                        HeightRequest="270"
+                        IsReadOnly="{Binding IsReadOnly}"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button Grid.Row="1"
+                Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48"
+                IsVisible="{Binding CanEdit}"/>
+    </Grid>
+</ContentPage>

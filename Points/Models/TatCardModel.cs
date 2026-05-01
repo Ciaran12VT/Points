@@ -33,7 +33,7 @@ namespace Points.Models
 
         public ICommand LongPressCommand { get; }
 
-        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
+        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; } = new();
 
         private bool _isLocksEnabled;
         public bool IsLocksEnabled

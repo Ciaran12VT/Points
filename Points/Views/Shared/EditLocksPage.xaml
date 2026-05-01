@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     x:Class="Points.Views.Shared.EditLocksPage"
+    x:Name="EditLocksRoot"
     Title="Add Lock">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="12">
@@ -21,7 +22,7 @@
                     CornerRadius="20"
                     Padding="0"
                     BackgroundColor="Green"
-                    Clicked="OnAddLockClicked"/>
+                    Command="{Binding AddLockCommand}"/>
         </Grid>
 
         <!-- List of locks -->
@@ -62,7 +63,7 @@
                                     CornerRadius="16"
                                     Padding="0"
                                     BackgroundColor="Transparent"
-                                    Clicked="OnRemoveLockClicked"
+                                    Command="{Binding Source={x:Reference EditLocksRoot}, Path=BindingContext.RemoveLockCommand}"
                                     CommandParameter="{Binding .}" />
 
                             <!-- Row 2: Schedules (list) -->
@@ -91,7 +92,7 @@
                                         Padding="0"
                                         BackgroundColor="Transparent"
                                         HorizontalOptions="End"
-                                        Clicked="OnAddScheduleClicked"
+                                        Command="{Binding Source={x:Reference EditLocksRoot}, Path=BindingContext.AddScheduleCommand}"
                                         CommandParameter="{Binding .}" />
 
                                 <!-- Schedule rows -->
@@ -116,7 +117,7 @@
                                                         CornerRadius="16"
                                                         Padding="0"
                                                         BackgroundColor="Transparent"
-                                                        Clicked="OnEditScheduleClicked"
+                                                        Command="{Binding Source={x:Reference EditLocksRoot}, Path=BindingContext.EditScheduleCommand}"
                                                         CommandParameter="{Binding .}" />
 
                                                 <Button Grid.Column="2"
@@ -127,7 +128,7 @@
                                                         CornerRadius="16"
                                                         Padding="0"
                                                         BackgroundColor="Transparent"
-                                                        Clicked="OnRemoveScheduleClicked"
+                                                        Command="{Binding Source={x:Reference EditLocksRoot}, Path=BindingContext.RemoveScheduleCommand}"
                                                         CommandParameter="{Binding .}" />
                                             </Grid>
                                         </DataTemplate>
@@ -156,7 +157,7 @@
                                     CornerRadius="16"
                                     Padding="0"
                                     BackgroundColor="Transparent"
-                                    Clicked="OnEditTimeWindowClicked"
+                                    Command="{Binding Source={x:Reference EditLocksRoot}, Path=BindingContext.EditTimeWindowCommand}"
                                     CommandParameter="{Binding .}" />
                             <!-- Row 4: Task Dependencies -->
                             <Grid Grid.Row="3"
@@ -185,7 +186,7 @@
                                         Padding="0"
                                         BackgroundColor="Transparent"
                                         HorizontalOptions="End"
-                                        Clicked="OnAddDependencyClicked"
+                                        Command="{Binding Source={x:Reference EditLocksRoot}, Path=BindingContext.AddDependencyCommand}"
                                         CommandParameter="{Binding .}" />
 
                                 <!-- Dependency rows -->
@@ -208,7 +209,7 @@
                                                         CornerRadius="16"
                                                         Padding="0"
                                                         BackgroundColor="Transparent"
-                                                        Clicked="OnEditDependencyClicked"
+                                                        Command="{Binding Source={x:Reference EditLocksRoot}, Path=BindingContext.EditDependencyCommand}"
                                                         CommandParameter="{Binding .}" />
 
                                                 <Button Grid.Column="2"
@@ -219,7 +220,7 @@
                                                         CornerRadius="16"
                                                         Padding="0"
                                                         BackgroundColor="Transparent"
-                                                        Clicked="OnRemoveDependencyClicked"
+                                                        Command="{Binding Source={x:Reference EditLocksRoot}, Path=BindingContext.RemoveDependencyCommand}"
                                                         CommandParameter="{Binding .}" />
                                             </Grid>
                                         </DataTemplate>
@@ -236,8 +237,8 @@
 
         <!-- Save / Cancel -->
         <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8,0,0">
-            <Button Text="Cancel" Clicked="OnCancelClicked" />
-            <Button Grid.Column="1" Text="Save" BackgroundColor="Green" Clicked="OnSaveClicked" />
+            <Button Text="Cancel" Command="{Binding CancelCommand}" />
+            <Button Grid.Column="1" Text="Save" BackgroundColor="Green" Command="{Binding SaveCommand}" />
         </Grid>
 
     </Grid>

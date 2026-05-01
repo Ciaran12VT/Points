@@ -79,7 +79,8 @@
 							Margin="0"
 							TextColor="White"
 							BackgroundColor="Green"
-							Clicked="OnAddRepClicked" 
+                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.AddScFirstStepCommand}"
+                            CommandParameter="{Binding .}"
                             IsVisible="{Binding IsSingleStep}">
                     <Button.IsEnabled>
                         <MultiBinding Converter="{StaticResource NotLockedConverter}">
@@ -179,7 +180,9 @@
         </Grid>
 
         <Frame.GestureRecognizers>
-            <TapGestureRecognizer Tapped="OnCardTapped" />
+            <TapGestureRecognizer
+                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenCardDetailsCommand}"
+                CommandParameter="{Binding .}" />
         </Frame.GestureRecognizers>
 
     </Frame>

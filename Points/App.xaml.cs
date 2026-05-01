@@ -1,4 +1,4 @@
-﻿using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 
 namespace Points
 {
@@ -10,7 +10,7 @@ namespace Points
 
             MainPage = shell;
 
-            // Kick off init (don’t block UI thread).
+            // Kick off init (don�t block UI thread).
             Points.Services.Diagnostics.TaskSupervisor.Forget(
                 db.InitializeAsync(),
                 "Database initialization");

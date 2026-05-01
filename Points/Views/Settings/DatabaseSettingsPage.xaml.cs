@@ -1,45 +1,40 @@
-using Points.Helpers;
-using Points.Services.Sqlite.Interfaces;
 using Points.Services.Backup;
+using Points.Services.Navigation;
+using Points.Services.Persistence;
 using Points.Services.Time;
-using Points.ViewModels;
+using Points.ViewModels.Settings;
 
 namespace Points.Views.Settings;
 
 public partial class DatabaseSettingsPage : ContentPage
 {
+    private readonly IAppNavigationService _navigation;
+    private readonly IAppDialogService _dialogs;
+
+    public Command ExportDatabaseCommand { get; }
+    public Command ImportDatabaseCommand { get; }
+
     public DatabaseSettingsPage(
         IDatabaseMaintenanceService databaseMaintenance,
-        IDatabaseInitializationService databaseLifecycle)
+        IDatabaseInitializationService databaseLifecycle,
+        IAppNavigationService navigation,
+        IAppDialogService dialogs,
+        IClock clock)
     {
+        ExportDatabaseCommand = new Command(async () => await ExportDatabaseAsync());
+        ImportDatabaseCommand = new Command(async () => await ImportDatabaseAsync());
+
         InitializeComponent();
+        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
         BindingContext = new DatabaseSettingsViewModel(
             databaseMaintenance,
             databaseLifecycle,
-            ServiceHelper.GetService<IClock>());
+            clock,
+            _dialogs);
     }
 
-    private async void OnWipeDbClicked(object sender, EventArgs e)
-    {
-        if (BindingContext is not DatabaseSettingsViewModel vm)
-            return;
-
-        var input = await Shell.Current.DisplayPromptAsync(
-            "Wipe DB",
-            "Are you sure you want to wipe the DB? To proceed, type exactly \"Wipe db\".",
-            "Wipe",
-            "Cancel");
-
-        if (string.IsNullOrWhiteSpace(input))
-            return;
-
-        if (input == "Wipe db")
-        {
-            await vm.WipeDatabase();
-        }
-    }
-
-    private async void OnExportDBClicked(object sender, EventArgs e)
+    private async Task ExportDatabaseAsync()
     {
         if (BindingContext is not DatabaseSettingsViewModel vm)
             return;
@@ -48,9 +43,11 @@ public partial class DatabaseSettingsPage : ContentPage
             "Export",
             "Choose what to include in the Points backup package.",
             "Export",
-            vm.GetExportableItems());
+            vm.GetExportableItems(),
+            _navigation,
+            _dialogs);
 
-        await Shell.Current.Navigation.PushModalAsync(selectionPage);
+        await _navigation.PushModalAsync(selectionPage);
         var selectedKeys = await selectionPage.SelectionTask;
 
         if (selectedKeys == null)
@@ -61,15 +58,15 @@ public partial class DatabaseSettingsPage : ContentPage
             var savedPath = await vm.ExportDatabaseAsync(selectedKeys);
 
             if (!string.IsNullOrWhiteSpace(savedPath))
-                await DisplayAlert("Export Complete", $"Saved backup to:\n{savedPath}", "OK");
+                await _dialogs.DisplayAlertAsync("Export Complete", $"Saved backup to:\n{savedPath}", "OK");
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Export Failed", ex.Message, "OK");
+            await _dialogs.DisplayAlertAsync("Export Failed", ex.Message, "OK");
         }
     }
 
-    private async void OnImportDBClicked(object sender, EventArgs e)
+    private async Task ImportDatabaseAsync()
     {
         if (BindingContext is not DatabaseSettingsViewModel vm)
             return;
@@ -84,14 +81,14 @@ public partial class DatabaseSettingsPage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Import Failed", ex.Message, "OK");
+            await _dialogs.DisplayAlertAsync("Import Failed", ex.Message, "OK");
         }
         finally
         {
             importPlan?.Dispose();
         }
 #else
-        var source = await DisplayActionSheet(
+        var source = await _dialogs.DisplayActionSheetAsync(
             "Import",
             "Cancel",
             null,
@@ -111,7 +108,7 @@ public partial class DatabaseSettingsPage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Import Failed", ex.Message, "OK");
+            await _dialogs.DisplayAlertAsync("Import Failed", ex.Message, "OK");
         }
         finally
         {
@@ -129,15 +126,17 @@ public partial class DatabaseSettingsPage : ContentPage
             "Import",
             "Choose what to restore. Selected folders will replace the existing app folders.",
             "Import",
-            importPlan.Resources);
+            importPlan.Resources,
+            _navigation,
+            _dialogs);
 
-        await Shell.Current.Navigation.PushModalAsync(selectionPage);
+        await _navigation.PushModalAsync(selectionPage);
         var selectedKeys = await selectionPage.SelectionTask;
 
         if (selectedKeys == null)
             return;
 
-        var confirm = await DisplayAlert(
+        var confirm = await _dialogs.DisplayAlertAsync(
             "Import",
             "Selected data will replace the current data in the app. Continue?",
             "Import",
@@ -147,6 +146,6 @@ public partial class DatabaseSettingsPage : ContentPage
             return;
 
         await vm.ImportDatabaseAsync(importPlan, selectedKeys);
-        await DisplayAlert("Import Complete", "Selected backup items were restored.", "OK");
+        await _dialogs.DisplayAlertAsync("Import Complete", "Selected backup items were restored.", "OK");
     }
 }

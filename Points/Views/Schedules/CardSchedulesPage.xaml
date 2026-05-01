@@ -3,6 +3,7 @@
     x:Class="Points.Views.Schedules.CardSchedulesPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="CardSchedulesRoot"
     Title="Schedules">
 
     <Grid RowDefinitions="Auto,* ,Auto" Padding="16">
@@ -15,9 +16,9 @@
         </VerticalStackLayout>
 
         <!-- List -->
-        <CollectionView x:Name="SchedulesView"
-                        Grid.Row="1"
+        <CollectionView Grid.Row="1"
                         Margin="0,10,0,10"
+                        ItemsSource="{Binding Items}"
                         SelectionMode="None">
 
             <CollectionView.EmptyView>
@@ -38,11 +39,11 @@
                             <SwipeItems Mode="Reveal">
                                 <SwipeItem Text="Edit"
                                            BackgroundColor="#2D7DFF"
-                                           Invoked="OnEditInvoked"
+                                           Command="{Binding Source={x:Reference CardSchedulesRoot}, Path=BindingContext.EditScheduleCommand}"
                                            CommandParameter="{Binding}" />
                                 <SwipeItem Text="Delete"
                                            BackgroundColor="#E53935"
-                                           Invoked="OnDeleteInvoked"
+                                           Command="{Binding Source={x:Reference CardSchedulesRoot}, Path=BindingContext.DeleteScheduleCommand}"
                                            CommandParameter="{Binding}" />
                             </SwipeItems>
                         </SwipeView.RightItems>
@@ -80,7 +81,7 @@
                                             HeightRequest="36"
                                             Padding="12,0"
                                             CornerRadius="10"
-                                            Clicked="OnEditClicked"
+                                            Command="{Binding Source={x:Reference CardSchedulesRoot}, Path=BindingContext.EditScheduleCommand}"
                                             CommandParameter="{Binding}" />
                                     <Button Text="Delete"
                                             HeightRequest="36"
@@ -88,7 +89,7 @@
                                             CornerRadius="10"
                                             BackgroundColor="#E53935"
                                             TextColor="White"
-                                            Clicked="OnDeleteClicked"
+                                            Command="{Binding Source={x:Reference CardSchedulesRoot}, Path=BindingContext.DeleteScheduleCommand}"
                                             CommandParameter="{Binding}" />
                                 </HorizontalStackLayout>
 
@@ -107,7 +108,7 @@
                     Text="Add schedule"
                     HeightRequest="48"
                     CornerRadius="12"
-                    Clicked="OnAddClicked" />
+                    Command="{Binding AddScheduleCommand}" />
 
             <Button Grid.Column="1"
                     Text="Done"
@@ -115,7 +116,7 @@
                     CornerRadius="12"
                     BackgroundColor="Gray"
                     TextColor="White"
-                    Clicked="OnDoneClicked" />
+                    Command="{Binding DoneCommand}" />
         </Grid>
 
     </Grid>

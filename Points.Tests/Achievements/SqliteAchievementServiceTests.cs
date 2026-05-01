@@ -1,6 +1,7 @@
+using Points.Services.Sqlite;
 using Points.Models;
 using Points.Services.Achievements;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
 using Points.Tests.Time;
 using SQLite;

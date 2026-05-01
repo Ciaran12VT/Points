@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Points.Views.Settings.SettingsPage"
+             x:Name="SettingsRoot"
              Title="Settings">
 
     <ScrollView>
@@ -15,7 +16,7 @@
                 <VerticalStackLayout Spacing="0">
 
                     <Button Text="Database"
-                            Clicked="OnDatabaseSettingsClicked"
+                            Command="{Binding Source={x:Reference SettingsRoot}, Path=OpenDatabaseSettingsCommand}"
                             HorizontalOptions="Fill"
                             BackgroundColor="Transparent"
                             TextColor="{AppThemeBinding Light=Black, Dark=White}"
@@ -26,7 +27,7 @@
                              Color="#DDDDDD" />
 
                     <Button Text="Multipliers"
-                            Clicked="OnMultipliersSettingsClicked"
+                            Command="{Binding Source={x:Reference SettingsRoot}, Path=OpenMultipliersSettingsCommand}"
                             HorizontalOptions="Fill"
                             BackgroundColor="Transparent"
                             TextColor="{AppThemeBinding Light=Black, Dark=White}"
@@ -37,7 +38,7 @@
                              Color="#DDDDDD" />
 
                     <Button Text="Modules &amp; Features"
-                            Clicked="OnModulesAndFeaturesSettingsClicked"
+                            Command="{Binding Source={x:Reference SettingsRoot}, Path=OpenModulesAndFeaturesSettingsCommand}"
                             HorizontalOptions="Fill"
                             BackgroundColor="Transparent"
                             TextColor="{AppThemeBinding Light=Black, Dark=White}"
@@ -48,7 +49,7 @@
                              Color="#DDDDDD" />
 
                     <Button Text="Notifications Log"
-                            Clicked="OnNotificationsLogClicked"
+                            Command="{Binding Source={x:Reference SettingsRoot}, Path=OpenNotificationsLogCommand}"
                             HorizontalOptions="Fill"
                             BackgroundColor="Transparent"
                             TextColor="{AppThemeBinding Light=Black, Dark=White}"

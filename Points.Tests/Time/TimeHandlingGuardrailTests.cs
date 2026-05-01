@@ -11,27 +11,8 @@ public sealed class TimeHandlingGuardrailTests
     public void DirectCurrentTimeApis_DoNotSpreadBeyondExplicitAllowances()
     {
         var allowances = Allowances(
-            ("Points/Converters/LockTitleColorConverter.cs", "DateTime.Now", 1),
-            ("Points/Global/GlobalVariables.cs", "DateTime.Today", 2),
-            ("Points/Models/ActivityTimeMath.cs", "DateTime.Now", 1),
-            ("Points/Models/ActivityTimeMath.cs", "DateTime.UtcNow", 1),
             ("Points/Services/Time/SystemClock.cs", "DateTime.Now", 1),
-            ("Points/Services/Time/SystemClock.cs", "DateTime.UtcNow", 1),
-            ("Points/ViewModels/AchievementDetailsViewModel.cs", "DateTime.Now", 5),
-            ("Points/ViewModels/BudgetDetailsViewModel.cs", "DateTime.Now", 3),
-            ("Points/ViewModels/MissionDetailsViewModel.cs", "DateTime.Today", 1),
-            ("Points/Views/Achievements/TrophyViewerPage.xaml.cs", "DateTime.Now", 1),
-            ("Points/Views/Cards/BudgetCardView.xaml.cs", "DateTime.Now", 1),
-            ("Points/Views/Cards/MissionCardView.xaml.cs", "DateTime.Now", 1),
-            ("Points/Views/Cards/ScCardView.xaml.cs", "DateTime.Now", 1),
-            ("Points/Views/Cards/TrackerCardView.xaml.cs", "DateTime.UtcNow", 1),
-            ("Points/Views/Details/UdmdPromptPage.cs", "DateTime.Now", 1),
-            ("Points/Views/Details/UdmdPromptPage.cs", "DateTime.Today", 1),
-            ("Points/Views/Popups/EditActiveTimePopup.cs", "DateTime.Now", 1),
-            ("Points/Views/Schedules/CardSchedulesPage.xaml.cs", "DateTime.Now", 1),
-            ("Points/Views/Schedules/ScheduleEditPage.xaml.cs", "DateTime.Now", 1),
-            ("Points/Views/Shared/DateRangePickerView.xaml.cs", "DateTime.Now", 1),
-            ("Points/Views/Shared/DateRangePickerView.xaml.cs", "DateTime.Today", 2));
+            ("Points/Services/Time/SystemClock.cs", "DateTime.UtcNow", 1));
 
         AssertNoNewOccurrences(
             "direct current-time API",
@@ -56,22 +37,17 @@ public sealed class TimeHandlingGuardrailTests
             ("Points/Models/UdmdModels.cs", "DateTime.TryParse(", 1),
             ("Points/Services/Scheduling/WallClockScheduleTime.cs", ".ToLocalTime(", 1),
             ("Points/Services/Scheduling/WallClockScheduleTime.cs", "DateTime.SpecifyKind(", 3),
-            ("Points/Services/Sqlite/SqliteDbService.cs", ".ToUniversalTime(", 1),
-            ("Points/Services/Sqlite/SqliteDbService.cs", "DateTime.SpecifyKind(", 3),
-            ("Points/Services/Sqlite/SqliteDbService.cs", "DateTime.Parse(", 4),
-            ("Points/Services/Sqlite/SqliteDbService.cs", "DateTime.TryParse(", 2),
             ("Points/Services/Time/LegacyTimeReader.cs", "DateTime.SpecifyKind(", 4),
             ("Points/Services/Time/LegacyTimeReader.cs", "DateTime.TryParse(", 2),
             ("Points/Services/Time/LegacyTimeReader.cs", "DateTimeOffset.Parse(", 2),
+            ("Points/Services/Time/LegacyTimeReader.cs", "TimeOnly.TryParse(", 1),
             ("Points/Services/Time/StrictTimeSerializer.cs", ".ToUniversalTime(", 1),
             ("Points/Services/Time/StrictTimeSerializer.cs", "DateTime.SpecifyKind(", 5),
             ("Points/Services/Time/StrictTimeSerializer.cs", "DateTimeOffset.Parse(", 1),
             ("Points/Services/Time/StrictTimeSerializer.cs", "DateTimeOffset.TryParse(", 1),
             ("Points/Services/Time/TimeDisplayFormatter.cs", "DateTime.SpecifyKind(", 4),
             ("Points/Services/Time/TimeZoneService.cs", "DateTime.SpecifyKind(", 2),
-            ("Points/ViewModels/LeaderboardPlannerViewModel.cs", "DateTime.SpecifyKind(", 1),
-            ("Points/ViewModels/LeaderboardViewModel.cs", "DateTime.SpecifyKind(", 3),
-            ("Points/Views/Details/EventTrackerDetailsPage.xaml.cs", "DateTime.TryParse(", 2));
+            ("Points/ViewModels/Leaderboard/LeaderboardViewModel.cs", "DateTime.SpecifyKind(", 3));
 
         AssertNoNewOccurrences(
             "direct timezone conversion or parsing API",
@@ -83,23 +59,24 @@ public sealed class TimeHandlingGuardrailTests
                 "DateTime.Parse(",
                 "DateTime.TryParse(",
                 "DateTimeOffset.Parse(",
-                "DateTimeOffset.TryParse("
+                "DateTimeOffset.TryParse(",
+                "TimeOnly.Parse(",
+                "TimeOnly.TryParse("
             },
             allowances,
             "Use ITimeZoneService, StrictTimeSerializer, LegacyTimeReader, or a named helper that documents wall-clock vs instant semantics.");
     }
 
     [Fact]
-    public void RawRoundTripDateTimeSerialization_DoesNotSpreadBeyondLegacySqliteAllowance()
+    public void RawRoundTripDateTimeSerialization_DoesNotReappearInAppSource()
     {
-        var allowances = Allowances(
-            ("Points/Services/Sqlite/SqliteDbService.cs", ".ToString(\"o\"", 27));
+        var allowances = Allowances();
 
         AssertNoNewOccurrences(
             "raw DateTime round-trip serialization",
             new[] { ".ToString(\"o\"", ".ToString(\"O\"" },
             allowances,
-            "Use StrictTimeSerializer for new persistence writes. Existing SQLite allowances represent legacy code still being retired.");
+            "Use StrictTimeSerializer for persistence writes. Legacy SQLite round-trip writes should stay retired.");
     }
 
     private static void AssertNoNewOccurrences(

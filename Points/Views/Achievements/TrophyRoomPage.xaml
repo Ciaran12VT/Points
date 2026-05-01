@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:Points.ViewModels"
+             xmlns:vm="clr-namespace:Points.ViewModels.Achievements"
              x:Class="Points.Views.Achievements.TrophyRoomPage"
              Title="Trophy Room">
 
@@ -58,7 +58,7 @@
                                 Text="⧉"
                                 FontSize="12"
                                 TextColor="Gray"
-                                Clicked="OnViewTrophyClicked"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenTrophyCommand}"
                                 CommandParameter="{Binding .}" />
 
                         </Grid>

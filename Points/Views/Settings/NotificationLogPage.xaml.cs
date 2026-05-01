@@ -1,19 +1,21 @@
-using Points.Helpers;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
-using Points.ViewModels;
+using Points.ViewModels.Settings;
 
 namespace Points.Views.Settings;
 
 public partial class NotificationLogPage : ContentPage
 {
-    public NotificationLogPage(INotificationLogService notificationLogs)
+    public NotificationLogPage(
+        INotificationLogService notificationLogs,
+        IClock clock,
+        ITimeZoneService timeZoneService)
     {
         InitializeComponent();
         BindingContext = new NotificationLogViewModel(
             notificationLogs,
-            ServiceHelper.GetService<IClock>(),
-            ServiceHelper.GetService<ITimeZoneService>());
+            clock,
+            timeZoneService);
     }
 
     protected override async void OnAppearing()

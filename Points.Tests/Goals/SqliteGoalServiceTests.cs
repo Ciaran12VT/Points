@@ -1,6 +1,7 @@
+using Points.Services.Sqlite;
 using Points.Models;
 using Points.Services.Goals;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using SQLite;
 using SQLitePCL;
 using Xunit;
