@@ -73,6 +73,7 @@ namespace Points.ViewModels.Home
         public Command<ShortcutModel> OpenShortcutDetailsCommand { get; }
 
         public ICommand AddTrackerValueCommand { get; }
+        public ICommand AddTrackerValueAtSelectedTimeCommand { get; }
         public Command<BudgetCardModel> SpendCommand { get; }
         public Command<BudgetCardModel> CashInCommand { get; }
 
@@ -372,8 +373,10 @@ namespace Points.ViewModels.Home
                 udmd,
                 appNavigation,
                 dialogs,
+                popups,
                 pageService,
                 clock,
+                timeZoneService,
                 () => Now);
             _runtimeTicks = new HomeRuntimeTickCoordinator(
                 achievements,
@@ -514,6 +517,7 @@ namespace Points.ViewModels.Home
 
 
             AddTrackerValueCommand = new Command<TrackerCardModel>(async card => await AddTrackerValueWithMetadataAsync(card));
+            AddTrackerValueAtSelectedTimeCommand = new Command<TrackerCardModel>(async card => await AddTrackerValueAtSelectedTimeAsync(card));
             SpendCommand = new Command<BudgetCardModel>(async budget => await PromptAndRecordBudgetTransactionAsync(budget, BudgetTransactionType.Spend));
             CashInCommand = new Command<BudgetCardModel>(async budget => await PromptAndRecordBudgetTransactionAsync(budget, BudgetTransactionType.CashIn));
 
@@ -524,6 +528,11 @@ namespace Points.ViewModels.Home
         private async Task AddTrackerValueWithMetadataAsync(TrackerCardModel? card)
         {
             await _valueEntries.AddTrackerValueWithMetadataAsync(card);
+        }
+
+        private async Task AddTrackerValueAtSelectedTimeAsync(TrackerCardModel? card)
+        {
+            await _valueEntries.AddTrackerValueAtSelectedTimeAsync(card);
         }
 
         private async Task PromptAndRecordBudgetTransactionAsync(BudgetCardModel? budget, BudgetTransactionType type)

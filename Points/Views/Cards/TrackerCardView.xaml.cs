@@ -152,12 +152,18 @@ public partial class TrackerCardView : ContentView
         set => SetValue(AddValueCommandProperty, value);
     }
 
-    private void OnAddValueClicked(object sender, EventArgs e)
-    {
-        if (AddValueCommand?.CanExecute(null) == true)
-            AddValueCommand.Execute(null);
-    }
+    public static readonly BindableProperty AddValueAtSelectedTimeCommandProperty =
+    BindableProperty.Create(
+        nameof(AddValueAtSelectedTimeCommand),
+        typeof(ICommand),
+        typeof(TrackerCardView),
+        defaultValue: null);
 
+    public ICommand? AddValueAtSelectedTimeCommand
+    {
+        get => (ICommand?)GetValue(AddValueAtSelectedTimeCommandProperty);
+        set => SetValue(AddValueAtSelectedTimeCommandProperty, value);
+    }
 
     // -----------------------------
     // Change handling

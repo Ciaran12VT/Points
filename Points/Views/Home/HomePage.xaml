@@ -436,7 +436,8 @@
                             Unit="{Binding Unit}"
                             Values="{Binding Values}"
                             FirstRecordedDate="{Binding FirstRecordedDate}"
-                            AddValueCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueCommand}"/>
+                            AddValueCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueCommand}"
+                            AddValueAtSelectedTimeCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueAtSelectedTimeCommand}"/>
 
                     </DataTemplate>
                 </cards:CardTemplateSelector.TrackerTemplate>

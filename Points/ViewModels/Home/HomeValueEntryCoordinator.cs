@@ -4,6 +4,7 @@ using Points.Models;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Time;
+using Points.Views.Home;
 using Points.Views.Udmd;
 
 namespace Points.ViewModels.Home
@@ -16,8 +17,10 @@ namespace Points.ViewModels.Home
         private readonly IUdmdService _udmd;
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
+        private readonly IPopupService _popups;
         private readonly IAppPageService _pageService;
         private readonly IClock _clock;
+        private readonly ITimeZoneService _timeZoneService;
         private readonly Func<DateTime> _getNow;
 
         public HomeValueEntryCoordinator(
@@ -27,8 +30,10 @@ namespace Points.ViewModels.Home
             IUdmdService udmd,
             IAppNavigationService navigation,
             IAppDialogService dialogs,
+            IPopupService popups,
             IAppPageService pageService,
             IClock clock,
+            ITimeZoneService timeZoneService,
             Func<DateTime> getNow)
         {
             _cardWriter = cardWriter;
@@ -37,15 +42,50 @@ namespace Points.ViewModels.Home
             _udmd = udmd;
             _navigation = navigation;
             _dialogs = dialogs;
+            _popups = popups;
             _pageService = pageService;
             _clock = clock;
+            _timeZoneService = timeZoneService;
             _getNow = getNow;
         }
 
         public async Task AddTrackerValueWithMetadataAsync(TrackerCardModel? card)
         {
+            await AddTrackerValueWithMetadataAsync(card, timestampUtc: null);
+        }
+
+        public async Task AddTrackerValueAtSelectedTimeAsync(TrackerCardModel? card)
+        {
             if (card == null)
                 return;
+
+            var nowLocal = _clock.LocalNow;
+            var minLocal = GetTrackerRegistrationLowerBoundLocal(card, nowLocal);
+            var initialLocal = nowLocal.AddMinutes(-5);
+            if (initialLocal < minLocal)
+                initialLocal = minLocal;
+
+            var chosenObj = await _popups.ShowPopupAsync(new EditActiveTimePopup(
+                activationTypeText: "Recorded at",
+                selectedTime: initialLocal,
+                minTime: minLocal,
+                maxTime: nowLocal,
+                localNow: nowLocal));
+
+            if (chosenObj is not DateTime chosenLocal)
+                return;
+
+            var chosenUtc = _timeZoneService.ToUtcFromLocal(chosenLocal);
+            await AddTrackerValueWithMetadataAsync(card, chosenUtc);
+        }
+
+        private async Task AddTrackerValueWithMetadataAsync(TrackerCardModel? card, DateTime? timestampUtc)
+        {
+            if (card == null)
+                return;
+
+            if (timestampUtc.HasValue)
+                timestampUtc = StrictTimeSerializer.RequireUtcInstant(timestampUtc.Value, nameof(timestampUtc));
 
             if (card is ValueTrackerCardModel valueCard)
             {
@@ -66,11 +106,11 @@ namespace Points.ViewModels.Home
                     return;
                 }
 
-                await AddTrackerValueAsync(valueCard, value);
+                await AddTrackerValueAsync(valueCard, value, timestampUtc);
             }
             else if (card is EventTrackerCardModel eventCard)
             {
-                await AddTrackerValueAsync(eventCard, 1);
+                await AddTrackerValueAsync(eventCard, 1, timestampUtc);
             }
         }
 
@@ -175,7 +215,7 @@ namespace Points.ViewModels.Home
             return UdmdPromptResult.CancelledResult;
         }
 
-        private async Task AddTrackerValueAsync(TrackerCardModel card, double value)
+        private async Task AddTrackerValueAsync(TrackerCardModel card, double value, DateTime? timestampUtc)
         {
             var metadata = await PromptUdmdForCardAsync(card.CardID);
             if (metadata.Cancelled)
@@ -183,13 +223,41 @@ namespace Points.ViewModels.Home
 
             var trackerValue = new TrackerValueModel
             {
-                Timestamp = _clock.UtcNow,
+                Timestamp = timestampUtc ?? _clock.UtcNow,
                 Value = value
             };
 
             card.Values.Add(trackerValue);
             await SaveTrackerCardAsync(card);
             await SaveTrackerMetadataIfNeededAsync(card.CardID, trackerValue.Id, metadata);
+        }
+
+        private DateTime GetTrackerRegistrationLowerBoundLocal(TrackerCardModel card, DateTime nowLocal)
+        {
+            var lastValueLocal = card.Values.Count == 0
+                ? (DateTime?)null
+                : card.Values
+                    .Select(value => TimeDisplayFormatter.ToLocalInstant(value.Timestamp, _timeZoneService))
+                    .Max();
+
+            var minLocal = lastValueLocal ?? GetTrackerStartLocal(card, nowLocal);
+
+            return minLocal > nowLocal
+                ? nowLocal
+                : minLocal;
+        }
+
+        private DateTime GetTrackerStartLocal(TrackerCardModel card, DateTime nowLocal)
+        {
+            var start = card is EventTrackerCardModel && card.RangeStart != default
+                ? card.RangeStart
+                : card.CreatedDate != default
+                    ? card.CreatedDate
+                    : card.RangeStart != default
+                        ? card.RangeStart
+                        : nowLocal;
+
+            return TimeDisplayFormatter.ToLocalInstant(start, _timeZoneService);
         }
 
         private async Task<UdmdPromptResult> PromptUdmdForCardAsync(long cardId)
