@@ -75,26 +75,18 @@ namespace Points.ViewModels.Home
                     return;
                 }
 
-                var rateSnapshot = await GetValueRateSnapshotAsync(card);
-                if (rateSnapshot == null)
+                var startInputs = await GetActivityStartInputsAsync(card);
+                if (startInputs == null)
                     return;
-
-                var pendingMetadata = UdmdPromptResult.Empty;
-                if (!card.IsActive)
-                {
-                    pendingMetadata = await PromptUdmdForCardAsync(card.CardID);
-                    if (pendingMetadata.Cancelled)
-                        return;
-                }
 
                 var result = await _activity.ToggleActivityAsync(
                     cardId: card.CardID,
                     utcNow: nowUtcNonNull,
-                    valueRateName: rateSnapshot.Value.RateName,
-                    valuePerMinute: rateSnapshot.Value.ValuePerMinute);
+                    valueRateName: startInputs.Value.RateName,
+                    valuePerMinute: startInputs.Value.ValuePerMinute);
 
-                if (result.Opened != null && pendingMetadata.Values.Count > 0)
-                    await SaveOpenedActivityMetadataAsync(card.CardID, result.Opened.Id, pendingMetadata);
+                if (result.Opened != null && startInputs.Value.Metadata.Values.Count > 0)
+                    await SaveOpenedActivityMetadataAsync(card.CardID, result.Opened.Id, startInputs.Value.Metadata);
 
                 IActiveCardModel? activeCard = null;
 
@@ -238,40 +230,66 @@ namespace Points.ViewModels.Home
             });
         }
 
-        private async Task<ValueRateSnapshot?> GetValueRateSnapshotAsync(IActiveCardModel card)
+        private async Task<ActivityStartInputs?> GetActivityStartInputsAsync(IActiveCardModel card)
         {
             var rateName = "Base Rate";
             var valuePerMinute = card.ValuePerMinute;
+            var metadata = UdmdPromptResult.Empty;
 
-            if (card is TatCardModel tat && tat.ValueRates.Count > 0 && !card.IsActive)
+            if (card is TatCardModel tat)
             {
-                List<string> rateNames = ["Base Rate", .. tat.ValueRates.Select(x => x.RateName)];
-
-                var choice = await _dialogs.DisplayActionSheetAsync(
-                    "Choose Rate",
-                    "Cancel",
-                    null,
-                    rateNames.ToArray()
-                );
-
-                if (string.IsNullOrWhiteSpace(choice) || choice == "Cancel")
-                    return null;
-
-                tat.SelectedValueRateModel =
-                    choice == "Base Rate"
-                        ? null
-                        : tat.ValueRates.FirstOrDefault(x => x.RateName == choice);
-
                 rateName = tat.SelectedValueRateModel?.RateName ?? "Base Rate";
                 valuePerMinute = tat.SelectedValueRateModel?.ValuePerMinute ?? tat.ValuePerMinute;
-            }
-            else if (card is TatCardModel tatNoRates)
-            {
-                rateName = tatNoRates.SelectedValueRateModel?.RateName ?? "Base Rate";
-                valuePerMinute = tatNoRates.SelectedValueRateModel?.ValuePerMinute ?? tatNoRates.ValuePerMinute;
+
+                if (!card.IsActive && tat.ValueRates.Count > 0)
+                {
+                    metadata = await PromptActivityStartForCardAsync(tat);
+                    if (metadata.Cancelled)
+                        return null;
+
+                    rateName = metadata.ValueRateName ?? "Base Rate";
+                    valuePerMinute = metadata.ValueRatePerMinute ?? tat.ValuePerMinute;
+
+                    tat.SelectedValueRateModel = rateName == "Base Rate"
+                        ? null
+                        : tat.ValueRates.FirstOrDefault(x => x.RateName == rateName);
+
+                    return new ActivityStartInputs(rateName, valuePerMinute, metadata);
+                }
             }
 
-            return new ValueRateSnapshot(rateName, valuePerMinute);
+            if (!card.IsActive)
+            {
+                metadata = await PromptUdmdForCardAsync(card.CardID);
+                if (metadata.Cancelled)
+                    return null;
+            }
+
+            return new ActivityStartInputs(rateName, valuePerMinute, metadata);
+        }
+
+        private async Task<UdmdPromptResult> PromptActivityStartForCardAsync(TatCardModel tat)
+        {
+            var page = _pageService.CurrentPage;
+            if (page == null)
+                return UdmdPromptResult.CancelledResult;
+
+            var rateOptions = new List<UdmdValueRatePromptOption>
+            {
+                new("Base Rate", tat.ValuePerMinute)
+            };
+
+            rateOptions.AddRange(tat.ValueRates.Select(x =>
+                new UdmdValueRatePromptOption(x.RateName, x.ValuePerMinute)));
+
+            return await UdmdPromptPage.PromptForActivityStartAsync(
+                page,
+                _udmd,
+                tat.CardID,
+                _clock,
+                _navigation,
+                _dialogs,
+                rateOptions);
         }
 
         private async Task<UdmdPromptResult> PromptUdmdForCardAsync(long cardId)
@@ -336,6 +354,9 @@ namespace Points.ViewModels.Home
             (model as ObservableObject)?.RaisePropertyChanged(nameof(IActiveCardModel.IsActive));
         }
 
-        private readonly record struct ValueRateSnapshot(string RateName, double ValuePerMinute);
+        private readonly record struct ActivityStartInputs(
+            string RateName,
+            double ValuePerMinute,
+            UdmdPromptResult Metadata);
     }
 }

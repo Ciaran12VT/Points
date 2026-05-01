@@ -81,28 +81,11 @@ namespace Points.ViewModels.Home
 
             budget.IsCashInEnabled = SettingsProvider.IsCashInEnabled;
 
-            var isCashIn = type == BudgetTransactionType.CashIn;
-            var input = await _dialogs.DisplayPromptAsync(
-                isCashIn ? "Cash In" : "Spend",
-                $"How many {budget.Currency} do you want to {(isCashIn ? "cash in" : "spend")}?",
-                accept: "OK",
-                cancel: "Cancel",
-                placeholder: isCashIn ? "e.g. 100" : "e.g. 250",
-                keyboard: Keyboard.Numeric);
-
-            if (string.IsNullOrWhiteSpace(input))
+            var promptResult = await PromptBudgetTransactionInputAsync(budget, type);
+            if (promptResult.Cancelled || !promptResult.Amount.HasValue)
                 return;
 
-            if (!double.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out var amount))
-            {
-                await _dialogs.DisplayAlertAsync("Invalid number", "Please enter a valid amount.", "OK");
-                return;
-            }
-
-            if (amount <= 0)
-                return;
-
-            await RecordBudgetTransactionAsync(budget, type, amount);
+            await RecordBudgetTransactionAsync(budget, type, promptResult.Amount.Value, promptResult);
         }
 
         public async Task SaveBudgetAsync(BudgetCardModel budget)
@@ -124,6 +107,18 @@ namespace Points.ViewModels.Home
             if (metadata.Cancelled)
                 return;
 
+            await RecordBudgetTransactionAsync(budget, type, amount, metadata);
+        }
+
+        private async Task RecordBudgetTransactionAsync(
+            BudgetCardModel budget,
+            BudgetTransactionType type,
+            double amount,
+            UdmdPromptResult metadata)
+        {
+            if (budget == null || amount <= 0 || metadata.Cancelled)
+                return;
+
             var transaction = new BudgetTransaction
             {
                 Timestamp = _clock.UtcNow,
@@ -137,6 +132,47 @@ namespace Points.ViewModels.Home
             budget.Transactions.Add(transaction);
             await SaveBudgetAsync(budget);
             await SaveBudgetTransactionMetadataIfNeededAsync(budget.CardID, transaction.Id, metadata);
+        }
+
+        private async Task<UdmdPromptResult> PromptBudgetTransactionInputAsync(
+            BudgetCardModel budget,
+            BudgetTransactionType type)
+        {
+            var isCashIn = type == BudgetTransactionType.CashIn;
+            var title = isCashIn ? "Cash In" : "Spend";
+            var message = $"How many {budget.Currency} do you want to {(isCashIn ? "cash in" : "spend")}?";
+            var placeholder = isCashIn ? "e.g. 100" : "e.g. 250";
+            var page = _pageService.CurrentPage;
+
+            if (page != null)
+            {
+                return await UdmdPromptPage.PromptForBudgetTransactionAsync(
+                    page,
+                    _udmd,
+                    budget.CardID,
+                    _clock,
+                    _navigation,
+                    _dialogs,
+                    title,
+                    message,
+                    placeholder);
+            }
+
+            var input = await _dialogs.DisplayPromptAsync(
+                title,
+                message,
+                accept: "OK",
+                cancel: "Cancel",
+                placeholder: placeholder,
+                keyboard: Keyboard.Numeric);
+
+            if (TryParsePositiveAmount(input, out var amount))
+                return new UdmdPromptResult { Amount = amount };
+
+            if (!string.IsNullOrWhiteSpace(input))
+                await _dialogs.DisplayAlertAsync("Invalid number", "Please enter a valid amount.", "OK");
+
+            return UdmdPromptResult.CancelledResult;
         }
 
         private async Task AddTrackerValueAsync(TrackerCardModel card, double value)
@@ -239,6 +275,22 @@ namespace Points.ViewModels.Home
         private Task ShowMetadataSaveErrorAsync(Exception ex)
         {
             return _dialogs.DisplayAlertAsync("Metadata not saved", ex.Message, "OK");
+        }
+
+        private static bool TryParsePositiveAmount(string? input, out double amount)
+        {
+            amount = 0;
+
+            if (string.IsNullOrWhiteSpace(input))
+                return false;
+
+            if (!double.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out amount) &&
+                !double.TryParse(input, NumberStyles.Float, CultureInfo.CurrentCulture, out amount))
+            {
+                return false;
+            }
+
+            return amount > 0;
         }
     }
 }
