@@ -63,7 +63,7 @@ public partial class ScDetailsPage : ContentPage
             _stepsNotify.CollectionChanged += Steps_CollectionChanged;
     }
 
-    private async void Steps_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void Steps_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         Dispatcher.Dispatch(async () =>
         {
