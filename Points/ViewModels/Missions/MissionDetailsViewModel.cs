@@ -25,6 +25,7 @@ namespace Points.ViewModels.Missions
         private readonly IActivityService _activity;
         private readonly IUdmdService _udmd;
         private readonly IClock _clock;
+        private readonly HashSet<string> _resourceCaptureCachePaths = new();
 
         private readonly Action<MissionCardModel> _onDelete;
         private readonly Action<MissionCardModel> _onFail;
@@ -38,6 +39,7 @@ namespace Points.ViewModels.Missions
         public Command EditEstimatedTimeCommand { get; }
         public Command EditActiveTimeCommand { get; }
         public Command SetActiveTimeTargetCommand { get; }
+        public Command CaptureResourceImageCommand { get; }
         public Command AddResourceImagesCommand { get; }
         public Command AddResourceFilesCommand { get; }
 
@@ -90,6 +92,7 @@ namespace Points.ViewModels.Missions
             EditEstimatedTimeCommand = new Command(async () => await EditEstimatedTimeAsync());
             EditActiveTimeCommand = new Command(async () => await EditActiveTimeAsync());
             SetActiveTimeTargetCommand = new Command(async () => await EditEstimatedTimeAsync());
+            CaptureResourceImageCommand = new Command(async () => await CaptureResourceImageAsync());
             AddResourceImagesCommand = new Command(async () => await AddResourceImagesAsync());
             AddResourceFilesCommand = new Command(async () => await AddResourceFilesAsync());
 
@@ -327,6 +330,10 @@ namespace Points.ViewModels.Missions
                         $"Could not save:\n{Path.GetFileName(src)}\n\n{ex.Message}",
                         "OK");
                 }
+                finally
+                {
+                    TryDeleteResourceCaptureCacheFile(src);
+                }
             }
 
             // Clear pending so Save is idempotent
@@ -402,6 +409,7 @@ namespace Points.ViewModels.Missions
             try
             {
                 // Clear pending picks too
+                CleanupResourceCaptureCacheFiles();
                 ResourcesToAdd.Clear();
 
                 foreach (var f in files)
@@ -459,6 +467,51 @@ namespace Points.ViewModels.Missions
             RaisePropertyChanged(nameof(ActiveTimeText));
         }
 
+        private async Task CaptureResourceImageAsync()
+        {
+            if (!CanEdit)
+                return;
+
+            try
+            {
+                if (!MediaPicker.Default.IsCaptureSupported)
+                {
+                    await _dialogs.DisplayAlertAsync("Camera unavailable", "This device does not support camera capture.", "OK");
+                    return;
+                }
+
+                var photo = await MediaPicker.Default.CapturePhotoAsync(new MediaPickerOptions
+                {
+                    Title = "Resource photo"
+                });
+
+                if (photo == null)
+                    return;
+
+                var cachePath = CreateResourceCaptureCachePath(photo.FileName);
+
+                await using (var source = await photo.OpenReadAsync())
+                await using (var destination = File.Create(cachePath))
+                {
+                    await source.CopyToAsync(destination);
+                }
+
+                _resourceCaptureCachePaths.Add(cachePath);
+                AddPendingResources(new[] { cachePath });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (PermissionException)
+            {
+                await _dialogs.DisplayAlertAsync("Camera permission", "Camera permission is required to capture this resource image.", "OK");
+            }
+            catch (Exception ex)
+            {
+                await _dialogs.DisplayAlertAsync("Resource photo failed", ex.Message, "OK");
+            }
+        }
+
         private async Task AddResourceImagesAsync()
         {
             if (!CanEdit)
@@ -486,6 +539,48 @@ namespace Points.ViewModels.Missions
             {
                 if (!string.IsNullOrWhiteSpace(path))
                     ResourcesToAdd.Add(path);
+            }
+        }
+
+        private static string CreateResourceCaptureCachePath(string? sourceFileName)
+        {
+            var originalName = Path.GetFileName(sourceFileName);
+            if (string.IsNullOrWhiteSpace(originalName))
+                originalName = "resource-photo.jpg";
+
+            foreach (var c in Path.GetInvalidFileNameChars())
+                originalName = originalName.Replace(c, '_');
+
+            var name = Path.GetFileNameWithoutExtension(originalName);
+            if (string.IsNullOrWhiteSpace(name))
+                name = "resource-photo";
+
+            var extension = Path.GetExtension(originalName);
+            if (string.IsNullOrWhiteSpace(extension))
+                extension = ".jpg";
+
+            return Path.Combine(FileSystem.CacheDirectory, $"{Guid.NewGuid():N}_{name}{extension}");
+        }
+
+        private void CleanupResourceCaptureCacheFiles()
+        {
+            foreach (var path in _resourceCaptureCachePaths.ToList())
+                TryDeleteResourceCaptureCacheFile(path);
+        }
+
+        private void TryDeleteResourceCaptureCacheFile(string path)
+        {
+            if (!_resourceCaptureCachePaths.Remove(path))
+                return;
+
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+                // Best effort cleanup for captured resource images that were queued before save.
             }
         }
 
@@ -600,11 +695,13 @@ namespace Points.ViewModels.Missions
 
             if (choice == "Delete")
             {
+                CleanupResourceCaptureCacheFiles();
                 _onDelete?.Invoke(_model);
                 await _navigation.PopAsync();
             }
             else if (choice == "Failed")
             {
+                CleanupResourceCaptureCacheFiles();
                 _onFail?.Invoke(_model);
                 await _navigation.PopAsync();
             }

@@ -521,8 +521,37 @@ public sealed class UdmdPromptPage : ContentPage
     private ImageInputView CreateImageInputControl(UdmdFieldPromptModel field)
     {
         var control = new ImageInputView();
+        control.PickButton.Clicked += async (_, __) => await PickImageAsync(field, control);
         control.CaptureButton.Clicked += async (_, __) => await CaptureImageAsync(field, control);
         return control;
+    }
+
+    private async Task PickImageAsync(UdmdFieldPromptModel field, ImageInputView control)
+    {
+        try
+        {
+            var image = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = field.Config.FieldName,
+                FileTypes = FilePickerFileType.Images
+            });
+
+            if (image == null)
+                return;
+
+            await SaveImageInputAsync(field, control, image);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (PermissionException)
+        {
+            await _dialogs.DisplayAlertAsync("Photo permission", "Photo library permission is required to select this metadata image.", "OK");
+        }
+        catch (Exception ex)
+        {
+            await _dialogs.DisplayAlertAsync("Image selection failed", ex.Message, "OK");
+        }
     }
 
     private async Task CaptureImageAsync(UdmdFieldPromptModel field, ImageInputView control)
@@ -543,25 +572,9 @@ public sealed class UdmdPromptPage : ContentPage
             if (photo == null)
                 return;
 
-            var fileName = UdmdImageFileStore.CreateFileName(field.Config, _clock.LocalNow, photo.FileName);
-            var destinationPath = UdmdImageFileStore.GetImagePath(_cardId, fileName);
-
-            await using (var source = await photo.OpenReadAsync())
-            await using (var destination = File.Create(destinationPath))
-            {
-                await source.CopyToAsync(destination);
-            }
-
-            if (!string.IsNullOrWhiteSpace(control.FilePath))
-            {
-                _createdImagePaths.Remove(control.FilePath);
-                UdmdImageFileStore.TryDeleteFile(control.FilePath);
-            }
-
-            control.SetFile(fileName, destinationPath);
-            _createdImagePaths.Add(destinationPath);
+            await SaveImageInputAsync(field, control, photo);
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
         }
         catch (PermissionException)
@@ -572,6 +585,27 @@ public sealed class UdmdPromptPage : ContentPage
         {
             await _dialogs.DisplayAlertAsync("Image capture failed", ex.Message, "OK");
         }
+    }
+
+    private async Task SaveImageInputAsync(UdmdFieldPromptModel field, ImageInputView control, FileResult image)
+    {
+        var fileName = UdmdImageFileStore.CreateFileName(field.Config, _clock.LocalNow, image.FileName);
+        var destinationPath = UdmdImageFileStore.GetImagePath(_cardId, fileName);
+
+        await using (var source = await image.OpenReadAsync())
+        await using (var destination = File.Create(destinationPath))
+        {
+            await source.CopyToAsync(destination);
+        }
+
+        if (!string.IsNullOrWhiteSpace(control.FilePath))
+        {
+            _createdImagePaths.Remove(control.FilePath);
+            UdmdImageFileStore.TryDeleteFile(control.FilePath);
+        }
+
+        control.SetFile(fileName, destinationPath);
+        _createdImagePaths.Add(destinationPath);
     }
 
     private async Task TrySaveAsync()
@@ -680,15 +714,9 @@ public sealed class UdmdPromptPage : ContentPage
             LineBreakMode = LineBreakMode.TailTruncation
         };
 
-        public Button CaptureButton { get; } = new()
-        {
-            Text = "Camera",
-            BackgroundColor = Colors.DodgerBlue,
-            TextColor = Colors.White,
-            FontAttributes = FontAttributes.Bold,
-            CornerRadius = 10,
-            HeightRequest = 44
-        };
+        public Button CaptureButton { get; } = CreateActionButton("\ud83d\udcf7", "Take metadata photo");
+
+        public Button PickButton { get; } = CreateActionButton("\ud83d\uddbc\ufe0f", "Select metadata image");
 
         public string? FileName { get; private set; }
         public string? FilePath { get; private set; }
@@ -696,12 +724,15 @@ public sealed class UdmdPromptPage : ContentPage
         public ImageInputView()
         {
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Star });
             ColumnSpacing = 10;
 
             Children.Add(CaptureButton);
+            Children.Add(PickButton);
             Children.Add(_fileNameLabel);
-            Grid.SetColumn(_fileNameLabel, 1);
+            Grid.SetColumn(PickButton, 1);
+            Grid.SetColumn(_fileNameLabel, 2);
         }
 
         public void SetFile(string fileName, string filePath)
@@ -709,6 +740,35 @@ public sealed class UdmdPromptPage : ContentPage
             FileName = fileName;
             FilePath = filePath;
             _fileNameLabel.Text = fileName;
+        }
+
+        private static Button CreateActionButton(string text, string automationName)
+        {
+            var button = new Button { Text = text };
+
+            if (Application.Current?.Resources.TryGetValue("ResourceActionButtonStyle", out var styleValue) == true &&
+                styleValue is Style style)
+            {
+                button.Style = style;
+            }
+            else
+            {
+                button.WidthRequest = 36;
+                button.HeightRequest = 36;
+                button.MinimumWidthRequest = 36;
+                button.MinimumHeightRequest = 36;
+                button.CornerRadius = 18;
+                button.Padding = 0;
+                button.Margin = 0;
+                button.TextColor = Colors.White;
+                button.BackgroundColor = Colors.Black;
+                button.FontFamily = "OpenSansRegular";
+                button.FontSize = 16;
+                button.BorderWidth = 0;
+            }
+
+            SemanticProperties.SetDescription(button, automationName);
+            return button;
         }
     }
 }

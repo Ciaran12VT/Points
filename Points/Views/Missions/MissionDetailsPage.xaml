@@ -219,58 +219,46 @@
                 <!-- Resources -->
                 <Label Text="Resources" FontAttributes="Bold"/>
 
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+
+                    <!-- Take Photo -->
+                    <Button Text="&#x1F4F7;"
+                            Style="{StaticResource ResourceActionButtonStyle}"
+                            SemanticProperties.Description="Take resource photo"
+                            Command="{Binding CaptureResourceImageCommand}" />
 
                     <!-- Add Images -->
-                    <Button Text="🖼"
-                            WidthRequest="36"
-                            HeightRequest="36"
-                            CornerRadius="18"
-                            Padding="0"
-                            Margin="0"
-                            TextColor="White"
-                            BackgroundColor="Black"
+                    <Button Grid.Column="1"
+                            Text="&#x1F5BC;&#xFE0F;"
+                            Style="{StaticResource ResourceActionButtonStyle}"
+                            SemanticProperties.Description="Select resource image"
                             Command="{Binding AddResourceImagesCommand}" />
 
                     <!-- Add Files -->
-                    <Button Grid.Column="1"
-                            Text="📎"
-                            WidthRequest="36"
-                            HeightRequest="36"
-                            CornerRadius="18"
-                            Padding="0"
-                            Margin="0"
-                            TextColor="White"
-                            BackgroundColor="Black"
+                    <Button Grid.Column="2"
+                            Text="&#x1F4CE;"
+                            Style="{StaticResource ResourceActionButtonStyle}"
+                            SemanticProperties.Description="Select resource file"
                             Command="{Binding AddResourceFilesCommand}" />
 
                     <!-- Count -->
-                    <Label Grid.Column="2"
+                    <Label Grid.Column="3"
                            Text="{Binding ResourceCount, StringFormat='Available: {0}'}"
                            VerticalTextAlignment="Center"
                            TextColor="Gray"/>
 
                     <!-- View -->
-                    <Button Grid.Column="3"
-                            Text="👁"
-                            WidthRequest="36"
-                            HeightRequest="36"
-                            CornerRadius="18"
-                            Padding="0"
-                            Margin="0"
-                            BackgroundColor="Black"
+                    <Button Grid.Column="4"
+                            Text="&#x1F441;"
+                            Style="{StaticResource ResourceActionButtonStyle}"
+                            SemanticProperties.Description="View resources"
                             Command="{Binding ViewResourcesCommand}" />
 
                     <!-- Clear -->
-                    <Button Grid.Column="4"
-                            Text="✕"
-                            WidthRequest="36"
-                            HeightRequest="36"
-                            CornerRadius="18"
-                            Padding="0"
-                            Margin="0"
-                            TextColor="White"
-                            BackgroundColor="DarkRed"
+                    <Button Grid.Column="5"
+                            Text="&#x2715;"
+                            Style="{StaticResource ResourceDangerActionButtonStyle}"
+                            SemanticProperties.Description="Clear resources"
                             Command="{Binding ClearResourcesCommand}" />
 
                 </Grid>
