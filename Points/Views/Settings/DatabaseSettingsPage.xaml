@@ -32,7 +32,8 @@
             <Frame Padding="12"
                    CornerRadius="12"
                    HasShadow="False"
-                   BorderColor="#DDDDDD">
+                   BorderColor="#DDDDDD"
+                   IsVisible="{Binding AutomaticExportUiEnabled}">
 
                 <VerticalStackLayout Spacing="10">
                     <Label Text="Automatic Export"

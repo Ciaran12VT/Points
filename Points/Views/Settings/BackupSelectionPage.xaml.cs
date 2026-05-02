@@ -9,7 +9,8 @@ public partial class BackupSelectionPage : ContentPage
 {
     private readonly IAppNavigationService _navigation;
     private readonly IAppDialogService _dialogs;
-    private readonly TaskCompletionSource<IReadOnlyList<string>?> _selectionCompletion = new();
+    private readonly TaskCompletionSource<IReadOnlyList<string>?> _selectionCompletion =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public BackupSelectionPage(
         string pageTitle,
@@ -54,8 +55,8 @@ public partial class BackupSelectionPage : ContentPage
 
     private async Task CancelAsync()
     {
-        _selectionCompletion.TrySetResult(null);
         await _navigation.PopModalAsync();
+        _selectionCompletion.TrySetResult(null);
     }
 
     private async Task ConfirmAsync()
@@ -71,7 +72,7 @@ public partial class BackupSelectionPage : ContentPage
             return;
         }
 
-        _selectionCompletion.TrySetResult(selectedKeys);
         await _navigation.PopModalAsync();
+        _selectionCompletion.TrySetResult(selectedKeys);
     }
 }

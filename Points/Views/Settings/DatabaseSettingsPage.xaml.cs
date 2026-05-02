@@ -1,4 +1,3 @@
-using Microsoft.Maui.ApplicationModel;
 using Points.Models;
 using Points.Services.Backup;
 using Points.Services.Navigation;
@@ -142,9 +141,7 @@ public partial class DatabaseSettingsPage : ContentPage
             "Import",
             "Cancel",
             null,
-            "Device storage",
-            "Google Drive",
-            "Backup folder");
+            GetImportSourceChoices());
 
         if (string.IsNullOrWhiteSpace(source) || source == "Cancel")
             return;
@@ -154,7 +151,7 @@ public partial class DatabaseSettingsPage : ContentPage
             importPlan = source == "Backup folder"
                 ? await vm.PickImportFolderAsync()
                 : await vm.PickImportFileAsync(
-                    source == "Google Drive"
+                    BackupFeatureFlags.GoogleDriveStorageUiEnabled && source == "Google Drive"
                         ? BackupStorageLocation.GoogleDrive
                         : BackupStorageLocation.DeviceStorage);
 
@@ -254,7 +251,7 @@ public partial class DatabaseSettingsPage : ContentPage
 
         try
         {
-            await vm.ReconnectAutomaticExportGoogleDriveAsync(PresentGoogleDriveAuthorizationAsync);
+            await vm.ReconnectAutomaticExportGoogleDriveAsync();
             await _dialogs.DisplayAlertAsync("Google Drive", "Google Drive was reconnected.", "OK");
         }
         catch (OperationCanceledException)
@@ -324,17 +321,16 @@ public partial class DatabaseSettingsPage : ContentPage
             "Automatic Export Destination",
             "Cancel",
             null,
-            "Device storage",
-            "Google Drive");
+            GetAutomaticExportDestinationChoices());
 
         if (string.IsNullOrWhiteSpace(selected) || selected == "Cancel")
             return null;
 
-        if (selected == "Google Drive")
+        if (BackupFeatureFlags.GoogleDriveStorageUiEnabled && selected == "Google Drive")
         {
             try
             {
-                return await vm.ConnectGoogleDriveDestinationAsync(PresentGoogleDriveAuthorizationAsync);
+                return await vm.ConnectGoogleDriveDestinationAsync();
             }
             catch (OperationCanceledException)
             {
@@ -363,25 +359,6 @@ public partial class DatabaseSettingsPage : ContentPage
                 ? current.DeviceFolderUri
                 : null
         };
-    }
-
-    private async Task PresentGoogleDriveAuthorizationAsync(GoogleDriveDeviceAuthorizationInfo authorization)
-    {
-        var open = await _dialogs.DisplayAlertAsync(
-            "Connect Google Drive",
-            $"Google will ask you to enter this code:\n\n{authorization.UserCode}\n\nURL:\n{authorization.VerificationUrl}",
-            "Open Google",
-            "Cancel");
-
-        if (!open)
-            throw new OperationCanceledException();
-
-        await Browser.Default.OpenAsync(new Uri(authorization.VerificationUrl), BrowserLaunchMode.SystemPreferred);
-
-        await _dialogs.DisplayAlertAsync(
-            "Connect Google Drive",
-            "After granting access in Google, return to Points. Points will finish the connection now.",
-            "Continue");
     }
 
     private async Task<int?> PromptRetentionCountAsync(int currentRetentionCount)
@@ -424,6 +401,20 @@ public partial class DatabaseSettingsPage : ContentPage
             return null;
 
         return locations.First(x => x.Title == selected).Location;
+    }
+
+    private static string[] GetImportSourceChoices()
+    {
+        return BackupFeatureFlags.GoogleDriveStorageUiEnabled
+            ? new[] { "Device storage", "Google Drive", "Backup folder" }
+            : new[] { "Device storage", "Backup folder" };
+    }
+
+    private static string[] GetAutomaticExportDestinationChoices()
+    {
+        return BackupFeatureFlags.GoogleDriveStorageUiEnabled
+            ? new[] { "Device storage", "Google Drive" }
+            : new[] { "Device storage" };
     }
 
     private static string FormatExportCompleteMessage(BackupExportResult result)

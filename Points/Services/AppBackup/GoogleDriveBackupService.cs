@@ -1,20 +1,23 @@
 using Points.Global;
 using Points.Services.Time;
+using Microsoft.Maui.Authentication;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Points.Services.Backup
 {
-    public sealed class GoogleDriveDeviceAuthorizationInfo
+    public static class GoogleDriveOAuthDefaults
     {
-        public string VerificationUrl { get; init; } = "";
-        public string UserCode { get; init; } = "";
-        public DateTime ExpiresAtUtc { get; init; }
-        public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(5);
+        public const string CallbackScheme = "com.companyname.points";
+        public const string CallbackPath = "/oauth2redirect";
+        public const string RedirectUri = CallbackScheme + ":" + CallbackPath;
+        public const string PackageConfigFileName = "google_drive_oauth.json";
+        public const string BackupFolderName = "Points Backups";
     }
 
     public sealed class GoogleDriveConnectionResult
@@ -27,9 +30,7 @@ namespace Points.Services.Backup
 
     public interface IGoogleDriveBackupConnector
     {
-        Task<GoogleDriveConnectionResult> ConnectAsync(
-            Func<GoogleDriveDeviceAuthorizationInfo, Task> presentAuthorizationAsync,
-            CancellationToken cancellationToken = default);
+        Task<GoogleDriveConnectionResult> ConnectAsync(CancellationToken cancellationToken = default);
 
         Task DisconnectAsync(string credentialKey, CancellationToken cancellationToken = default);
     }
@@ -37,11 +38,9 @@ namespace Points.Services.Backup
     public sealed class GoogleDriveOAuthClientConfig
     {
         public string ClientId { get; init; } = "";
-        public string? ClientSecret { get; init; }
+        public string RedirectUri { get; init; } = GoogleDriveOAuthDefaults.RedirectUri;
 
-        public bool IsConfigured =>
-            !string.IsNullOrWhiteSpace(ClientId) &&
-            !string.IsNullOrWhiteSpace(ClientSecret);
+        public bool IsConfigured => !string.IsNullOrWhiteSpace(ClientId);
     }
 
     public interface IGoogleDriveOAuthClientConfigProvider
@@ -68,26 +67,65 @@ namespace Points.Services.Backup
         public async Task<GoogleDriveOAuthClientConfig> GetAsync(CancellationToken cancellationToken = default)
         {
             var envClientId = Environment.GetEnvironmentVariable("POINTS_GOOGLE_DRIVE_CLIENT_ID");
-            var envClientSecret = Environment.GetEnvironmentVariable("POINTS_GOOGLE_DRIVE_CLIENT_SECRET");
+            var envRedirectUri = Environment.GetEnvironmentVariable("POINTS_GOOGLE_DRIVE_REDIRECT_URI");
             if (!string.IsNullOrWhiteSpace(envClientId))
             {
                 return new GoogleDriveOAuthClientConfig
                 {
                     ClientId = envClientId,
-                    ClientSecret = envClientSecret
+                    RedirectUri = string.IsNullOrWhiteSpace(envRedirectUri)
+                        ? GoogleDriveOAuthDefaults.RedirectUri
+                        : envRedirectUri
                 };
             }
 
-            if (!File.Exists(_configPath))
-                return new GoogleDriveOAuthClientConfig();
+            if (File.Exists(_configPath))
+                return Normalize(await ReadConfigFileAsync(_configPath, cancellationToken));
 
-            await using var stream = File.OpenRead(_configPath);
-            var config = await JsonSerializer.DeserializeAsync<GoogleDriveOAuthClientConfig>(
+            try
+            {
+                await using var stream = await FileSystem.OpenAppPackageFileAsync(
+                    GoogleDriveOAuthDefaults.PackageConfigFileName);
+                var config = await JsonSerializer.DeserializeAsync<GoogleDriveOAuthClientConfig>(
+                    stream,
+                    GoogleDriveJson.Options,
+                    cancellationToken);
+
+                return Normalize(config);
+            }
+            catch (FileNotFoundException)
+            {
+                return new GoogleDriveOAuthClientConfig();
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return new GoogleDriveOAuthClientConfig();
+            }
+        }
+
+        private static async Task<GoogleDriveOAuthClientConfig?> ReadConfigFileAsync(
+            string path,
+            CancellationToken cancellationToken)
+        {
+            await using var stream = File.OpenRead(path);
+            return await JsonSerializer.DeserializeAsync<GoogleDriveOAuthClientConfig>(
                 stream,
                 GoogleDriveJson.Options,
                 cancellationToken);
+        }
 
-            return config ?? new GoogleDriveOAuthClientConfig();
+        private static GoogleDriveOAuthClientConfig Normalize(GoogleDriveOAuthClientConfig? config)
+        {
+            if (config == null)
+                return new GoogleDriveOAuthClientConfig();
+
+            return new GoogleDriveOAuthClientConfig
+            {
+                ClientId = config.ClientId?.Trim() ?? "",
+                RedirectUri = string.IsNullOrWhiteSpace(config.RedirectUri)
+                    ? GoogleDriveOAuthDefaults.RedirectUri
+                    : config.RedirectUri.Trim()
+            };
         }
     }
 
@@ -176,7 +214,6 @@ namespace Points.Services.Backup
         private const string BackupMimeType = "application/zip";
         private const string FileNamePrefix = "points_scheduled_backup_";
         private const string FileExtension = ".zip";
-        private static readonly Uri DeviceCodeEndpoint = new("https://oauth2.googleapis.com/device/code");
         private static readonly Uri TokenEndpoint = new("https://oauth2.googleapis.com/token");
         private static readonly Uri UserInfoEndpoint = new("https://www.googleapis.com/oauth2/v2/userinfo");
         private static readonly Uri DriveApiRoot = new("https://www.googleapis.com/drive/v3/");
@@ -199,29 +236,18 @@ namespace Points.Services.Backup
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         }
 
-        public async Task<GoogleDriveConnectionResult> ConnectAsync(
-            Func<GoogleDriveDeviceAuthorizationInfo, Task> presentAuthorizationAsync,
-            CancellationToken cancellationToken = default)
+        public async Task<GoogleDriveConnectionResult> ConnectAsync(CancellationToken cancellationToken = default)
         {
-            if (presentAuthorizationAsync == null)
-                throw new ArgumentNullException(nameof(presentAuthorizationAsync));
-
             var clientConfig = await GetConfiguredClientAsync(cancellationToken);
-            var deviceCode = await RequestDeviceCodeAsync(clientConfig, cancellationToken);
-
-            await presentAuthorizationAsync(new GoogleDriveDeviceAuthorizationInfo
-            {
-                VerificationUrl = deviceCode.VerificationUrl,
-                UserCode = deviceCode.UserCode,
-                ExpiresAtUtc = _clock.UtcNow.AddSeconds(deviceCode.ExpiresIn),
-                PollInterval = TimeSpan.FromSeconds(Math.Max(1, deviceCode.Interval))
-            });
-
-            var token = await PollForTokenAsync(clientConfig, deviceCode, cancellationToken);
+            var token = await AuthorizeAsync(clientConfig, cancellationToken);
             var accountEmail = await GetAccountEmailAsync(token.AccessToken, cancellationToken);
             token.AccountEmail = accountEmail;
 
-            var folder = await EnsureFolderAsync(token.AccessToken, null, "Points Backups", cancellationToken);
+            var folder = await EnsureFolderAsync(
+                token.AccessToken,
+                null,
+                GoogleDriveOAuthDefaults.BackupFolderName,
+                cancellationToken);
             await _tokenStore.SaveAsync(DefaultCredentialKey, token, cancellationToken);
 
             return new GoogleDriveConnectionResult
@@ -332,88 +358,115 @@ namespace Points.Services.Backup
 
             throw new ScheduledBackupRequiresUserActionException(
                 "GoogleDriveOAuthClientMissing",
-                $"Google Drive OAuth is not configured. Add a client id and client secret to {AppPaths.GoogleDriveOAuthClientConfigPath}, or set POINTS_GOOGLE_DRIVE_CLIENT_ID and POINTS_GOOGLE_DRIVE_CLIENT_SECRET.");
+                "Google Drive sign-in is not configured for this build of Points.");
         }
 
-        private async Task<DeviceCodeResponse> RequestDeviceCodeAsync(
+        private async Task<GoogleDriveOAuthToken> AuthorizeAsync(
             GoogleDriveOAuthClientConfig clientConfig,
+            CancellationToken cancellationToken)
+        {
+            var codeVerifier = CreateCodeVerifier();
+            var state = CreateCodeVerifier();
+            var authorizationUri = BuildAuthorizationUri(clientConfig, codeVerifier, state);
+
+            WebAuthenticatorResult result;
+            try
+            {
+                result = await WebAuthenticator.Default.AuthenticateAsync(
+                    authorizationUri,
+                    new Uri(clientConfig.RedirectUri));
+            }
+            catch (TaskCanceledException)
+            {
+                throw new OperationCanceledException("Google Drive sign-in was cancelled.", cancellationToken);
+            }
+
+            var returnedState = GetAuthResultValue(result, "state");
+            if (!string.Equals(returnedState, state, StringComparison.Ordinal))
+            {
+                throw new ScheduledBackupRequiresUserActionException(
+                    "GoogleDriveOAuthStateMismatch",
+                    "Google Drive sign-in could not be verified. Try connecting again.");
+            }
+
+            var error = GetAuthResultValue(result, "error");
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                throw new ScheduledBackupRequiresUserActionException(
+                    $"GoogleDrive_{error}",
+                    GetAuthResultValue(result, "error_description") ??
+                    "Google Drive access was not granted.");
+            }
+
+            var code = GetAuthResultValue(result, "code");
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                throw new ScheduledBackupRequiresUserActionException(
+                    "GoogleDriveOAuthCodeMissing",
+                    "Google Drive did not return a sign-in code. Try connecting again.");
+            }
+
+            return await ExchangeAuthorizationCodeAsync(
+                clientConfig,
+                code,
+                codeVerifier,
+                cancellationToken);
+        }
+
+        private static Uri BuildAuthorizationUri(
+            GoogleDriveOAuthClientConfig clientConfig,
+            string codeVerifier,
+            string state)
+        {
+            var scope = $"{DriveScope} {EmailScope} {ProfileScope}";
+            var codeChallenge = Base64UrlEncode(
+                SHA256.HashData(Encoding.ASCII.GetBytes(codeVerifier)));
+
+            var query = new Dictionary<string, string>
+            {
+                ["client_id"] = clientConfig.ClientId,
+                ["redirect_uri"] = clientConfig.RedirectUri,
+                ["response_type"] = "code",
+                ["scope"] = scope,
+                ["access_type"] = "offline",
+                ["prompt"] = "consent",
+                ["state"] = state,
+                ["code_challenge"] = codeChallenge,
+                ["code_challenge_method"] = "S256"
+            };
+
+            return new Uri($"https://accounts.google.com/o/oauth2/v2/auth?{ToFormEncodedQuery(query)}");
+        }
+
+        private async Task<GoogleDriveOAuthToken> ExchangeAuthorizationCodeAsync(
+            GoogleDriveOAuthClientConfig clientConfig,
+            string authorizationCode,
+            string codeVerifier,
             CancellationToken cancellationToken)
         {
             using var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 ["client_id"] = clientConfig.ClientId,
-                ["scope"] = $"{DriveScope} {EmailScope} {ProfileScope}"
+                ["code"] = authorizationCode,
+                ["code_verifier"] = codeVerifier,
+                ["redirect_uri"] = clientConfig.RedirectUri,
+                ["grant_type"] = "authorization_code"
             });
 
-            using var response = await _http.PostAsync(DeviceCodeEndpoint, content, cancellationToken);
+            using var response = await _http.PostAsync(TokenEndpoint, content, cancellationToken);
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
-                ThrowGoogleUserActionError("GoogleDriveOAuthDeviceCodeFailed", responseContent);
-
-            var deviceCode = JsonSerializer.Deserialize<DeviceCodeResponse>(responseContent, GoogleDriveJson.Options);
-            if (deviceCode == null ||
-                string.IsNullOrWhiteSpace(deviceCode.DeviceCode) ||
-                string.IsNullOrWhiteSpace(deviceCode.UserCode))
-            {
-                throw new InvalidDataException("Google did not return a usable device authorization response.");
-            }
-
-            return deviceCode;
-        }
-
-        private async Task<GoogleDriveOAuthToken> PollForTokenAsync(
-            GoogleDriveOAuthClientConfig clientConfig,
-            DeviceCodeResponse deviceCode,
-            CancellationToken cancellationToken)
-        {
-            var interval = TimeSpan.FromSeconds(Math.Max(1, deviceCode.Interval));
-            var expiresAt = _clock.UtcNow.AddSeconds(deviceCode.ExpiresIn);
-
-            while (_clock.UtcNow < expiresAt)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                using var content = new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    ["client_id"] = clientConfig.ClientId,
-                    ["client_secret"] = clientConfig.ClientSecret ?? "",
-                    ["device_code"] = deviceCode.DeviceCode,
-                    ["grant_type"] = "urn:ietf:params:oauth:grant-type:device_code"
-                });
-
-                using var response = await _http.PostAsync(TokenEndpoint, content, cancellationToken);
-                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-
-                if (response.IsSuccessStatusCode)
-                    return ToToken(responseContent);
-
-                var error = TryReadOAuthError(responseContent);
-                if (error == "authorization_pending")
-                {
-                    await Task.Delay(interval, cancellationToken);
-                    continue;
-                }
-
-                if (error == "slow_down")
-                {
-                    interval = interval.Add(TimeSpan.FromSeconds(5));
-                    await Task.Delay(interval, cancellationToken);
-                    continue;
-                }
-
-                if (error == "access_denied")
-                {
-                    throw new ScheduledBackupRequiresUserActionException(
-                        "GoogleDriveAccessDenied",
-                        "Google Drive access was not granted.");
-                }
-
                 ThrowGoogleUserActionError("GoogleDriveOAuthTokenFailed", responseContent);
+
+            var token = ToToken(responseContent);
+            if (string.IsNullOrWhiteSpace(token.RefreshToken))
+            {
+                throw new ScheduledBackupRequiresUserActionException(
+                    "GoogleDriveRefreshTokenMissing",
+                    "Google Drive did not return permission for background backups. Try connecting again.");
             }
 
-            throw new ScheduledBackupRequiresUserActionException(
-                "GoogleDriveOAuthExpired",
-                "Google Drive sign-in expired. Try connecting again.");
+            return token;
         }
 
         private async Task<GoogleDriveOAuthToken> GetUsableTokenAsync(
@@ -447,7 +500,6 @@ namespace Points.Services.Backup
             using var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 ["client_id"] = clientConfig.ClientId,
-                ["client_secret"] = clientConfig.ClientSecret ?? "",
                 ["refresh_token"] = currentToken.RefreshToken,
                 ["grant_type"] = "refresh_token"
             });
@@ -490,7 +542,9 @@ namespace Points.Services.Backup
             string? folderName,
             CancellationToken cancellationToken)
         {
-            folderName = string.IsNullOrWhiteSpace(folderName) ? "Points Backups" : folderName.Trim();
+            folderName = string.IsNullOrWhiteSpace(folderName)
+                ? GoogleDriveOAuthDefaults.BackupFolderName
+                : folderName.Trim();
 
             if (!string.IsNullOrWhiteSpace(folderId))
             {
@@ -769,30 +823,38 @@ namespace Points.Services.Backup
             return value.Replace("\\", "\\\\").Replace("'", "\\'");
         }
 
-        private sealed record DriveFolderInfo(string Id, string Name);
-
-        private sealed class DeviceCodeResponse
+        private static string? GetAuthResultValue(WebAuthenticatorResult result, string key)
         {
-            [JsonPropertyName("device_code")]
-            public string DeviceCode { get; set; } = "";
-
-            [JsonPropertyName("user_code")]
-            public string UserCode { get; set; } = "";
-
-            [JsonPropertyName("verification_url")]
-            public string? VerificationUrlLegacy { get; set; }
-
-            [JsonPropertyName("verification_uri")]
-            public string? VerificationUri { get; set; }
-
-            [JsonPropertyName("expires_in")]
-            public int ExpiresIn { get; set; } = 1800;
-
-            [JsonPropertyName("interval")]
-            public int Interval { get; set; } = 5;
-
-            public string VerificationUrl => VerificationUri ?? VerificationUrlLegacy ?? "";
+            return result.Properties.TryGetValue(key, out var value)
+                ? value
+                : null;
         }
+
+        private static string ToFormEncodedQuery(IEnumerable<KeyValuePair<string, string>> values)
+        {
+            return string.Join(
+                "&",
+                values.Select(pair =>
+                    $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
+        }
+
+        private static string CreateCodeVerifier()
+        {
+            Span<byte> bytes = stackalloc byte[64];
+            RandomNumberGenerator.Fill(bytes);
+            return Base64UrlEncode(bytes);
+        }
+
+        private static string Base64UrlEncode(ReadOnlySpan<byte> bytes)
+        {
+            return Convert
+                .ToBase64String(bytes)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+        }
+
+        private sealed record DriveFolderInfo(string Id, string Name);
 
         private sealed class TokenResponse
         {

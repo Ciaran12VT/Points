@@ -350,6 +350,9 @@ ASALocalRun/
 # Local History for Visual Studio
 .localhistory/
 
+# Local Google Drive OAuth client config for Points builds.
+Points/Resources/Raw/google_drive_oauth.json
+
 # BeatPulse healthcheck temp database
 healthchecksdb
 

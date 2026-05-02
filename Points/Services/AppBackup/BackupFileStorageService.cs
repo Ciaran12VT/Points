@@ -77,12 +77,20 @@ namespace Points.Services.Backup
 
         public IReadOnlyList<BackupStorageLocationOption> GetExportLocations()
         {
-            return ExportLocations;
+            return BackupFeatureFlags.GoogleDriveStorageUiEnabled
+                ? ExportLocations
+                : ExportLocations
+                    .Where(location => location.Location != BackupStorageLocation.GoogleDrive)
+                    .ToList();
         }
 
         public IReadOnlyList<BackupStorageLocationOption> GetFileImportLocations()
         {
-            return FileImportLocations;
+            return BackupFeatureFlags.GoogleDriveStorageUiEnabled
+                ? FileImportLocations
+                : FileImportLocations
+                    .Where(location => location.Location != BackupStorageLocation.GoogleDrive)
+                    .ToList();
         }
 
         public async Task<BackupExportResult?> SaveExportPackageAsync(

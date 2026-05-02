@@ -34,6 +34,12 @@ namespace Points.Platforms.iOS
 
         public async Task SyncAsync(CancellationToken cancellationToken = default)
         {
+            if (!BackupFeatureFlags.AutomaticExportRuntimeEnabled)
+            {
+                await CancelAsync(cancellationToken);
+                return;
+            }
+
             if (!OperatingSystem.IsIOSVersionAtLeast(13))
                 return;
 

@@ -21,6 +21,19 @@
 	<array>
 		<string>com.companyname.points.scheduled-backup</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>Points Google Drive OAuth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.companyname.points</string>
+			</array>
+		</dict>
+	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

@@ -34,6 +34,8 @@ namespace Points.ViewModels.Settings
 
         public Command WipeDatabaseCommand { get; }
 
+        public bool AutomaticExportUiEnabled => BackupFeatureFlags.AutomaticExportUiEnabled;
+
         public DatabaseSettingsViewModel(
             IDatabaseMaintenanceService databaseMaintenance,
             IDatabaseInitializationService databaseLifecycle,
@@ -190,10 +192,9 @@ namespace Points.ViewModels.Settings
             await SaveAutomaticExportConfigAsync(draft);
         }
 
-        public async Task<ScheduledBackupDestinationConfig> ConnectGoogleDriveDestinationAsync(
-            Func<GoogleDriveDeviceAuthorizationInfo, Task> presentAuthorizationAsync)
+        public async Task<ScheduledBackupDestinationConfig> ConnectGoogleDriveDestinationAsync()
         {
-            var connection = await _googleDriveBackupConnector.ConnectAsync(presentAuthorizationAsync);
+            var connection = await _googleDriveBackupConnector.ConnectAsync();
 
             return new ScheduledBackupDestinationConfig
             {
@@ -206,8 +207,7 @@ namespace Points.ViewModels.Settings
             };
         }
 
-        public async Task ReconnectAutomaticExportGoogleDriveAsync(
-            Func<GoogleDriveDeviceAuthorizationInfo, Task> presentAuthorizationAsync)
+        public async Task ReconnectAutomaticExportGoogleDriveAsync()
         {
             if (_automaticExportConfig.Destination.Type != ScheduledBackupDestinationType.GoogleDrive)
             {
@@ -219,7 +219,7 @@ namespace Points.ViewModels.Settings
             }
 
             var draft = GetAutomaticExportDraft();
-            draft.Destination = await ConnectGoogleDriveDestinationAsync(presentAuthorizationAsync);
+            draft.Destination = await ConnectGoogleDriveDestinationAsync();
             draft.RequiresUserAction = false;
             draft.LastErrorCode = null;
             draft.LastErrorMessage = null;
@@ -385,7 +385,8 @@ namespace Points.ViewModels.Settings
             AutomaticExportLastRunText = FormatLastRun(config, lastRun);
             AutomaticExportErrorText = config.LastErrorMessage ?? "";
             AutomaticExportHasError = config.RequiresUserAction || !string.IsNullOrWhiteSpace(config.LastErrorMessage);
-            AutomaticExportCanReconnect = config.Destination.Type == ScheduledBackupDestinationType.GoogleDrive &&
+            AutomaticExportCanReconnect = BackupFeatureFlags.GoogleDriveStorageUiEnabled &&
+                config.Destination.Type == ScheduledBackupDestinationType.GoogleDrive &&
                 (config.RequiresUserAction ||
                  string.IsNullOrWhiteSpace(config.Destination.GoogleDriveCredentialKey) ||
                  IsGoogleDriveError(config.LastErrorCode));

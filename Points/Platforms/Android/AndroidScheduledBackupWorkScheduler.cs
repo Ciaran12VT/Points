@@ -22,6 +22,12 @@ namespace Points.Platforms.Android
 
         public async Task SyncAsync(CancellationToken cancellationToken = default)
         {
+            if (!BackupFeatureFlags.AutomaticExportRuntimeEnabled)
+            {
+                await CancelAsync(cancellationToken);
+                return;
+            }
+
             var config = await _configStore.GetAsync(cancellationToken);
 
             if (!config.IsEnabled || config.Schedule?.IsEnabled != true || config.RequiresUserAction)

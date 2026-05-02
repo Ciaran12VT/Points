@@ -32,6 +32,12 @@ namespace Points.Platforms.Windows
         {
             ThrowIfDisposed();
 
+            if (!BackupFeatureFlags.AutomaticExportRuntimeEnabled)
+            {
+                await CancelAsync(cancellationToken);
+                return;
+            }
+
             var config = await PrepareConfigAsync(cancellationToken);
             if (!ShouldSchedule(config))
             {

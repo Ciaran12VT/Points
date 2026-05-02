@@ -20,7 +20,9 @@ namespace Points
                 "Database initialization");
 
             TaskSupervisor.Forget(
-                scheduledBackupWorkScheduler.SyncAsync(),
+                BackupFeatureFlags.AutomaticExportRuntimeEnabled
+                    ? scheduledBackupWorkScheduler.SyncAsync()
+                    : scheduledBackupWorkScheduler.CancelAsync(),
                 "Scheduled automatic export worker sync");
         }
     }

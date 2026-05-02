@@ -17,6 +17,9 @@ namespace Points.Platforms.Android
 
         public override Result DoWork()
         {
+            if (!BackupFeatureFlags.AutomaticExportRuntimeEnabled)
+                return Result.InvokeSuccess();
+
             try
             {
                 var runner = ServiceHelper.GetService<IScheduledBackupRunner>();
