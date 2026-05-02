@@ -607,7 +607,16 @@
                                             ItemTemplate="{StaticResource CardTemplateSelector}"
                                             Scrolled="Cards_Scrolled"
                                             Loaded="CardsList_Loaded"
-                                            Unloaded="CardsList_Unloaded" />
+                                            Unloaded="CardsList_Unloaded">
+                                <CollectionView.EmptyView>
+                                    <Grid Padding="24">
+                                        <Label Text="{Binding EmptyStateText}"
+                                               TextColor="Gray"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center" />
+                                    </Grid>
+                                </CollectionView.EmptyView>
+                            </CollectionView>
                         </Grid>
                     </DataTemplate>
                 </cards:HomePaneTemplateSelector.DefaultPaneTemplate>
@@ -624,6 +633,15 @@
                             <CollectionView Grid.Row="1"
                                             ItemsSource="{Binding DashboardCells}"
                                             SelectionMode="None">
+
+                                <CollectionView.EmptyView>
+                                    <Grid Padding="24">
+                                        <Label Text="{Binding EmptyStateText}"
+                                               TextColor="Gray"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center" />
+                                    </Grid>
+                                </CollectionView.EmptyView>
 
                                 <CollectionView.ItemsLayout>
                                     <GridItemsLayout Orientation="Vertical" Span="4" VerticalItemSpacing="12" />

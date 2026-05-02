@@ -29,6 +29,15 @@
         <CollectionView Grid.Row="1"
                         x:Name="LocksCollection"
                         ItemsSource="{Binding Locks}">
+            <CollectionView.EmptyView>
+                <Grid Padding="24">
+                    <Label Text="Tap + to add a lock."
+                           TextColor="Gray"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center" />
+                </Grid>
+            </CollectionView.EmptyView>
+
             <CollectionView.ItemTemplate>
                 <DataTemplate>
 
@@ -70,7 +79,7 @@
                             <Grid Grid.Row="1"
                                   Grid.Column="0"
                                   Grid.ColumnSpan="4"
-                                  RowDefinitions="Auto,*"
+                                  RowDefinitions="Auto,Auto,Auto"
                                   ColumnDefinitions="Auto,*,Auto"
                                   ColumnSpacing="8"
                                   RowSpacing="6"
@@ -135,6 +144,14 @@
                                     </BindableLayout.ItemTemplate>
 
                                 </VerticalStackLayout>
+
+                                <Label Grid.Row="2"
+                                       Grid.Column="0"
+                                       Grid.ColumnSpan="3"
+                                       Text="Add a schedule for this lock."
+                                       TextColor="Gray"
+                                       FontSize="12"
+                                       IsVisible="{Binding HasNoScheduleRows}" />
                             </Grid>
 
                             <!-- Row 3: Time Window -->
@@ -163,7 +180,7 @@
                             <Grid Grid.Row="3"
                                   Grid.Column="0"
                                   Grid.ColumnSpan="4"
-                                  RowDefinitions="Auto,*"
+                                  RowDefinitions="Auto,Auto,Auto"
                                   ColumnDefinitions="Auto,*,Auto"
                                   ColumnSpacing="8"
                                   RowSpacing="6"
@@ -227,6 +244,14 @@
                                     </BindableLayout.ItemTemplate>
 
                                 </VerticalStackLayout>
+
+                                <Label Grid.Row="2"
+                                       Grid.Column="0"
+                                       Grid.ColumnSpan="3"
+                                       Text="Add a task dependency."
+                                       TextColor="Gray"
+                                       FontSize="12"
+                                       IsVisible="{Binding HasNoDependencyRows}" />
                             </Grid>
 
                         </Grid>

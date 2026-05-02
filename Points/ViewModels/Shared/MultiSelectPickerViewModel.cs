@@ -17,13 +17,23 @@ namespace Points.ViewModels.Shared
 
         public ObservableCollection<string> FilteredItems { get; } = new();
 
+        public string EmptyStateText => string.IsNullOrWhiteSpace(SearchText)
+            ? IsReadOnly
+                ? "No options available yet."
+                : "No saved options yet. Type one below."
+            : "No matching options.";
+
         private string _searchText = "";
         public string SearchText
         {
             get => _searchText;
             set
             {
-                if (SetProperty(ref _searchText, value)) ApplyFilter();
+                if (SetProperty(ref _searchText, value))
+                {
+                    ApplyFilter();
+                    RaisePropertyChanged(nameof(EmptyStateText));
+                }
             }
         }
 

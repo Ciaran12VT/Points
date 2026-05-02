@@ -470,6 +470,9 @@ namespace Points.ViewModels.Achievements
     {
         public string Name { get; }
         public ObservableCollection<AchievementCardModel> Cards { get; }
+        public string EmptyStateText => Name == "Meta-Achievements"
+            ? "Create achievements first, then add a meta-achievement."
+            : "Add an achievement.";
 
         public AchievementsPageModel(string name, ObservableCollection<AchievementCardModel> cards)
         {

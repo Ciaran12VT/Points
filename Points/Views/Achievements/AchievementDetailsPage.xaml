@@ -163,6 +163,10 @@
                             ItemsSource="{Binding StepNameOptions}"
                             SelectedItem="{Binding StepName}"
                             IsEnabled="{Binding CanEdit}"/>
+                    <Label Text="Create SC steps before choosing a step target."
+                           TextColor="Gray"
+                           FontSize="12"
+                           IsVisible="{Binding IsStepTargetEmptyMessageVisible}" />
                     <Label Text="Target" FontAttributes="Bold"/>
                     <Entry Text="{Binding TargetValueText}"
                            Keyboard="Numeric"
@@ -221,6 +225,10 @@
                                 VerticalOptions="Center"
                                 IsEnabled="{Binding CanEdit}"/>
                     </Grid>
+                    <Label Text="Create an achievement first."
+                           TextColor="Gray"
+                           FontSize="12"
+                           IsVisible="{Binding IsAchievementTargetEmptyMessageVisible}" />
                 </VerticalStackLayout>
 
 

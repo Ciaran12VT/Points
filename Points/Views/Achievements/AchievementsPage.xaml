@@ -27,7 +27,16 @@
 
                         <CollectionView Grid.Row="1"
                                     ItemsSource="{Binding Cards}"
-                                    ItemTemplate="{StaticResource AchievementSelector}" />
+                                    ItemTemplate="{StaticResource AchievementSelector}">
+                            <CollectionView.EmptyView>
+                                <Grid Padding="24">
+                                    <Label Text="{Binding EmptyStateText}"
+                                           TextColor="Gray"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center" />
+                                </Grid>
+                            </CollectionView.EmptyView>
+                        </CollectionView>
                     </Grid>
                 </DataTemplate>
             </CarouselView.ItemTemplate>

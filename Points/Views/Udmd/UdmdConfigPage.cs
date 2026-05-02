@@ -113,7 +113,7 @@ public sealed class UdmdConfigPage : ContentPage
         }
 
         if (configs.Count == 0)
-            ShowMessage("No metadata fields yet.");
+            ShowMessage("No metadata fields yet. Tap Add Field to create one.");
         else
             HideMessage();
     }

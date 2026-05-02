@@ -36,7 +36,10 @@ public partial class TaskDependencyEditPage : ContentPage
             : Clone(initial);
 
         // Populate pickers
-        TaskPicker.ItemsSource = _tasks.Select(t => t.Title).ToList();
+        var taskTitles = _tasks.Select(t => t.Title).ToList();
+        TaskPicker.ItemsSource = taskTitles;
+        TaskPicker.IsEnabled = taskTitles.Count > 0;
+        NoTasksLabel.IsVisible = taskTitles.Count == 0;
 
         MetricPicker.ItemsSource = new List<string> { "ActiveTime", "Points" };
         TimeScopePicker.ItemsSource = new List<string> { "Daily", "Weekly", "Monthly" };

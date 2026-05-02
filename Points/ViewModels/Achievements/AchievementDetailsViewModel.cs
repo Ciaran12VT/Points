@@ -332,6 +332,8 @@ namespace Points.ViewModels.Achievements
                 RaisePropertyChanged(nameof(IsStepTargetVisible));
                 RaisePropertyChanged(nameof(IsAchievementTargetVisible));
                 RaisePropertyChanged(nameof(IsCustomReportTargetVisible));
+                RaisePropertyChanged(nameof(IsStepTargetEmptyMessageVisible));
+                RaisePropertyChanged(nameof(IsAchievementTargetEmptyMessageVisible));
 
                 Validate();
             }
@@ -520,6 +522,10 @@ namespace Points.ViewModels.Achievements
         public bool IsAchievementTargetVisible => TargetType == AchievementTargetType.Achievements;
 
         public bool IsCustomReportTargetVisible => TargetType == AchievementTargetType.Custom;
+
+        public bool IsStepTargetEmptyMessageVisible => IsStepTargetVisible && !StepNameOptions.Any();
+
+        public bool IsAchievementTargetEmptyMessageVisible => IsAchievementTargetVisible && !_achievementTitleOptions.Any();
 
 
         // ===== Completion-type visibility =====

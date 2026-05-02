@@ -10,6 +10,7 @@ namespace Points.Views.Reports
             BindingContext = vm;
 
             HookResults(vm);
+            RebuildResultsGrid();
         }
 
         protected override void OnBindingContextChanged()
@@ -19,6 +20,7 @@ namespace Points.Views.Reports
             if (BindingContext is ReportDetailsViewModel vm)
             {
                 HookResults(vm);
+                RebuildResultsGrid();
             }
         }
 
@@ -48,7 +50,19 @@ namespace Points.Views.Reports
             ResultsGrid.Children.Clear();
 
             if (results == null || results.Count == 0)
+            {
+                ResultsGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+                ResultsGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+                ResultsGrid.Add(new Label
+                {
+                    Text = GetEmptyResultsText(vm),
+                    TextColor = Colors.Gray,
+                    HorizontalTextAlignment = TextAlignment.Center,
+                    VerticalTextAlignment = TextAlignment.Center,
+                    Padding = new Thickness(12)
+                }, 0, 0);
                 return;
+            }
 
             // Assume each row is "col1|col2|col3|..."
             var firstSplit = (results[0] ?? string.Empty).Split('|');
@@ -90,6 +104,19 @@ namespace Points.Views.Reports
                     ResultsGrid.Add(label, c, r);
                 }
             }
+        }
+
+        private static string GetEmptyResultsText(ReportDetailsViewModel vm)
+        {
+            var message = vm.ResultsMessage ?? string.Empty;
+
+            if (message.StartsWith("0 rows returned", StringComparison.OrdinalIgnoreCase))
+                return "No rows returned.";
+
+            if (message.StartsWith("ERROR", StringComparison.OrdinalIgnoreCase))
+                return "Fix the query and execute again.";
+
+            return "Execute a SELECT query to see results.";
         }
     }
 }

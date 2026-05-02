@@ -342,6 +342,8 @@ internal sealed class LockEditorVm : ObservableObject
     public string LockTitle => " ";
     public string ScheduleSummary => BuildScheduleSummary();
     public string TimeWindowSummary => BuildTimeWindowSummary();
+    public bool HasNoScheduleRows => ScheduleRows.Count == 0;
+    public bool HasNoDependencyRows => DependencyRows.Count == 0;
 
     public LockEditorVm(LockModel model, List<DependencyTaskOption> taskOptions)
     {
@@ -365,6 +367,7 @@ internal sealed class LockEditorVm : ObservableObject
                 ScheduleRows.Add(new ScheduleRowVm(this, schedule));
         }
 
+        RaisePropertyChanged(nameof(HasNoScheduleRows));
         RefreshSummaries();
     }
 
@@ -392,10 +395,15 @@ internal sealed class LockEditorVm : ObservableObject
         DependencyRows.Clear();
 
         if (Model.Dependencies == null)
+        {
+            RaisePropertyChanged(nameof(HasNoDependencyRows));
             return;
+        }
 
         foreach (var dependency in Model.Dependencies)
             DependencyRows.Add(new DependencyRowVm(this, dependency, TaskOptions));
+
+        RaisePropertyChanged(nameof(HasNoDependencyRows));
     }
 
     private string BuildScheduleSummary()

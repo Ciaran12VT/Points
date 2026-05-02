@@ -13,6 +13,17 @@ namespace Points.ViewModels.Home
         public ObservableCollection<ICardModel> VisibleCards { get; } = new();
         public ObservableCollection<DashboardCellModel> DashboardCells { get; } = new();
         public bool IsDashboard => Name == "Dashboard";
+        public string EmptyStateText => Name switch
+        {
+            "Dashboard" => "Create a card, then add a dashboard shortcut.",
+            "Main Quest" => "Create a TAT or SC card.",
+            "Mission" => "Create a mission card.",
+            "Budgets" => "Create a budget card.",
+            "Challenges & Pinned Achievements" => "Create or pin an achievement.",
+            "Arcs" => "Create a value or event tracker.",
+            "Goals" => "Configure goals to see progress here.",
+            _ => "Add an item."
+        };
         public bool IsCardReorderEnabled =>
             Name == "Main Quest" ||
             Name == "Budgets" ||

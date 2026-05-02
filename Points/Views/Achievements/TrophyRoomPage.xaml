@@ -13,6 +13,15 @@
         <CollectionView ItemsSource="{Binding Trophies}"
                         SelectionMode="None">
 
+            <CollectionView.EmptyView>
+                <Grid Padding="24">
+                    <Label Text="Earn an achievement to collect trophies."
+                           TextColor="Gray"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center" />
+                </Grid>
+            </CollectionView.EmptyView>
+
             <CollectionView.ItemsLayout>
                 <!-- 2 per row minimum -->
                 <GridItemsLayout Orientation="Vertical"

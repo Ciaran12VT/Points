@@ -92,6 +92,7 @@ namespace Points.ViewModels.Reports
     {
         public string Name { get; }
         public ObservableCollection<ReportModel> Cards { get; }
+        public string EmptyStateText => "Add a report.";
 
         public ReportsPageModel(string name, ObservableCollection<ReportModel> cards)
         {

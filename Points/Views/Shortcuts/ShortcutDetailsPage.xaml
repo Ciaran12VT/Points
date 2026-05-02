@@ -55,12 +55,17 @@
                            Text="Target Card"
                            FontAttributes="Bold"
                            VerticalOptions="Center"/>
-                    <Picker Grid.Column="1"
-                            Title="Select..."
-                            ItemsSource="{Binding TargetCardOptions}"
-                            ItemDisplayBinding="{Binding Title}"
-                            SelectedItem="{Binding SelectedTargetCard}"
-                            VerticalOptions="Center"/>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Picker Title="Select..."
+                                ItemsSource="{Binding TargetCardOptions}"
+                                ItemDisplayBinding="{Binding Title}"
+                                SelectedItem="{Binding SelectedTargetCard}"
+                                VerticalOptions="Center"/>
+                        <Label Text="{Binding TargetCardEmptyStateText}"
+                               TextColor="Gray"
+                               FontSize="12"
+                               IsVisible="{Binding HasNoTargetCardOptions}" />
+                    </VerticalStackLayout>
                 </Grid>
 
                 <!-- Shortcut Order -->

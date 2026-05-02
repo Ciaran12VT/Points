@@ -12,6 +12,15 @@
             ItemsSource="{Binding Rows}"
             SelectionMode="None">
 
+            <CollectionView.EmptyView>
+                <Grid Padding="24">
+                    <Label Text="No transactions yet. Use Spend or Cash In from the budget card."
+                           TextColor="Gray"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center" />
+                </Grid>
+            </CollectionView.EmptyView>
+
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid

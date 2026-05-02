@@ -38,6 +38,8 @@ public sealed class ShortcutDetailsViewModel : ObservableObject
         new(Enum.GetValues(typeof(TargetCardType)).Cast<TargetCardType>());
 
     public ObservableCollection<CardOption> TargetCardOptions { get; } = new();
+    public bool HasNoTargetCardOptions => TargetCardOptions.Count == 0;
+    public string TargetCardEmptyStateText => "No cards of this type yet.";
 
     // ---- Editable Fields ----
 
@@ -183,6 +185,8 @@ public sealed class ShortcutDetailsViewModel : ObservableObject
         // If current selected doesn't belong to new set, clear
         if (SelectedTargetCard != null && !TargetCardOptions.Any(x => x.CardId == SelectedTargetCard.CardId))
             SelectedTargetCard = null;
+
+        RaisePropertyChanged(nameof(HasNoTargetCardOptions));
     }
 
     private async Task EditGroupAsync()

@@ -197,6 +197,15 @@
                                 SelectionMode="None"
                                 Margin="0,4,0,0"
                                 IsVisible="{Binding IsValueRatesEnabled}">
+                    <CollectionView.EmptyView>
+                        <Grid Padding="16">
+                            <Label Text="Add a value rate for variable scoring."
+                                   TextColor="Gray"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center" />
+                        </Grid>
+                    </CollectionView.EmptyView>
+
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <Frame Padding="10"
