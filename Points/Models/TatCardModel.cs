@@ -16,6 +16,7 @@ namespace Points.Models
     {
         public int Id { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
 
         private string _title = "TAT Card";
         public string Title

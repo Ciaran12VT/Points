@@ -10,6 +10,7 @@ namespace Points.Models
     {
         public int Id { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         public string Title { get; set; } = "";
 
         public string Tags { get; set; } = "";

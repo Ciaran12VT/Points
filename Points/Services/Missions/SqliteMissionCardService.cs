@@ -24,6 +24,7 @@ public sealed class SqliteMissionCardService : IMissionCardService
             SELECT
                 m.MissionCardID         AS MissionCardID,
                 m.CardID                AS CardID,
+                c.DisplayOrder          AS DisplayOrder,
                 c.Title                 AS Title,
                 c.Tags                  AS Tags,
                 m.Status                AS Status,
@@ -61,6 +62,7 @@ public sealed class SqliteMissionCardService : IMissionCardService
             SELECT
                 m.MissionCardID         AS MissionCardID,
                 m.CardID                AS CardID,
+                c.DisplayOrder          AS DisplayOrder,
                 c.Title                 AS Title,
                 c.Tags                  AS Tags,
                 m.Status                AS Status,
@@ -235,6 +237,7 @@ public sealed class SqliteMissionCardService : IMissionCardService
         {
             Id = row.MissionCardID,
             CardID = row.CardID,
+            DisplayOrder = row.DisplayOrder,
             Title = row.Title ?? string.Empty,
             Tags = row.Tags ?? string.Empty,
             Status = row.Status ?? string.Empty,
@@ -343,6 +346,7 @@ public sealed class SqliteMissionCardService : IMissionCardService
     {
         public int MissionCardID { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
         public string? Status { get; set; }

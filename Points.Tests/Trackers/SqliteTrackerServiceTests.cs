@@ -221,6 +221,7 @@ public sealed class SqliteTrackerServiceTests
             await _db.ExecuteAsync("""
                 CREATE TABLE IF NOT EXISTS Card (
                     CardID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    DisplayOrder INTEGER NOT NULL DEFAULT 0,
                     Title TEXT NOT NULL,
                     Tags TEXT NOT NULL
                 );

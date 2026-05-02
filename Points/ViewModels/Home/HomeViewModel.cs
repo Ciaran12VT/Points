@@ -22,6 +22,7 @@ namespace Points.ViewModels.Home
         public event PropertyChangedEventHandler? PropertyChanged;
 
         private readonly IClock _clock;
+        private readonly ICardWriteService _cardWriter;
         private readonly HomePageStateCoordinator _pageState;
         private readonly HomeActivityInteractionCoordinator _activityInteraction;
         private readonly HomeCardLifecycleCoordinator _cardLifecycle;
@@ -72,6 +73,9 @@ namespace Points.ViewModels.Home
         public Command ScrollToDashboardCommand { get; }
 
         public Command<ShortcutModel> OpenShortcutDetailsCommand { get; }
+        public Command ToggleOrderModeCommand { get; }
+        public Command<ICardModel> MoveCardUpCommand { get; }
+        public Command<ICardModel> MoveCardDownCommand { get; }
 
         public ICommand AddTrackerValueCommand { get; }
         public ICommand AddTrackerValueAtSelectedTimeCommand { get; }
@@ -98,6 +102,20 @@ namespace Points.ViewModels.Home
         }
 
         public Command ToggleTopToolbarCommand { get; }
+
+        private bool _isOrderMode;
+        public bool IsOrderMode
+        {
+            get => _isOrderMode;
+            set
+            {
+                if (_isOrderMode == value)
+                    return;
+
+                _isOrderMode = value;
+                OnPropertyChanged(nameof(IsOrderMode));
+            }
+        }
 
 
 
@@ -365,6 +383,7 @@ namespace Points.ViewModels.Home
             IClock clock)
         {
             _clock = clock;
+            _cardWriter = cardWriter ?? throw new ArgumentNullException(nameof(cardWriter));
             _pageState = new HomePageStateCoordinator(Pages, clock);
             _dashboardShortcuts = new HomeDashboardShortcutWorkflowCoordinator(
                 shortcuts,
@@ -525,6 +544,12 @@ namespace Points.ViewModels.Home
             {
                 IsTopToolbarVisible = !IsTopToolbarVisible;
             });
+            ToggleOrderModeCommand = new Command(() =>
+            {
+                IsOrderMode = !IsOrderMode;
+            });
+            MoveCardUpCommand = new Command<ICardModel>(async card => await MoveCardByOffsetAsync(card, -1));
+            MoveCardDownCommand = new Command<ICardModel>(async card => await MoveCardByOffsetAsync(card, 1));
 
 
             AddTrackerValueCommand = new Command<TrackerCardModel>(async card => await AddTrackerValueWithMetadataAsync(card));
@@ -660,6 +685,49 @@ namespace Points.ViewModels.Home
         public async Task OpenExistingCardAsync(ICardModel model)
         {
             await _navigation.OpenExistingCardAsync(model);
+        }
+
+        public async Task ReorderCardsAsync(ICardModel? dragged, ICardModel? target)
+        {
+            if (dragged == null || target == null)
+                return;
+
+            var page = _pageState.FindPageContaining(dragged);
+            if (page == null || !page.IsCardReorderEnabled)
+                return;
+
+            if (!ReferenceEquals(page, _pageState.FindPageContaining(target)))
+                return;
+
+            if (!page.MoveCard(dragged, target))
+                return;
+
+            var persistedCards = page.AllCards
+                .Where(c => c.CardID > 0)
+                .ToList();
+
+            if (persistedCards.Count > 0)
+                await _cardWriter.SaveCardDisplayOrderAsync(persistedCards);
+        }
+
+        private async Task MoveCardByOffsetAsync(ICardModel? card, int offset)
+        {
+            if (card == null)
+                return;
+
+            var page = _pageState.FindPageContaining(card);
+            if (page == null || !page.IsCardReorderEnabled)
+                return;
+
+            if (!page.MoveCardByOffset(card, offset))
+                return;
+
+            var persistedCards = page.AllCards
+                .Where(c => c.CardID > 0)
+                .ToList();
+
+            if (persistedCards.Count > 0)
+                await _cardWriter.SaveCardDisplayOrderAsync(persistedCards);
         }
 
 

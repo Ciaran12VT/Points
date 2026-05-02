@@ -36,6 +36,7 @@ public sealed class SqliteAchievementService : IAchievementService
             SELECT
                 a.AchievementCardID         AS AchievementCardID,
                 a.CardID                    AS CardID,
+                c.DisplayOrder              AS DisplayOrder,
                 c.Title                     AS Title,
                 c.Tags                      AS Tags,
                 a.Status                    AS Status,
@@ -77,6 +78,7 @@ public sealed class SqliteAchievementService : IAchievementService
             SELECT
                 a.AchievementCardID         AS AchievementCardID,
                 a.CardID                    AS CardID,
+                c.DisplayOrder              AS DisplayOrder,
                 c.Title                     AS Title,
                 c.Tags                      AS Tags,
                 a.Status                    AS Status,
@@ -98,7 +100,8 @@ public sealed class SqliteAchievementService : IAchievementService
                 a.TrophyURLs                AS TrophyURLs,
                 a.IsPinned                  AS IsPinned
             FROM AchievementCard a
-            JOIN Card c ON c.CardID = a.CardID;";
+            JOIN Card c ON c.CardID = a.CardID
+            ORDER BY c.DisplayOrder, a.AchievementCardID;";
 
         var rows = await _context.Db.QueryAsync<AchievementCardJoinedRow>(sql);
         if (rows.Count == 0)
@@ -497,6 +500,7 @@ public sealed class SqliteAchievementService : IAchievementService
         {
             Id = row.AchievementCardID,
             CardID = row.CardID,
+            DisplayOrder = row.DisplayOrder,
             Title = row.Title ?? "",
             Tags = row.Tags ?? "",
             Status = row.Status ?? "",
@@ -1003,6 +1007,7 @@ public sealed class SqliteAchievementService : IAchievementService
     {
         public int AchievementCardID { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
         public string? Status { get; set; }

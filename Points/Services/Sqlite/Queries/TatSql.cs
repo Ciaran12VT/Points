@@ -6,6 +6,7 @@ namespace Points.Services.Sqlite.Queries
                 SELECT
                     t.TatCardID      AS TatCardID,
                     t.CardID         AS CardID,
+                    c.DisplayOrder   AS DisplayOrder,
 
                     c.Title          AS Title,
                     c.Tags           AS Tags,

@@ -29,6 +29,7 @@ public sealed class SqliteTrackerService : ITrackerService
             SELECT
                 vt.ValueTrackerCardID AS ValueTrackerCardID,
                 vt.CardID             AS CardID,
+                c.DisplayOrder        AS DisplayOrder,
                 c.Title               AS Title,
                 c.Tags                AS Tags,
                 vt.Status             AS Status,
@@ -61,6 +62,7 @@ public sealed class SqliteTrackerService : ITrackerService
             SELECT
                 vt.ValueTrackerCardID AS ValueTrackerCardID,
                 vt.CardID             AS CardID,
+                c.DisplayOrder        AS DisplayOrder,
                 c.Title               AS Title,
                 c.Tags                AS Tags,
                 vt.Status             AS Status,
@@ -75,7 +77,7 @@ public sealed class SqliteTrackerService : ITrackerService
         var hasCustomOrdering = HasCustomOrderingOrLimit(whereClause);
         sql = AppendWhereClause(sql, whereClause);
         if (!hasCustomOrdering)
-            sql += " ORDER BY vt.ValueTrackerCardID;";
+            sql += " ORDER BY c.DisplayOrder, vt.ValueTrackerCardID;";
 
         var rows = await _context.Db.QueryAsync<ValueTrackerJoinedRow>(sql);
         if (rows.Count == 0)
@@ -101,6 +103,7 @@ public sealed class SqliteTrackerService : ITrackerService
             SELECT
                 et.EventTrackerCardID AS EventTrackerCardID,
                 et.CardID             AS CardID,
+                c.DisplayOrder        AS DisplayOrder,
                 c.Title               AS Title,
                 c.Tags                AS Tags,
                 et.Status             AS Status,
@@ -131,6 +134,7 @@ public sealed class SqliteTrackerService : ITrackerService
             SELECT
                 et.EventTrackerCardID AS EventTrackerCardID,
                 et.CardID             AS CardID,
+                c.DisplayOrder        AS DisplayOrder,
                 c.Title               AS Title,
                 c.Tags                AS Tags,
                 et.Status             AS Status,
@@ -144,7 +148,7 @@ public sealed class SqliteTrackerService : ITrackerService
         var hasCustomOrdering = HasCustomOrderingOrLimit(whereClause);
         sql = AppendWhereClause(sql, whereClause);
         if (!hasCustomOrdering)
-            sql += " ORDER BY et.EventTrackerCardID;";
+            sql += " ORDER BY c.DisplayOrder, et.EventTrackerCardID;";
 
         var rows = await _context.Db.QueryAsync<EventTrackerJoinedRow>(sql);
         if (rows.Count == 0)
@@ -370,6 +374,7 @@ public sealed class SqliteTrackerService : ITrackerService
         {
             Id = row.ValueTrackerCardID,
             CardID = row.CardID,
+            DisplayOrder = row.DisplayOrder,
             Title = row.Title ?? string.Empty,
             Tags = row.Tags ?? string.Empty,
             Status = row.Status ?? string.Empty,
@@ -387,6 +392,7 @@ public sealed class SqliteTrackerService : ITrackerService
         {
             Id = row.EventTrackerCardID,
             CardID = row.CardID,
+            DisplayOrder = row.DisplayOrder,
             Title = row.Title ?? string.Empty,
             Tags = row.Tags ?? string.Empty,
             Status = row.Status ?? string.Empty,
@@ -475,6 +481,7 @@ public sealed class SqliteTrackerService : ITrackerService
     {
         public int ValueTrackerCardID { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
         public string? Status { get; set; }
@@ -489,6 +496,7 @@ public sealed class SqliteTrackerService : ITrackerService
     {
         public int EventTrackerCardID { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
         public string? Status { get; set; }

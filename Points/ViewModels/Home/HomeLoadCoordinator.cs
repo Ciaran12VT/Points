@@ -125,9 +125,15 @@ namespace Points.ViewModels.Home
                 achievements,
                 seed.Achievements
                     .Cast<AchievementCardModel>()
-                    .Where(x => x.IsPinned));
-            CommitCards(trackers, seed.ValueTrackers);
-            CommitCards(trackers, seed.EventTrackers);
+                    .Where(x => x.IsPinned)
+                    .OrderBy(x => x.DisplayOrder)
+                    .ThenBy(x => x.CardID));
+            CommitCards(
+                trackers,
+                seed.ValueTrackers
+                    .Concat(seed.EventTrackers)
+                    .OrderBy(x => x.DisplayOrder)
+                    .ThenBy(x => x.CardID));
 
             _activityInteraction.RestoreActiveCardFromOpenActivity(openActivity);
 

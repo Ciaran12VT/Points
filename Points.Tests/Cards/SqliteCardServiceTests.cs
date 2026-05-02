@@ -50,6 +50,27 @@ public sealed class SqliteCardServiceTests
     }
 
     [Fact]
+    public async Task SaveCardDisplayOrderAsync_PersistsSequentialOrder()
+    {
+        await using var context = new TestSqliteConnectionContext();
+        var harness = CreateHarness(context);
+        var first = new ScCardModel { Title = "First", Tags = "order" };
+        var second = new ScCardModel { Title = "Second", Tags = "order" };
+        var third = new ScCardModel { Title = "Third", Tags = "order" };
+
+        await harness.Service.SaveCardModelAsync(first);
+        await harness.Service.SaveCardModelAsync(second);
+        await harness.Service.SaveCardModelAsync(third);
+
+        await harness.Service.SaveCardDisplayOrderAsync(new ICardModel[] { third, first, second });
+
+        var ordered = await context.GetCardRowsByDisplayOrderAsync();
+        Assert.Equal(new[] { third.CardID, first.CardID, second.CardID }, ordered.Select(x => x.CardID));
+        Assert.Equal(new[] { 0, 1, 2 }, ordered.Select(x => x.DisplayOrder));
+        Assert.Equal(new[] { 0, 1, 2 }, new[] { third.DisplayOrder, first.DisplayOrder, second.DisplayOrder });
+    }
+
+    [Fact]
     public async Task DeleteCardModelAsync_RemovesBaseCardReferencesAndClearsModelIdentity()
     {
         await using var context = new TestSqliteConnectionContext();
@@ -474,6 +495,7 @@ public sealed class SqliteCardServiceTests
             await _db.ExecuteAsync("""
                 CREATE TABLE IF NOT EXISTS Card (
                     CardID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    DisplayOrder INTEGER NOT NULL DEFAULT 0,
                     Title TEXT NOT NULL,
                     Tags TEXT NOT NULL
                 );
@@ -628,9 +650,18 @@ public sealed class SqliteCardServiceTests
         {
             await InitializeAsync();
             return await Db.QueryAsync<CardRow>(
-                @"SELECT CardID, Title, Tags
+                @"SELECT CardID, DisplayOrder, Title, Tags
                   FROM Card
                   ORDER BY CardID;");
+        }
+
+        public async Task<List<CardRow>> GetCardRowsByDisplayOrderAsync()
+        {
+            await InitializeAsync();
+            return await Db.QueryAsync<CardRow>(
+                @"SELECT CardID, DisplayOrder, Title, Tags
+                  FROM Card
+                  ORDER BY DisplayOrder, CardID;");
         }
 
         public async Task InsertDeleteReferencesAsync(long cardId)
@@ -846,6 +877,7 @@ public sealed class SqliteCardServiceTests
     public sealed class CardRow
     {
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         public string Title { get; set; } = "";
         public string Tags { get; set; } = "";
     }

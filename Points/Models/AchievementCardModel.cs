@@ -25,6 +25,7 @@ namespace Points.Models
         }
 
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         
         private string _title = "New Achievement";
         public string Title { get => _title; set => SetProperty(ref _title, value); }

@@ -70,6 +70,7 @@ namespace Points.Services.Sqlite
                         conn.Execute(stmt);
                 });
 
+                await EnsureCardSchemaAsync();
                 await EnsureGoalSchemaAsync();
                 await EnsureAchievementCardSchemaAsync();
                 await EnsureTrackerCardSchemaAsync();
@@ -164,6 +165,24 @@ namespace Points.Services.Sqlite
             await RenameColumnIfNeededAsync("LockTaskDependency", "GoalValence", "TargetValence");
             await MigrateSettingKeyAsync("PlannersActive", "GoalsActive");
             await MigrateSettingKeyAsync("PlannersScreenOrder", "GoalsScreenOrder");
+        }
+
+        private async Task EnsureCardSchemaAsync()
+        {
+            if (_db == null)
+                throw new InvalidOperationException("Database must be initialized before schema migration.");
+
+            var cols = await Db.QueryAsync<PragmaTableInfo>("PRAGMA table_info(Card);");
+            var existing = cols
+                .Select(c => c.name)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (existing.Contains("DisplayOrder"))
+                return;
+
+            await Db.ExecuteAsync("ALTER TABLE Card ADD COLUMN DisplayOrder INTEGER NOT NULL DEFAULT 0;");
+            await Db.ExecuteAsync("UPDATE Card SET DisplayOrder = CardID WHERE DisplayOrder = 0;");
         }
 
         private async Task MigrateGoalTableAsync()

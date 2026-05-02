@@ -70,7 +70,7 @@
 
         <!-- TOP (IN-PAGE) TOOLBAR -->
         <Grid Grid.Row="0"
-              ColumnDefinitions="*,Auto"
+              ColumnDefinitions="*,Auto,Auto"
               Padding="12"
               Margin="0,8,0,0"
               IsVisible="{Binding IsTopToolbarVisible}"
@@ -130,8 +130,27 @@
 
             </HorizontalStackLayout>
 
-            <!-- Right-hand Settings button -->
+            <!-- Right-hand Order mode button -->
             <Button Grid.Column="1"
+                    Command="{Binding ToggleOrderModeCommand}"
+                    Text="↕"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0,0,8,0"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    VerticalOptions="Center">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsOrderMode}" Value="True">
+                        <Setter Property="BackgroundColor" Value="Green" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+
+            <!-- Right-hand Settings button -->
+            <Button Grid.Column="2"
             Command="{Binding OpenSettingsCommand}"
             Text="⚙️"
             WidthRequest="36"
@@ -384,13 +403,63 @@
                 
                 <cards:CardTemplateSelector.TatTemplate>
                     <DataTemplate>
-                        <cards:TatCardView />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:TatCardView Grid.Column="0" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
                     </DataTemplate>
                 </cards:CardTemplateSelector.TatTemplate>
 
                 <cards:CardTemplateSelector.ScTemplate>
                     <DataTemplate>
-                        <cards:ScCardView />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:ScCardView Grid.Column="0" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
                     </DataTemplate>
                 </cards:CardTemplateSelector.ScTemplate>
 
@@ -402,7 +471,32 @@
 
                 <cards:CardTemplateSelector.BudgetTemplate>
                     <DataTemplate>
-                        <cards:BudgetCardView />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:BudgetCardView Grid.Column="0" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
                     </DataTemplate>
                 </cards:CardTemplateSelector.BudgetTemplate>
 
@@ -425,19 +519,70 @@
 
                 <cards:CardTemplateSelector.AchievementTemplate>
                     <DataTemplate>
-                        <cards:AchievementCardView />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:AchievementCardView Grid.Column="0" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
                     </DataTemplate>
                 </cards:CardTemplateSelector.AchievementTemplate>
 
                 <cards:CardTemplateSelector.TrackerTemplate>
                     <DataTemplate>
-                        <cards:TrackerCardView
-                            Title="{Binding Title}"
-                            Unit="{Binding Unit}"
-                            Values="{Binding Values}"
-                            FirstRecordedDate="{Binding FirstRecordedDate}"
-                            AddValueCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueCommand}"
-                            AddValueAtSelectedTimeCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueAtSelectedTimeCommand}"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:TrackerCardView
+                                Grid.Column="0"
+                                Title="{Binding Title}"
+                                Unit="{Binding Unit}"
+                                Values="{Binding Values}"
+                                FirstRecordedDate="{Binding FirstRecordedDate}"
+                                AddValueCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueCommand}"
+                                AddValueAtSelectedTimeCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueAtSelectedTimeCommand}"/>
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
 
                     </DataTemplate>
                 </cards:CardTemplateSelector.TrackerTemplate>

@@ -10,6 +10,7 @@ namespace Points.Services.Persistence
     public interface ICardWriteService
     {
         Task SaveCardModelAsync(ICardModel model);
+        Task SaveCardDisplayOrderAsync(IReadOnlyList<ICardModel> orderedCards);
         Task<bool> WouldArchiveCardModelOnDeleteAsync(ICardModel model);
         Task DeleteCardModelAsync(ICardModel model);
     }

@@ -29,6 +29,7 @@ public sealed class SqliteScCardService : IScCardService
             SELECT
                 s.ScCardID     AS ScCardID,
                 s.CardID       AS CardID,
+                c.DisplayOrder AS DisplayOrder,
                 c.Title        AS Title,
                 c.Tags         AS Tags,
                 s.Status       AS Status,
@@ -59,12 +60,14 @@ public sealed class SqliteScCardService : IScCardService
             SELECT
                 s.ScCardID     AS ScCardID,
                 s.CardID       AS CardID,
+                c.DisplayOrder AS DisplayOrder,
                 c.Title        AS Title,
                 c.Tags         AS Tags,
                 s.Status       AS Status,
                 s.Description  AS Description
             FROM ScCard s
-            JOIN Card c ON c.CardID = s.CardID;";
+            JOIN Card c ON c.CardID = s.CardID
+            ORDER BY c.DisplayOrder, s.ScCardID;";
 
         var rows = await _context.Db.QueryAsync<ScCardJoinedRow>(sql);
         if (rows.Count == 0)
@@ -358,6 +361,7 @@ public sealed class SqliteScCardService : IScCardService
         {
             Id = row.ScCardID,
             CardID = row.CardID,
+            DisplayOrder = row.DisplayOrder,
             Title = row.Title ?? string.Empty,
             Tags = row.Tags ?? string.Empty,
             Status = row.Status ?? string.Empty,
@@ -481,6 +485,7 @@ public sealed class SqliteScCardService : IScCardService
     {
         public int ScCardID { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
         public string? Status { get; set; }

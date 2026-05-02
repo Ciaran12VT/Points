@@ -250,6 +250,7 @@ namespace Points.ViewModels.Goals
         public int Id { get; set; }
 
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
 
         public string Title { get; set; }
 
@@ -268,6 +269,7 @@ namespace Points.ViewModels.Goals
 
             Id = card.Id;
             CardID = card.CardID;
+            DisplayOrder = card.DisplayOrder;
             this.Title = card.Title;
             this.Tags = card.Tags;
 

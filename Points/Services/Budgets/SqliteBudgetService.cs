@@ -25,6 +25,7 @@ public sealed class SqliteBudgetService : IBudgetService
             SELECT
                 b.BudgetCardID     AS BudgetCardID,
                 b.CardID           AS CardID,
+                c.DisplayOrder      AS DisplayOrder,
                 c.Title            AS Title,
                 c.Tags             AS Tags,
                 b.Status           AS Status,
@@ -57,6 +58,7 @@ public sealed class SqliteBudgetService : IBudgetService
             SELECT
                 b.BudgetCardID     AS BudgetCardID,
                 b.CardID           AS CardID,
+                c.DisplayOrder      AS DisplayOrder,
                 c.Title            AS Title,
                 c.Tags             AS Tags,
                 b.Status           AS Status,
@@ -68,21 +70,10 @@ public sealed class SqliteBudgetService : IBudgetService
             FROM BudgetCard b
             JOIN Card c ON c.CardID = b.CardID";
 
-        if (!string.IsNullOrWhiteSpace(whereClause))
-        {
-            var wc = whereClause.Trim();
-
-            if (wc.StartsWith("WHERE", StringComparison.OrdinalIgnoreCase) ||
-                wc.StartsWith("ORDER BY", StringComparison.OrdinalIgnoreCase) ||
-                wc.StartsWith("LIMIT", StringComparison.OrdinalIgnoreCase))
-            {
-                sql += " " + wc;
-            }
-            else
-            {
-                sql += " WHERE " + wc;
-            }
-        }
+        var hasCustomOrdering = HasCustomOrderingOrLimit(whereClause);
+        sql = AppendWhereClause(sql, whereClause);
+        if (!hasCustomOrdering)
+            sql += " ORDER BY c.DisplayOrder, b.BudgetCardID;";
 
         var rows = await _context.Db.QueryAsync<BudgetCardJoinedRow>(sql);
         if (rows.Count == 0)
@@ -339,6 +330,7 @@ public sealed class SqliteBudgetService : IBudgetService
         {
             Id = row.BudgetCardID,
             CardID = row.CardID,
+            DisplayOrder = row.DisplayOrder,
             Title = row.Title ?? string.Empty,
             Tags = row.Tags ?? string.Empty,
             Status = row.Status ?? string.Empty,
@@ -386,6 +378,35 @@ public sealed class SqliteBudgetService : IBudgetService
             : BudgetTransactionType.Spend;
     }
 
+    private static string AppendWhereClause(string sql, string? whereClause)
+    {
+        if (string.IsNullOrWhiteSpace(whereClause))
+            return sql;
+
+        var wc = whereClause.Trim();
+
+        if (wc.StartsWith("WHERE", StringComparison.OrdinalIgnoreCase) ||
+            wc.StartsWith("ORDER BY", StringComparison.OrdinalIgnoreCase) ||
+            wc.StartsWith("LIMIT", StringComparison.OrdinalIgnoreCase))
+        {
+            return sql + " " + wc;
+        }
+
+        return sql + " WHERE " + wc;
+    }
+
+    private static bool HasCustomOrderingOrLimit(string? whereClause)
+    {
+        if (string.IsNullOrWhiteSpace(whereClause))
+            return false;
+
+        var wc = whereClause.Trim();
+        return wc.StartsWith("ORDER BY", StringComparison.OrdinalIgnoreCase) ||
+               wc.StartsWith("LIMIT", StringComparison.OrdinalIgnoreCase) ||
+               wc.Contains(" ORDER BY ", StringComparison.OrdinalIgnoreCase) ||
+               wc.Contains(" LIMIT ", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static DateTime ParseLocalDateTime(string value)
     {
         return LegacyTimeReader.ReadLocalDateTime(value).LocalDateTime;
@@ -417,6 +438,7 @@ public sealed class SqliteBudgetService : IBudgetService
     {
         public int BudgetCardID { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
         public string? Status { get; set; }

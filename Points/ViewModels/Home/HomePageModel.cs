@@ -13,6 +13,11 @@ namespace Points.ViewModels.Home
         public ObservableCollection<ICardModel> VisibleCards { get; } = new();
         public ObservableCollection<DashboardCellModel> DashboardCells { get; } = new();
         public bool IsDashboard => Name == "Dashboard";
+        public bool IsCardReorderEnabled =>
+            Name == "Main Quest" ||
+            Name == "Budgets" ||
+            Name == "Challenges & Pinned Achievements" ||
+            Name == "Arcs";
 
         public HomePageModel(string name, IEnumerable<ICardModel> cards, string icon, int fontSize)
         {
@@ -47,6 +52,9 @@ namespace Points.ViewModels.Home
 
         public void AddCard(ICardModel card)
         {
+            if (IsCardReorderEnabled && card.CardID == 0 && card.DisplayOrder == 0 && AllCards.Count > 0)
+                card.DisplayOrder = AllCards.Max(c => c.DisplayOrder) + 1;
+
             AllCards.Add(card);
             VisibleCards.Add(card);
         }
@@ -90,6 +98,66 @@ namespace Points.ViewModels.Home
         {
             AllCards.Remove(card);
             VisibleCards.Remove(card);
+        }
+
+        public bool MoveCard(ICardModel dragged, ICardModel target)
+        {
+            if (!IsCardReorderEnabled)
+                return false;
+
+            if (dragged == null || target == null || ReferenceEquals(dragged, target))
+                return false;
+
+            if (!AllCards.Contains(dragged) || !AllCards.Contains(target))
+                return false;
+
+            MoveWithin(AllCards, dragged, target);
+
+            if (VisibleCards.Contains(dragged) && VisibleCards.Contains(target))
+                MoveWithin(VisibleCards, dragged, target);
+
+            NormalizeDisplayOrder();
+            return true;
+        }
+
+        public bool MoveCardByOffset(ICardModel card, int offset)
+        {
+            if (!IsCardReorderEnabled || card == null || offset == 0)
+                return false;
+
+            var visibleIndex = VisibleCards.IndexOf(card);
+            if (visibleIndex >= 0)
+            {
+                var visibleTargetIndex = visibleIndex + offset;
+                if (visibleTargetIndex < 0 || visibleTargetIndex >= VisibleCards.Count)
+                    return false;
+
+                return MoveCard(card, VisibleCards[visibleTargetIndex]);
+            }
+
+            var allIndex = AllCards.IndexOf(card);
+            var targetIndex = allIndex + offset;
+            if (allIndex < 0 || targetIndex < 0 || targetIndex >= AllCards.Count)
+                return false;
+
+            return MoveCard(card, AllCards[targetIndex]);
+        }
+
+        public void NormalizeDisplayOrder()
+        {
+            for (var i = 0; i < AllCards.Count; i++)
+                AllCards[i].DisplayOrder = i;
+        }
+
+        private static void MoveWithin(ObservableCollection<ICardModel> collection, ICardModel dragged, ICardModel target)
+        {
+            var oldIndex = collection.IndexOf(dragged);
+            var newIndex = collection.IndexOf(target);
+
+            if (oldIndex < 0 || newIndex < 0 || oldIndex == newIndex)
+                return;
+
+            collection.Move(oldIndex, newIndex);
         }
     }
 }

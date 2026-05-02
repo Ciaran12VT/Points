@@ -17,9 +17,10 @@ namespace Points.Services.Sqlite
                 -- Core / base entity
                 -- =========================
                 CREATE TABLE IF NOT EXISTS Card (
-                    CardID   INTEGER PRIMARY KEY,
-                    Title    TEXT    NOT NULL DEFAULT '',
-                    Tags     TEXT    NOT NULL DEFAULT ''
+                    CardID       INTEGER PRIMARY KEY,
+                    DisplayOrder INTEGER NOT NULL DEFAULT 0,
+                    Title        TEXT    NOT NULL DEFAULT '',
+                    Tags         TEXT    NOT NULL DEFAULT ''
                 );
 
                 -- =========================

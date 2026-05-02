@@ -43,6 +43,23 @@ namespace Points.ViewModels.Achievements
         public Command AddAchievementCommand { get; }
         public Command OpenTrophyRoomCommand { get; }
         public Command<AchievementCardModel> OpenAchievementDetailsCommand { get; }
+        public Command ToggleOrderModeCommand { get; }
+        public Command<AchievementCardModel> MoveAchievementUpCommand { get; }
+        public Command<AchievementCardModel> MoveAchievementDownCommand { get; }
+
+        private bool _isOrderMode;
+        public bool IsOrderMode
+        {
+            get => _isOrderMode;
+            set
+            {
+                if (_isOrderMode == value)
+                    return;
+
+                _isOrderMode = value;
+                OnPropertyChanged(nameof(IsOrderMode));
+            }
+        }
 
         private AchievementsPageModel CurrentPage => Pages[Math.Clamp(Position, 0, Pages.Count - 1)];
 
@@ -180,6 +197,12 @@ namespace Points.ViewModels.Achievements
             AddAchievementCommand = new Command(async () => await AddAchievementAsync());
             OpenTrophyRoomCommand = new Command(async () => await OpenTrophyRoomAsync());
             OpenAchievementDetailsCommand = new Command<AchievementCardModel>(async model => await OpenAchievementDetailsAsync(model));
+            ToggleOrderModeCommand = new Command(() =>
+            {
+                IsOrderMode = !IsOrderMode;
+            });
+            MoveAchievementUpCommand = new Command<AchievementCardModel>(async card => await MoveCardByOffsetAsync(card, -1));
+            MoveAchievementDownCommand = new Command<AchievementCardModel>(async card => await MoveCardByOffsetAsync(card, 1));
 
             var dispatcher = Application.Current?.Dispatcher
                 ?? throw new InvalidOperationException("Application dispatcher is not available.");
@@ -333,6 +356,45 @@ namespace Points.ViewModels.Achievements
             }
         }
 
+        public async Task ReorderCardsAsync(AchievementCardModel? dragged, AchievementCardModel? target)
+        {
+            if (dragged == null || target == null)
+                return;
+
+            var page = Pages.FirstOrDefault(p => p.Cards.Contains(dragged));
+            if (page == null || !ReferenceEquals(page, Pages.FirstOrDefault(p => p.Cards.Contains(target))))
+                return;
+
+            if (!page.MoveCard(dragged, target))
+                return;
+
+            var persistedCards = page.Cards
+                .Where(c => c.CardID > 0)
+                .Cast<ICardModel>()
+                .ToList();
+
+            if (persistedCards.Count > 0)
+                await _cardWriter.SaveCardDisplayOrderAsync(persistedCards);
+        }
+
+        private async Task MoveCardByOffsetAsync(AchievementCardModel? card, int offset)
+        {
+            if (card == null)
+                return;
+
+            var page = Pages.FirstOrDefault(p => p.Cards.Contains(card));
+            if (page == null || !page.MoveCardByOffset(card, offset))
+                return;
+
+            var persistedCards = page.Cards
+                .Where(c => c.CardID > 0)
+                .Cast<ICardModel>()
+                .ToList();
+
+            if (persistedCards.Count > 0)
+                await _cardWriter.SaveCardDisplayOrderAsync(persistedCards);
+        }
+
         private async Task CommitCardToDb(ICardModel card)
         {
             await _cardWriter.SaveCardModelAsync(card);
@@ -416,12 +478,50 @@ namespace Points.ViewModels.Achievements
         }
         public void AddCard(AchievementCardModel card)
         {
+            if (card.CardID == 0 && card.DisplayOrder == 0 && Cards.Count > 0)
+                card.DisplayOrder = Cards.Max(c => c.DisplayOrder) + 1;
+
             Cards.Add(card);
         }
 
         public void RemoveCard(AchievementCardModel card)
         {
             Cards.Remove(card);
+        }
+
+        public bool MoveCard(AchievementCardModel dragged, AchievementCardModel target)
+        {
+            if (dragged == null || target == null || ReferenceEquals(dragged, target))
+                return false;
+
+            var oldIndex = Cards.IndexOf(dragged);
+            var newIndex = Cards.IndexOf(target);
+
+            if (oldIndex < 0 || newIndex < 0 || oldIndex == newIndex)
+                return false;
+
+            Cards.Move(oldIndex, newIndex);
+            NormalizeDisplayOrder();
+            return true;
+        }
+
+        public bool MoveCardByOffset(AchievementCardModel card, int offset)
+        {
+            if (card == null || offset == 0)
+                return false;
+
+            var index = Cards.IndexOf(card);
+            var targetIndex = index + offset;
+            if (index < 0 || targetIndex < 0 || targetIndex >= Cards.Count)
+                return false;
+
+            return MoveCard(card, Cards[targetIndex]);
+        }
+
+        private void NormalizeDisplayOrder()
+        {
+            for (var i = 0; i < Cards.Count; i++)
+                Cards[i].DisplayOrder = i;
         }
     }
 }

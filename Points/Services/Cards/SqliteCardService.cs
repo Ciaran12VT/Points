@@ -67,17 +67,23 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
 
         var budget = (await _budgets.GetBudgetCardModelsDataAsync())
             .Where(IsNotArchived)
+            .OrderBy(c => c.DisplayOrder)
+            .ThenBy(c => c.CardID)
             .ToList();
-        var achievements = await _achievements.GetAchievementCardModelsDataAsync();
+        var achievements = SortByDisplayOrder(await _achievements.GetAchievementCardModelsDataAsync());
 
         await _achievements.PopulateAchievementsAsync(achievements, mainQuest, mission);
         await PopulateLocksAsync(mainQuest, mission);
 
         var valueTrackers = (await _trackers.GetValueTrackerCardModelsDataAsync())
             .Where(IsNotArchived)
+            .OrderBy(c => c.DisplayOrder)
+            .ThenBy(c => c.CardID)
             .ToList();
         var eventTrackers = (await _trackers.GetEventTrackerCardModelsDataAsync())
             .Where(IsNotArchived)
+            .OrderBy(c => c.DisplayOrder)
+            .ThenBy(c => c.CardID)
             .ToList();
 
         return new HomeSeedData
@@ -104,7 +110,7 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
         mainQuest.AddRange(tats);
         mainQuest.AddRange(scs);
 
-        return mainQuest;
+        return SortByDisplayOrder(mainQuest).ToList();
     }
 
     public Task<List<MissionCardModel>> GetMissionCardModelsDataAsync(string? whereClause = null)
@@ -147,7 +153,8 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
             if (cardId == null)
             {
                 await _context.Db.ExecuteAsync(
-                    "INSERT INTO Card (Title, Tags) VALUES (?, ?);",
+                    "INSERT INTO Card (DisplayOrder, Title, Tags) VALUES (?, ?, ?);",
+                    model.DisplayOrder,
                     model.Title,
                     model.Tags);
 
@@ -156,7 +163,8 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
             else
             {
                 await _context.Db.ExecuteAsync(
-                    "UPDATE Card SET Title = ?, Tags = ? WHERE CardID = ?;",
+                    "UPDATE Card SET DisplayOrder = ?, Title = ?, Tags = ? WHERE CardID = ?;",
+                    model.DisplayOrder,
                     model.Title,
                     model.Tags,
                     cardId.Value);
@@ -166,6 +174,30 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
 
             await SaveSubtypeAsync(model, cardId.Value);
         }
+    }
+
+    public async Task SaveCardDisplayOrderAsync(IReadOnlyList<ICardModel> orderedCards)
+    {
+        if (orderedCards == null)
+            throw new ArgumentNullException(nameof(orderedCards));
+
+        await _context.InitializeAsync();
+
+        await _context.RunInTransactionAsync(conn =>
+        {
+            for (var i = 0; i < orderedCards.Count; i++)
+            {
+                var card = orderedCards[i];
+                if (card == null || card.CardID <= 0)
+                    continue;
+
+                card.DisplayOrder = i;
+                conn.Execute(
+                    "UPDATE Card SET DisplayOrder = ? WHERE CardID = ?;",
+                    card.DisplayOrder,
+                    card.CardID);
+            }
+        });
     }
 
     public async Task DeleteCardModelAsync(ICardModel model)
@@ -499,6 +531,16 @@ public sealed class SqliteCardService : ICardReadService, ICardWriteService, IPl
     private static bool IsArchivedStatus(string? status)
     {
         return string.Equals(status?.Trim(), ArchivedStatus, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<TCard> SortByDisplayOrder<TCard>(IEnumerable<TCard> cards)
+        where TCard : ICardModel
+    {
+        return cards
+            .OrderBy(c => c.DisplayOrder)
+            .ThenBy(c => c.CardID)
+            .ThenBy(c => c.Id)
+            .ToList();
     }
 
     private sealed class CardTitleRow

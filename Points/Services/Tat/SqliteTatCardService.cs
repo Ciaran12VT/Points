@@ -47,6 +47,7 @@ public sealed class SqliteTatCardService : ITatCardService
             SELECT
                 t.TatCardID                 AS TatCardID,
                 t.CardID                    AS CardID,
+                c.DisplayOrder              AS DisplayOrder,
                 c.Title                     AS Title,
                 c.Tags                      AS Tags,
                 t.ValuePerMinute            AS ValuePerMinute,
@@ -54,7 +55,8 @@ public sealed class SqliteTatCardService : ITatCardService
                 t.Description               AS Description,
                 t.TargetActiveTimeSeconds   AS TargetActiveTimeSeconds
             FROM TatCard t
-            JOIN Card c ON c.CardID = t.CardID;";
+            JOIN Card c ON c.CardID = t.CardID
+            ORDER BY c.DisplayOrder, t.TatCardID;";
 
         var rows = await _context.Db.QueryAsync<TatCardJoinedRow>(sql);
         if (rows.Count == 0)
@@ -290,6 +292,7 @@ public sealed class SqliteTatCardService : ITatCardService
         {
             Id = row.TatCardID,
             CardID = row.CardID,
+            DisplayOrder = row.DisplayOrder,
             Title = row.Title ?? string.Empty,
             Tags = row.Tags ?? string.Empty,
             ValuePerMinute = row.ValuePerMinute,
@@ -405,6 +408,7 @@ public sealed class SqliteTatCardService : ITatCardService
     {
         public int TatCardID { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
         public double ValuePerMinute { get; set; }
