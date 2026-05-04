@@ -24,6 +24,7 @@ public partial class SettingsPage : ContentPage
     public Command OpenDatabaseSettingsCommand { get; }
     public Command OpenMultipliersSettingsCommand { get; }
     public Command OpenModulesAndFeaturesSettingsCommand { get; }
+    public Command OpenDefaultsAndMiscSettingsCommand { get; }
     public Command OpenNotificationsLogCommand { get; }
 
     public SettingsPage(
@@ -44,6 +45,7 @@ public partial class SettingsPage : ContentPage
         OpenDatabaseSettingsCommand = new Command(async () => await OpenDatabaseSettingsAsync());
         OpenMultipliersSettingsCommand = new Command(async () => await OpenMultipliersSettingsAsync());
         OpenModulesAndFeaturesSettingsCommand = new Command(async () => await OpenModulesAndFeaturesSettingsAsync());
+        OpenDefaultsAndMiscSettingsCommand = new Command(async () => await OpenDefaultsAndMiscSettingsAsync());
         OpenNotificationsLogCommand = new Command(async () => await OpenNotificationsLogAsync());
 
         InitializeComponent();
@@ -86,6 +88,11 @@ public partial class SettingsPage : ContentPage
     private async Task OpenModulesAndFeaturesSettingsAsync()
     {
         await _navigation.PushAsync(new ModulesAndFeaturesSettingsPage(_settings, _navigation));
+    }
+
+    private async Task OpenDefaultsAndMiscSettingsAsync()
+    {
+        await _navigation.PushAsync(new DefaultsAndMiscSettingsPage(_settings, _navigation));
     }
 
     private async Task OpenNotificationsLogAsync()

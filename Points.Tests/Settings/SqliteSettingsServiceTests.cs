@@ -23,10 +23,15 @@ namespace Points.Tests.Settings
 
             var settings = await service.GetSettingsAsync();
             var hardMode = Assert.Single(settings, x => x.SettingKey == SettingKeys.HardModeEnabled);
+            var username = Assert.Single(settings, x => x.SettingKey == SettingKeys.Username);
+            var eventOffset = Assert.Single(settings, x => x.SettingKey == SettingKeys.MissionDefaultEventDateOffsetDays);
 
             Assert.True(hardMode.BoolValue);
             Assert.Equal("Multipliers", hardMode.Category);
             Assert.Equal("Hard Mode", hardMode.DisplayName);
+            Assert.Equal("DefaultsAndMisc", username.Category);
+            Assert.Equal(SettingValueTypes.NullableInt, eventOffset.ValueType);
+            Assert.Null(eventOffset.IntValue);
             Assert.DoesNotContain(settings, x => x.SettingKey == "RemovedSetting");
         }
 

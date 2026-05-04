@@ -149,6 +149,9 @@
 	  <MauiXaml Update="Views\Settings\DatabaseSettingsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Views\Settings\DefaultsAndMiscSettingsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Views\Settings\ModulesAndFeaturesSettingsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
@@ -183,6 +186,9 @@
 
 	<ItemGroup>
 	  <None Update="Views\Settings\DatabaseSettingsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </None>
+	  <None Update="Views\Settings\DefaultsAndMiscSettingsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </None>
 	  <None Update="Views\Settings\ModulesAndFeaturesSettingsPage.xaml">

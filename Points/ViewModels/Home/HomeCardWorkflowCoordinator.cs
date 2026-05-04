@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using Points.Global;
 using Points.Models;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
@@ -281,7 +282,7 @@ namespace Points.ViewModels.Home
         {
             var now = _clock.LocalNow;
 
-            return new MissionCardModel
+            var mission = new MissionCardModel
             {
                 Title = "",
                 Status = "In-Progress",
@@ -293,6 +294,9 @@ namespace Points.ViewModels.Home
                 DueDate = now.AddDays(1),
                 Description = ""
             };
+
+            SettingsProvider.ApplyMissionDefaults(mission, now);
+            return mission;
         }
 
         private BudgetCardModel CreateDefaultBudget()

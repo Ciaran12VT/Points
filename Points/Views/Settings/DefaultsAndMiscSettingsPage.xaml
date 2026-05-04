@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Settings.DefaultsAndMiscSettingsPage"
+             Title="Defaults and Misc">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="12">
+
+                <Frame Padding="12"
+                       CornerRadius="12"
+                       HasShadow="False"
+                       BorderColor="#DDDDDD">
+
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Defaults and Misc"
+                               FontAttributes="Bold"
+                               FontSize="18" />
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="Username"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding UsernameText}"
+                                   Placeholder="Username" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <Frame Padding="12"
+                       CornerRadius="12"
+                       HasShadow="False"
+                       BorderColor="#DDDDDD">
+
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Mission Defaults"
+                               FontAttributes="Bold"
+                               FontSize="18" />
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="Tags"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding MissionTagsText}"
+                                   Placeholder="Tags" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="SubType"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Picker Grid.Column="1"
+                                    ItemsSource="{Binding MissionSubTypeOptions}"
+                                    SelectedItem="{Binding SelectedMissionSubType}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="Value"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding MissionValueText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Value" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="Value Per Minute"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding MissionValuePerMinuteText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Value Per Minute" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+                              ColumnSpacing="8"
+                              VerticalOptions="Center">
+                            <Label Text="Event Date"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Label Grid.Column="1"
+                                   Text="Today +"
+                                   VerticalOptions="Center"
+                                   Opacity="0.7" />
+
+                            <Entry Grid.Column="2"
+                                   Text="{Binding EventDateOffsetDaysText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="0" />
+
+                            <Label Grid.Column="3"
+                                   Text="days"
+                                   VerticalOptions="Center"
+                                   Opacity="0.7" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="Event Time"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding EventTimeText}"
+                                   Placeholder="09:00" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="Event Is Checked"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding EventIsChecked}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+                              ColumnSpacing="8"
+                              VerticalOptions="Center">
+                            <Label Text="Available From Date"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Label Grid.Column="1"
+                                   Text="Today +"
+                                   VerticalOptions="Center"
+                                   Opacity="0.7" />
+
+                            <Entry Grid.Column="2"
+                                   Text="{Binding AvailableFromDateOffsetDaysText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="0" />
+
+                            <Label Grid.Column="3"
+                                   Text="days"
+                                   VerticalOptions="Center"
+                                   Opacity="0.7" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="Available From Time"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding AvailableFromTimeText}"
+                                   Placeholder="09:00" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+                              ColumnSpacing="8"
+                              VerticalOptions="Center">
+                            <Label Text="Due By Date"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Label Grid.Column="1"
+                                   Text="Today +"
+                                   VerticalOptions="Center"
+                                   Opacity="0.7" />
+
+                            <Entry Grid.Column="2"
+                                   Text="{Binding DueByDateOffsetDaysText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="1" />
+
+                            <Label Grid.Column="3"
+                                   Text="days"
+                                   VerticalOptions="Center"
+                                   Opacity="0.7" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="Due By Time"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding DueByTimeText}"
+                                   Placeholder="17:00" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12"
+                              VerticalOptions="Center">
+                            <Label Text="Estimated Time"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding EstimatedTimeText}"
+                                   Placeholder="1:30:00" />
+                        </Grid>
+
+                    </VerticalStackLayout>
+                </Frame>
+
+                <Label Text="Value fields must be valid numbers."
+                       TextColor="#B00020"
+                       FontSize="12"
+                       IsVisible="{Binding HasInvalidNumbers}" />
+
+                <Label Text="Relative date fields must be whole numbers."
+                       TextColor="#B00020"
+                       FontSize="12"
+                       IsVisible="{Binding HasInvalidDateOffsets}" />
+
+                <Label Text="Time fields must be valid times."
+                       TextColor="#B00020"
+                       FontSize="12"
+                       IsVisible="{Binding HasInvalidTimes}" />
+
+                <Label Text="Estimated time must be a valid duration."
+                       TextColor="#B00020"
+                       FontSize="12"
+                       IsVisible="{Binding HasInvalidEstimatedTime}" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button Grid.Row="1"
+                Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48" />
+
+    </Grid>
+</ContentPage>
