@@ -56,6 +56,52 @@ public sealed class SqliteMissionCardService : IMissionCardService
         return model;
     }
 
+    public async Task<MissionCardModel?> GetMissionCardModelByGuidAsync(Guid missionGuid)
+    {
+        if (missionGuid == Guid.Empty)
+            return null;
+
+        await _context.InitializeAsync();
+
+        const string sql = @"
+            SELECT
+                m.MissionCardID         AS MissionCardID,
+                m.CardID                AS CardID,
+                m.MissionGuid           AS MissionGuid,
+                c.DisplayOrder          AS DisplayOrder,
+                c.Title                 AS Title,
+                c.Tags                  AS Tags,
+                m.Status                AS Status,
+                m.Description           AS Description,
+                m.SharedWith            AS SharedWith,
+                m.SubType               AS SubType,
+                m.Value                 AS Value,
+                m.CreatedDate           AS CreatedDate,
+                m.AvailableFromDate     AS AvailableFromDate,
+                m.DueDate               AS DueDate,
+                m.CompletedDate         AS CompletedDate,
+                m.EventDate             AS EventDate,
+                m.EstCompletionTimeText AS EstCompletionTimeText,
+                m.IsFailed              AS IsFailed,
+                m.ValuePerMinute        AS ValuePerMinute
+            FROM MissionCard m
+            JOIN Card c ON c.CardID = m.CardID
+            WHERE m.MissionGuid = ?
+            LIMIT 1;";
+
+        var row = (await _context.Db.QueryAsync<MissionCardJoinedRow>(
+            sql,
+            missionGuid.ToString("D"))).FirstOrDefault();
+
+        if (row == null)
+            return null;
+
+        var model = MapMissionRowToModel(row);
+        await LoadActivityAsync(model);
+
+        return model;
+    }
+
     public async Task<List<MissionCardModel>> GetMissionCardModelsDataAsync(string? whereClause = null)
     {
         await _context.InitializeAsync();

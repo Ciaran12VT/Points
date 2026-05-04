@@ -427,6 +427,23 @@ namespace Points.Models
             CompleteCommand.ChangeCanExecute();
         }
 
+        public void ApplyCompletionState(string? status, bool isFailed, DateTime? completedDate)
+        {
+            IsFailed = isFailed;
+            CompletedDate = completedDate;
+            IsComplete = completedDate.HasValue ||
+                isFailed ||
+                string.Equals(status, "Complete", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "Failed", StringComparison.OrdinalIgnoreCase);
+
+            if (string.IsNullOrWhiteSpace(status))
+                Status = isFailed ? "Failed" : IsComplete ? "Complete" : "In-Progress";
+            else
+                Status = status;
+
+            CompleteCommand.ChangeCanExecute();
+        }
+
         public DateTime GetLastActiveTime()
         {
             if (IsActive) return ActivityTimeMath.UtcNow;

@@ -1,6 +1,7 @@
 using Microsoft.Maui.Controls;
 using Points.Global;
 using Points.Models;
+using Points.Services.MissionSharing;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Time;
@@ -21,6 +22,7 @@ namespace Points.ViewModels.Home
         private readonly IUdmdService _udmd;
         private readonly IClock _clock;
         private readonly ITimeZoneService _timeZoneService;
+        private readonly IMissionShareService _missionShares;
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
         private readonly HomeCardLifecycleCoordinator _cardLifecycle;
@@ -34,6 +36,7 @@ namespace Points.ViewModels.Home
             IUdmdService udmd,
             IClock clock,
             ITimeZoneService timeZoneService,
+            IMissionShareService missionShares,
             IAppNavigationService navigation,
             IAppDialogService dialogs,
             HomeCardLifecycleCoordinator cardLifecycle,
@@ -46,6 +49,7 @@ namespace Points.ViewModels.Home
             _udmd = udmd;
             _clock = clock;
             _timeZoneService = timeZoneService;
+            _missionShares = missionShares;
             _navigation = navigation;
             _dialogs = dialogs;
             _cardLifecycle = cardLifecycle;
@@ -126,10 +130,11 @@ namespace Points.ViewModels.Home
                         mission,
                         saved => _cardLifecycle.CommitCardToPage(page, saved),
                         onDelete: _cardLifecycle.DeleteMission,
-                        onFail: _cardLifecycle.FailMission,
+                        onFail: _cardLifecycle.FailMissionAsync,
                         _getTags(),
                         _activity,
                         _udmd,
+                        _missionShares,
                         _clock,
                         _timeZoneService,
                         _navigation,

@@ -167,6 +167,7 @@ public sealed class ArchitectureGuardrailTests
             ("Points/Platforms/Android/ActiveCardForegroundService.cs", "ServiceHelper.GetService", 5),
             ("Points/Platforms/Android/AlarmReceiver.cs", "ServiceHelper.GetService", 2),
             ("Points/Platforms/Android/BootReceiver.cs", "ServiceHelper.GetService", 2),
+            ("Points/Platforms/Android/MainActivity.cs", "ServiceHelper.GetService", 1),
             ("Points/Platforms/Android/ScheduledBackupWorker.cs", "ServiceHelper.GetService", 1));
 
         AssertNoNewOccurrences(

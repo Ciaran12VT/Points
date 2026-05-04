@@ -1,6 +1,7 @@
 using Points.Global;
 using Points.ViewModels.Shared;
 using Points.Models;
+using Points.Services.MissionSharing;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Time;
@@ -21,14 +22,16 @@ namespace Points.ViewModels.Missions
         private readonly ITimeZoneService _timeZoneService;
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
+        private readonly IMissionShareService _missionShares;
         private readonly ActiveCardDetailsInteractionCoordinator _detailsInteractions;
         private readonly IActivityService _activity;
         private readonly IUdmdService _udmd;
         private readonly IClock _clock;
         private readonly HashSet<string> _resourceCaptureCachePaths = new();
+        private readonly MissionEditSnapshot _originalSnapshot;
 
         private readonly Action<MissionCardModel> _onDelete;
-        private readonly Action<MissionCardModel> _onFail;
+        private readonly Func<MissionCardModel, Task> _onFail;
         private bool _suspendDueAdjustment;
 
         public List<string> AvailableTagList { get; }
@@ -42,9 +45,11 @@ namespace Points.ViewModels.Missions
         public Command CaptureResourceImageCommand { get; }
         public Command AddResourceImagesCommand { get; }
         public Command AddResourceFilesCommand { get; }
+        public Command ShareCommand { get; }
 
         public bool IsReadOnly => _model.IsComplete;     // complete => read-only
         public bool CanEdit => !_model.IsComplete;       // convenience
+        public bool CanShare => _model.CardID > 0;
         public string ActiveTimeText => _model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString(@"hh\:mm\:ss");
 
         private readonly IDispatcherTimer _timer;
@@ -54,10 +59,11 @@ namespace Points.ViewModels.Missions
             MissionCardModel model,
             Action<MissionCardModel> onSaved,
             Action<MissionCardModel> onDelete,
-            Action<MissionCardModel> onFail,
+            Func<MissionCardModel, Task> onFail,
             List<string> availableTagsList,
             IActivityService activity,
             IUdmdService udmd,
+            IMissionShareService missionShares,
             IClock clock,
             ITimeZoneService? timeZoneService = null,
             IAppNavigationService? navigation = null,
@@ -70,10 +76,12 @@ namespace Points.ViewModels.Missions
             _timeZoneService = timeZoneService ?? new TimeZoneService();
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
-            _detailsInteractions = new ActiveCardDetailsInteractionCoordinator(_navigation, _dialogs, _timeZoneService, _clock);
+            _missionShares = missionShares ?? throw new ArgumentNullException(nameof(missionShares));
             _activity = activity ?? throw new ArgumentNullException(nameof(activity));
             _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _detailsInteractions = new ActiveCardDetailsInteractionCoordinator(_navigation, _dialogs, _timeZoneService, _clock);
+            _originalSnapshot = MissionEditSnapshot.Capture(_model);
             AvailableTagList = availableTagsList;
 
             // Tick every second
@@ -95,6 +103,7 @@ namespace Points.ViewModels.Missions
             CaptureResourceImageCommand = new Command(async () => await CaptureResourceImageAsync());
             AddResourceImagesCommand = new Command(async () => await AddResourceImagesAsync());
             AddResourceFilesCommand = new Command(async () => await AddResourceFilesAsync());
+            ShareCommand = new Command(async () => await ShareAsync(), () => CanShare);
 
             // Read-only
             CreatedDateText = TimeDisplayFormatter.FormatInstant(
@@ -533,6 +542,49 @@ namespace Points.ViewModels.Missions
             AddPendingResources(paths);
         }
 
+        private async Task ShareAsync()
+        {
+            if (!CanShare)
+            {
+                await _dialogs.DisplayAlertAsync("Share Mission", "Save the mission before sharing it.", "OK");
+                return;
+            }
+
+            var missionToShare = _model;
+            if (CanEdit)
+            {
+                var editedMission = await BuildEditedMissionFromFormAsync();
+                if (editedMission == null)
+                    return;
+
+                missionToShare = editedMission;
+            }
+
+            try
+            {
+                await _missionShares.ShareMissionAsync(missionToShare);
+            }
+            catch (Exception ex)
+            {
+                await _dialogs.DisplayAlertAsync("Share failed", ex.Message, "OK");
+                return;
+            }
+
+            var sharedWith = await _dialogs.DisplayPromptAsync(
+                "Shared With",
+                "Who did you share this mission with?",
+                "Save",
+                "Skip",
+                "Name",
+                initialValue: _model.SharedWith ?? "");
+
+            if (string.IsNullOrWhiteSpace(sharedWith))
+                return;
+
+            _model.SharedWith = sharedWith.Trim();
+            _onSaved(_model);
+        }
+
         private void AddPendingResources(IEnumerable<string> paths)
         {
             foreach (var path in paths)
@@ -608,67 +660,11 @@ namespace Points.ViewModels.Missions
 
         private async Task SaveAsync()
         {
-            // Compose DateTime values
-            var available = AvailableFromDate.Date + AvailableFromTime;
-            var due = DueDate.Date + DueTime;
-
-            // Optional guardrails: ensure due >= available
-            if (due < available)
-            {
-                await _dialogs.DisplayAlertAsync("Invalid Dates", "Due By must be after Available From.", "OK");
+            var editedMission = await BuildEditedMissionFromFormAsync();
+            if (editedMission == null)
                 return;
-            }
 
-            // Apply edits back to model
-            if (string.IsNullOrEmpty(Title))
-            {
-                await _dialogs.DisplayAlertAsync("Missing Title", "Please fill in the Title.", "OK");
-                return;
-            }
-
-            _model.Title = Title;
-            _model.Tags = Tags;
-            _model.Description = Description;
-
-            _model.SubType = SelectedSubType;
-            _model.AvailableFromDate = available;
-            _model.DueDate = due;
-
-            if (EstimatedTimeTs == TimeSpan.Zero)
-            {
-                await _dialogs.DisplayAlertAsync("Missing Est Time", "Please estimate the time required.", "OK");
-                return;
-            }
-
-            _model.EstCompletionTime = EstimatedTimeTs;
-
-            if (!double.TryParse(ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-            {
-                await _dialogs.DisplayAlertAsync("Invalid Value", "Please enter a valid numeric value.", "OK");
-                return;
-            }
-
-            _model.Value = value;
-
-            if (!double.TryParse(ValuePerMinText, NumberStyles.Float, CultureInfo.InvariantCulture, out var valuePerMin))
-            {
-                await _dialogs.DisplayAlertAsync("Invalid Value Per Minute", "Please enter a valid numeric value.", "OK");
-                return;
-            }
-
-            _model.ValuePerMinute = valuePerMin;
-
-            // NEW: apply Event Date
-            if (HasEventDate)
-            {
-                // Combine date + time into a single DateTime
-                _model.EventDate = EventDateValue.Date + EventTimeValue;
-            }
-            else
-            {
-                _model.EventDate = null;
-            }
-
+            ApplyEditableMissionFields(_model, editedMission);
 
             await SaveResourcesToDiskAsync();
             RefreshResourceCount();
@@ -678,7 +674,12 @@ namespace Points.ViewModels.Missions
             // Status stays non-editable here
             // CompletedDate stays controlled by completion button
 
+            var changed = !MissionEditSnapshot.Capture(_model).Equals(_originalSnapshot);
+
             _onSaved(_model);
+
+            if (changed)
+                await PromptShareUpdateIfNeededAsync("changes");
 
             await _navigation.PopAsync();
         }
@@ -702,8 +703,134 @@ namespace Points.ViewModels.Missions
             else if (choice == "Failed")
             {
                 CleanupResourceCaptureCacheFiles();
-                _onFail?.Invoke(_model);
+                await _onFail(_model);
                 await _navigation.PopAsync();
+            }
+        }
+
+        private async Task<MissionCardModel?> BuildEditedMissionFromFormAsync()
+        {
+            var available = AvailableFromDate.Date + AvailableFromTime;
+            var due = DueDate.Date + DueTime;
+
+            if (due < available)
+            {
+                await _dialogs.DisplayAlertAsync("Invalid Dates", "Due By must be after Available From.", "OK");
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(Title))
+            {
+                await _dialogs.DisplayAlertAsync("Missing Title", "Please fill in the Title.", "OK");
+                return null;
+            }
+
+            if (EstimatedTimeTs == TimeSpan.Zero)
+            {
+                await _dialogs.DisplayAlertAsync("Missing Est Time", "Please estimate the time required.", "OK");
+                return null;
+            }
+
+            if (!double.TryParse(ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            {
+                await _dialogs.DisplayAlertAsync("Invalid Value", "Please enter a valid numeric value.", "OK");
+                return null;
+            }
+
+            if (!double.TryParse(ValuePerMinText, NumberStyles.Float, CultureInfo.InvariantCulture, out var valuePerMin))
+            {
+                await _dialogs.DisplayAlertAsync("Invalid Value Per Minute", "Please enter a valid numeric value.", "OK");
+                return null;
+            }
+
+            var mission = new MissionCardModel
+            {
+                Id = _model.Id,
+                CardID = _model.CardID,
+                MissionGuid = _model.MissionGuid,
+                DisplayOrder = _model.DisplayOrder,
+                Title = Title,
+                Tags = Tags,
+                Description = Description,
+                SharedWith = _model.SharedWith,
+                SubType = SelectedSubType,
+                Value = value,
+                CreatedDate = _model.CreatedDate,
+                AvailableFromDate = available,
+                DueDate = due,
+                EventDate = HasEventDate ? EventDateValue.Date + EventTimeValue : null,
+                EstCompletionTime = EstimatedTimeTs,
+                ValuePerMinute = valuePerMin,
+                Activity = _model.Activity
+            };
+
+            mission.ApplyCompletionState(_model.Status, _model.IsFailed, _model.CompletedDate);
+            return mission;
+        }
+
+        private static void ApplyEditableMissionFields(MissionCardModel target, MissionCardModel source)
+        {
+            target.Title = source.Title;
+            target.Tags = source.Tags;
+            target.Description = source.Description;
+            target.SubType = source.SubType;
+            target.Value = source.Value;
+            target.AvailableFromDate = source.AvailableFromDate;
+            target.DueDate = source.DueDate;
+            target.EventDate = source.EventDate;
+            target.EstCompletionTime = source.EstCompletionTime;
+            target.ValuePerMinute = source.ValuePerMinute;
+        }
+
+        private async Task PromptShareUpdateIfNeededAsync(string updateDescription)
+        {
+            if (string.IsNullOrWhiteSpace(_model.SharedWith))
+                return;
+
+            var send = await _dialogs.DisplayAlertAsync(
+                "Share update?",
+                $"This mission is shared with {_model.SharedWith}. Send the {updateDescription} now?",
+                "Share",
+                "Not now");
+
+            if (!send)
+                return;
+
+            try
+            {
+                await _missionShares.ShareMissionAsync(_model);
+            }
+            catch (Exception ex)
+            {
+                await _dialogs.DisplayAlertAsync("Share failed", ex.Message, "OK");
+            }
+        }
+
+        private sealed record MissionEditSnapshot(
+            string Title,
+            string Tags,
+            string Description,
+            MissionSubType SubType,
+            string ValueText,
+            string ValuePerMinuteText,
+            DateTime AvailableFromDate,
+            DateTime DueDate,
+            DateTime? EventDate,
+            string EstimatedTimeText)
+        {
+            public static MissionEditSnapshot Capture(MissionCardModel model)
+            {
+                return new MissionEditSnapshot(
+                    model.Title ?? "",
+                    model.Tags ?? "",
+                    model.Description ?? "",
+                    model.SubType,
+                    model.Value.ToString("0.########", CultureInfo.InvariantCulture),
+                    model.ValuePerMinute.ToString("0.########", CultureInfo.InvariantCulture),
+                    model.AvailableFromDate,
+                    model.DueDate,
+                    model.EventDate,
+                    model.EstCompletionTimeText ?? "");
             }
         }
     }

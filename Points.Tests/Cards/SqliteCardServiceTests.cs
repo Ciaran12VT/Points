@@ -307,6 +307,11 @@ public sealed class SqliteCardServiceTests
             throw new NotSupportedException();
         }
 
+        public Task<MissionCardModel?> GetMissionCardModelByGuidAsync(Guid missionGuid)
+        {
+            return Task.FromResult(Models.FirstOrDefault(x => x.MissionGuid == missionGuid));
+        }
+
         public Task<List<MissionCardModel>> GetMissionCardModelsDataAsync(string? whereClause = null)
         {
             return Task.FromResult(Models.ToList());

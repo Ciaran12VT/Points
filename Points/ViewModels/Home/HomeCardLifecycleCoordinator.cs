@@ -1,5 +1,6 @@
 using Points.Models;
 using Points.Services.Locks;
+using Points.Services.MissionSharing;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Time;
@@ -15,6 +16,7 @@ namespace Points.ViewModels.Home
         private readonly ITatCardService _tats;
         private readonly IClock _clock;
         private readonly IAppDialogService _dialogs;
+        private readonly IMissionShareService _missionShares;
         private readonly Func<List<IActiveCardModel>> _getActiveCardModels;
         private readonly Action<ICardModel> _wireLongPress;
         private readonly Action _sortMissionCards;
@@ -33,7 +35,8 @@ namespace Points.ViewModels.Home
             Action<ICardModel> wireLongPress,
             Action sortMissionCards,
             Action<string> notifyPropertyChanged,
-            Func<Task> reloadDashboardAsync)
+            Func<Task> reloadDashboardAsync,
+            IMissionShareService missionShares)
         {
             _pages = pages;
             _cardWriter = cardWriter;
@@ -42,6 +45,7 @@ namespace Points.ViewModels.Home
             _tats = tats;
             _clock = clock;
             _dialogs = dialogs;
+            _missionShares = missionShares;
             _getActiveCardModels = getActiveCardModels;
             _wireLongPress = wireLongPress;
             _sortMissionCards = sortMissionCards;
@@ -93,10 +97,12 @@ namespace Points.ViewModels.Home
                 : _cardWriter.WouldArchiveCardModelOnDeleteAsync(card);
         }
 
-        public void FailMission(MissionCardModel model)
+        public async Task FailMissionAsync(MissionCardModel model)
         {
             model.Fail(_clock.UtcNow);
             _sortMissionCards();
+            await SaveMissionAsync(model);
+            await PromptShareUpdateIfNeededAsync(model, "failed status");
         }
 
         public void DeleteMission(MissionCardModel model)
@@ -142,6 +148,7 @@ namespace Points.ViewModels.Home
 
             await Task.Yield();
             await SaveMissionAsync(model);
+            await PromptShareUpdateIfNeededAsync(model, "completion");
         }
 
         private void CommitCardToDb(ICardModel card)
@@ -172,6 +179,30 @@ namespace Points.ViewModels.Home
         {
             _sortMissionCards();
             _notifyPropertyChanged(nameof(HomeViewModel.HasNegativeAvailableMission));
+        }
+
+        private async Task PromptShareUpdateIfNeededAsync(MissionCardModel model, string updateDescription)
+        {
+            if (string.IsNullOrWhiteSpace(model.SharedWith))
+                return;
+
+            var send = await _dialogs.DisplayAlertAsync(
+                "Share update?",
+                $"This mission is shared with {model.SharedWith}. Send the {updateDescription} update now?",
+                "Share",
+                "Not now");
+
+            if (!send)
+                return;
+
+            try
+            {
+                await _missionShares.ShareMissionAsync(model);
+            }
+            catch (Exception ex)
+            {
+                await _dialogs.DisplayAlertAsync("Share failed", ex.Message, "OK");
+            }
         }
     }
 }

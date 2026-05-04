@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Missions.MissionImportPage"
+             Title="{Binding PageTitle}">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="14">
+                <Label Text="{Binding IntroText}"
+                       FontSize="18"
+                       FontAttributes="Bold" />
+
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                      ColumnDefinitions="Auto,*"
+                      ColumnSpacing="12"
+                      RowSpacing="8">
+                    <Label Grid.Row="0" Grid.Column="0" Text="Shared By" FontAttributes="Bold" />
+                    <Label Grid.Row="0" Grid.Column="1" Text="{Binding SharedByText}" />
+
+                    <Label Grid.Row="1" Grid.Column="0" Text="Title" FontAttributes="Bold" />
+                    <Label Grid.Row="1" Grid.Column="1" Text="{Binding TitleText}" />
+
+                    <Label Grid.Row="2" Grid.Column="0" Text="Status" FontAttributes="Bold" />
+                    <Label Grid.Row="2" Grid.Column="1" Text="{Binding StatusText}" />
+
+                    <Label Grid.Row="3" Grid.Column="0" Text="Tags" FontAttributes="Bold" />
+                    <Label Grid.Row="3" Grid.Column="1" Text="{Binding TagsText}" />
+
+                    <Label Grid.Row="4" Grid.Column="0" Text="SubType" FontAttributes="Bold" />
+                    <Label Grid.Row="4" Grid.Column="1" Text="{Binding SubTypeText}" />
+
+                    <Label Grid.Row="5" Grid.Column="0" Text="Value" FontAttributes="Bold" />
+                    <Label Grid.Row="5" Grid.Column="1" Text="{Binding ValueText}" />
+
+                    <Label Grid.Row="6" Grid.Column="0" Text="Value / Min" FontAttributes="Bold" />
+                    <Label Grid.Row="6" Grid.Column="1" Text="{Binding ValuePerMinuteText}" />
+
+                    <Label Grid.Row="7" Grid.Column="0" Text="Available" FontAttributes="Bold" />
+                    <Label Grid.Row="7" Grid.Column="1" Text="{Binding AvailableText}" />
+
+                    <Label Grid.Row="8" Grid.Column="0" Text="Due" FontAttributes="Bold" />
+                    <Label Grid.Row="8" Grid.Column="1" Text="{Binding DueText}" />
+
+                    <Label Grid.Row="9" Grid.Column="0" Text="Event" FontAttributes="Bold" />
+                    <Label Grid.Row="9" Grid.Column="1" Text="{Binding EventText}" />
+
+                    <Label Grid.Row="10" Grid.Column="0" Text="Completed" FontAttributes="Bold" />
+                    <Label Grid.Row="10" Grid.Column="1" Text="{Binding CompletedText}" />
+
+                    <Label Grid.Row="11" Grid.Column="0" Text="Estimate" FontAttributes="Bold" />
+                    <Label Grid.Row="11" Grid.Column="1" Text="{Binding EstimatedTimeText}" />
+                </Grid>
+
+                <Label Text="Description" FontAttributes="Bold" />
+                <Label Text="{Binding DescriptionText}" LineBreakMode="WordWrap" />
+
+                <VerticalStackLayout Spacing="8" IsVisible="{Binding IsUpdate}">
+                    <Label Text="Changes" FontAttributes="Bold" />
+                    <Label Text="No imported fields have changed."
+                           TextColor="Gray"
+                           IsVisible="{Binding HasDiffItems, Converter={StaticResource InverseBoolConverter}}" />
+
+                    <CollectionView ItemsSource="{Binding DiffItems}"
+                                    IsVisible="{Binding HasDiffItems}"
+                                    SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="110,*,*"
+                                      ColumnSpacing="8"
+                                      Padding="0,4">
+                                    <Label Grid.Column="0"
+                                           Text="{Binding Field}"
+                                           FontAttributes="Bold"
+                                           FontSize="13" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding CurrentValue}"
+                                           TextColor="Gray"
+                                           FontSize="13"
+                                           LineBreakMode="WordWrap" />
+                                    <Label Grid.Column="2"
+                                           Text="{Binding IncomingValue}"
+                                           TextColor="LightBlue"
+                                           FontSize="13"
+                                           LineBreakMode="WordWrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12" Padding="0,12,0,0">
+            <Button Grid.Column="0"
+                    Text="Reject"
+                    BackgroundColor="DarkRed"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    Command="{Binding RejectCommand}" />
+            <Button Grid.Column="1"
+                    Text="Accept"
+                    BackgroundColor="Green"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    Command="{Binding AcceptCommand}" />
+        </Grid>
+    </Grid>
+</ContentPage>

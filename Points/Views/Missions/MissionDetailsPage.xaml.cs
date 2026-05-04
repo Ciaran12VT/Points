@@ -1,4 +1,5 @@
 using Points.Models;
+using Points.Services.MissionSharing;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Time;
@@ -12,10 +13,11 @@ public partial class MissionDetailsPage : ContentPage
         MissionCardModel model,
         Action<MissionCardModel> onSaved,
         Action<MissionCardModel> onDelete,
-        Action<MissionCardModel> onFail,
+        Func<MissionCardModel, Task> onFail,
         List<string> availableTagsList,
         IActivityService activity,
         IUdmdService udmd,
+        IMissionShareService missionShares,
         IClock clock,
         ITimeZoneService timeZoneService,
         IAppNavigationService navigation,
@@ -31,6 +33,7 @@ public partial class MissionDetailsPage : ContentPage
             availableTagsList,
             activity,
             udmd,
+            missionShares,
             clock,
             timeZoneService,
             navigation,

@@ -11,6 +11,7 @@ using Points.Services.Budgets;
 using Points.Services.Cards;
 using Points.Services.Goals;
 using Points.Services.Locks;
+using Points.Services.MissionSharing;
 using Points.Services.Missions;
 using Points.Services.Navigation;
 using Points.Services.Notifications;
@@ -155,6 +156,8 @@ builder.Services.AddSingleton<ITrackerService>(sp => new SqliteTrackerService(
             builder.Services.AddSingleton<ISettingsService, SqliteSettingsService>();
             builder.Services.AddSingleton<IShortcutService, SqliteShortcutService>();
             builder.Services.AddSingleton<IUdmdService, SqliteUdmdService>();
+            builder.Services.AddSingleton<IMissionShareService, MissionShareService>();
+            builder.Services.AddSingleton<IMissionShareLaunchHandler, MissionShareLaunchHandler>();
 
             var app = builder.Build();
 

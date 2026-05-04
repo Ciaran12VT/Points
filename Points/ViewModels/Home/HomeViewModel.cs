@@ -10,6 +10,7 @@ using Points.Global;
 using Points.Services;
 using Points.Services.Backup;
 using Points.Services.Navigation;
+using Points.Services.MissionSharing;
 using System.Windows.Input;
 using Points.Services.Scheduling;
 using Points.Services.Persistence;
@@ -370,6 +371,7 @@ namespace Points.ViewModels.Home
             IPlannerService planner,
             IActiveCardNotificationService activeCardNotificationService,
             INotificationScheduleCoordinator scheduleCoordinator,
+            IMissionShareService missionShares,
             ITimeZoneService timeZoneService,
             IAppNavigationService appNavigation,
             IAppDialogService dialogs,
@@ -441,7 +443,8 @@ namespace Points.ViewModels.Home
                 _activityInteraction.WireLongPress,
                 SortMissionCards,
                 propertyName => OnPropertyChanged(propertyName),
-                ReloadDashboardAsync);
+                ReloadDashboardAsync,
+                missionShares);
             _cardWorkflow = new HomeCardWorkflowCoordinator(
                 locks,
                 activity,
@@ -449,6 +452,7 @@ namespace Points.ViewModels.Home
                 udmd,
                 clock,
                 timeZoneService,
+                missionShares,
                 appNavigation,
                 dialogs,
                 _cardLifecycle,
