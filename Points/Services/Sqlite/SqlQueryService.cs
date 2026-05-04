@@ -79,9 +79,11 @@ namespace Points.Services.Sqlite
                 CREATE TABLE IF NOT EXISTS MissionCard (
                     MissionCardID          INTEGER PRIMARY KEY,
                     CardID                 INTEGER NOT NULL,
+                    MissionGuid            TEXT    NOT NULL DEFAULT '',
 
                     Status                 TEXT    NOT NULL DEFAULT '',
                     Description            TEXT    NOT NULL DEFAULT '',
+                    SharedWith             TEXT    NULL,
                     SubType                TEXT    NOT NULL DEFAULT '',
 
                     Value                  REAL    NOT NULL,

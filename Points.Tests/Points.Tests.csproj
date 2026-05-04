@@ -86,6 +86,7 @@
     <Compile Include="..\Points\Services\Udmd\SqliteUdmdService.cs" Link="App\Udmd\SqliteUdmdService.cs" />
     <Compile Include="..\Points\Services\Persistence\*.cs" Link="App\Persistence\%(Filename)%(Extension)" />
     <Compile Include="..\Points\Services\Sqlite\ISqliteConnectionContext.cs" Link="App\Sqlite\ISqliteConnectionContext.cs" />
+    <Compile Include="..\Points\Services\Sqlite\MissionCardSchemaMigration.cs" Link="App\Sqlite\MissionCardSchemaMigration.cs" />
     <Compile Include="..\Points\Services\Sqlite\Queries\TatSql.cs" Link="App\Sqlite\Queries\TatSql.cs" />
     <Compile Include="..\Points\Services\AppBackup\ScheduledBackupModels.cs" Link="App\AppBackup\ScheduledBackupModels.cs" />
     <Compile Include="..\Points\Services\AppBackup\ScheduledBackupConfigStore.cs" Link="App\AppBackup\ScheduledBackupConfigStore.cs" />

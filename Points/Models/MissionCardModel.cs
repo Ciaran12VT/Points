@@ -15,6 +15,7 @@ namespace Points.Models
     {
         public int Id { get; set; }
         public long CardID { get; set; }
+        public Guid MissionGuid { get; set; } = Guid.NewGuid();
         public int DisplayOrder { get; set; }
 
         private string _title = "Mission";
@@ -54,6 +55,13 @@ namespace Points.Models
         {
             get => _description;
             set => SetProperty(ref _description, value);
+        }
+
+        private string? _sharedWith;
+        public string? SharedWith
+        {
+            get => _sharedWith;
+            set => SetProperty(ref _sharedWith, value);
         }
 
         private MissionSubType _subType = MissionSubType.Stable;

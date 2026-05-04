@@ -24,11 +24,13 @@ public sealed class SqliteMissionCardService : IMissionCardService
             SELECT
                 m.MissionCardID         AS MissionCardID,
                 m.CardID                AS CardID,
+                m.MissionGuid           AS MissionGuid,
                 c.DisplayOrder          AS DisplayOrder,
                 c.Title                 AS Title,
                 c.Tags                  AS Tags,
                 m.Status                AS Status,
                 m.Description           AS Description,
+                m.SharedWith            AS SharedWith,
                 m.SubType               AS SubType,
                 m.Value                 AS Value,
                 m.CreatedDate           AS CreatedDate,
@@ -62,11 +64,13 @@ public sealed class SqliteMissionCardService : IMissionCardService
             SELECT
                 m.MissionCardID         AS MissionCardID,
                 m.CardID                AS CardID,
+                m.MissionGuid           AS MissionGuid,
                 c.DisplayOrder          AS DisplayOrder,
                 c.Title                 AS Title,
                 c.Tags                  AS Tags,
                 m.Status                AS Status,
                 m.Description           AS Description,
+                m.SharedWith            AS SharedWith,
                 m.SubType               AS SubType,
                 m.Value                 AS Value,
                 m.CreatedDate           AS CreatedDate,
@@ -114,14 +118,17 @@ public sealed class SqliteMissionCardService : IMissionCardService
         var completedDateText = SerializeNullableInstantForDb(model.CompletedDate);
         var eventDateText = StrictTimeSerializer.SerializeNullableLocalDateTime(model.EventDate);
         var estCompletionTimeText = model.EstCompletionTimeText ?? string.Empty;
+        var missionGuidText = EnsureMissionGuid(model).ToString("D");
 
         if (model.Id == 0)
         {
             await _context.Db.ExecuteAsync(
                 @"INSERT INTO MissionCard
                   (CardID,
+                   MissionGuid,
                    Status,
                    Description,
+                   SharedWith,
                    SubType,
                    Value,
                    CreatedDate,
@@ -133,10 +140,12 @@ public sealed class SqliteMissionCardService : IMissionCardService
                    IsFailed,
                    ValuePerMinute)
                   VALUES
-                  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
                 cardId,
+                missionGuidText,
                 model.Status ?? string.Empty,
                 model.Description ?? string.Empty,
+                model.SharedWith,
                 model.SubType.ToString(),
                 model.Value,
                 createdDateText,
@@ -154,8 +163,10 @@ public sealed class SqliteMissionCardService : IMissionCardService
 
         await _context.Db.ExecuteAsync(
             @"UPDATE MissionCard
-              SET Status                 = ?,
+              SET MissionGuid            = ?,
+                  Status                 = ?,
                   Description            = ?,
+                  SharedWith             = ?,
                   SubType                = ?,
                   Value                  = ?,
                   AvailableFromDate      = ?,
@@ -166,8 +177,10 @@ public sealed class SqliteMissionCardService : IMissionCardService
                   IsFailed               = ?,
                   ValuePerMinute         = ?
               WHERE CardID = ?;",
+            missionGuidText,
             model.Status ?? string.Empty,
             model.Description ?? string.Empty,
+            model.SharedWith,
             model.SubType.ToString(),
             model.Value,
             availableFromText,
@@ -237,11 +250,13 @@ public sealed class SqliteMissionCardService : IMissionCardService
         {
             Id = row.MissionCardID,
             CardID = row.CardID,
+            MissionGuid = ParseMissionGuid(row.MissionGuid),
             DisplayOrder = row.DisplayOrder,
             Title = row.Title ?? string.Empty,
             Tags = row.Tags ?? string.Empty,
             Status = row.Status ?? string.Empty,
             Description = row.Description ?? string.Empty,
+            SharedWith = row.SharedWith,
             SubType = subType,
             Value = row.Value,
             ValuePerMinute = row.ValuePerMinute,
@@ -342,15 +357,32 @@ public sealed class SqliteMissionCardService : IMissionCardService
         return new TimeSpan(hours, minutes, seconds);
     }
 
+    private static Guid EnsureMissionGuid(MissionCardModel model)
+    {
+        if (model.MissionGuid == Guid.Empty)
+            model.MissionGuid = Guid.NewGuid();
+
+        return model.MissionGuid;
+    }
+
+    private static Guid ParseMissionGuid(string? value)
+    {
+        return Guid.TryParse(value, out var missionGuid) && missionGuid != Guid.Empty
+            ? missionGuid
+            : Guid.NewGuid();
+    }
+
     private sealed class MissionCardJoinedRow
     {
         public int MissionCardID { get; set; }
         public long CardID { get; set; }
+        public string? MissionGuid { get; set; }
         public int DisplayOrder { get; set; }
         public string? Title { get; set; }
         public string? Tags { get; set; }
         public string? Status { get; set; }
         public string? Description { get; set; }
+        public string? SharedWith { get; set; }
         public string? SubType { get; set; }
         public double Value { get; set; }
         public string CreatedDate { get; set; } = "";

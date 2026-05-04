@@ -36,19 +36,24 @@ public sealed class SqliteMissionCardServiceTests
         await context.InsertActivityAsync(cardId, Utc(2026, 4, 29, 9), Utc(2026, 4, 29, 10), "Mission", 1.5);
 
         Assert.True(mission.Id > 0);
+        Assert.NotEqual(Guid.Empty, mission.MissionGuid);
 
         var row = Assert.Single(await context.GetMissionRowsAsync());
         Assert.Equal(cardId, row.CardID);
+        Assert.Equal(mission.MissionGuid.ToString("D"), row.MissionGuid);
         Assert.Equal("In-Progress", row.Status);
         Assert.Equal("Ship the next slice", row.Description);
+        Assert.Null(row.SharedWith);
         Assert.Equal("Degrade", row.SubType);
         Assert.Equal("1:30:00", row.EstCompletionTimeText);
 
         var loaded = await service.GetMissionCardModelDataAsync(mission.Id);
 
+        Assert.Equal(mission.MissionGuid, loaded.MissionGuid);
         Assert.Equal("Launch work", loaded.Title);
         Assert.Equal("focus", loaded.Tags);
         Assert.Equal("Ship the next slice", loaded.Description);
+        Assert.Null(loaded.SharedWith);
         Assert.Equal(MissionSubType.Degrade, loaded.SubType);
         Assert.Equal(42, loaded.Value);
         Assert.Equal(Local(2026, 4, 29, 9), loaded.AvailableFromDate);
@@ -81,9 +86,11 @@ public sealed class SqliteMissionCardServiceTests
             ValuePerMinute = 1
         };
         await service.SaveMissionCardModelDataAsync(mission, cardId);
+        var originalGuid = mission.MissionGuid;
 
         mission.Status = "Paused";
         mission.Description = "Updated";
+        mission.SharedWith = "ciara@example.com";
         mission.SubType = MissionSubType.Rot;
         mission.Value = 25;
         mission.AvailableFromDate = Local(2026, 5, 1, 9);
@@ -96,8 +103,10 @@ public sealed class SqliteMissionCardServiceTests
 
         var row = Assert.Single(await context.GetMissionRowsAsync());
         Assert.Equal(createdAt.ToString("o"), row.CreatedDate);
+        Assert.Equal(originalGuid.ToString("D"), row.MissionGuid);
         Assert.Equal("Paused", row.Status);
         Assert.Equal("Updated", row.Description);
+        Assert.Equal("ciara@example.com", row.SharedWith);
         Assert.Equal("Rot", row.SubType);
         Assert.Equal(25, row.Value);
         Assert.Equal(Local(2026, 5, 1, 9).ToString("o"), row.AvailableFromDate);
@@ -141,6 +150,56 @@ public sealed class SqliteMissionCardServiceTests
         Assert.True(loadedFailed.IsFailed);
         Assert.Equal("Failed", loadedFailed.Status);
         Assert.Equal(Utc(2026, 4, 29, 13), loadedFailed.CompletedDate);
+    }
+
+    [Fact]
+    public async Task MissionCardSchemaMigration_AddsSharedColumnsAndBackfillsExistingGuids()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"PointsMissionMigrationTests-{Guid.NewGuid():N}.db");
+
+        Batteries_V2.Init();
+
+        var db = new SQLiteAsyncConnection(
+            path,
+            SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
+
+        try
+        {
+            await db.ExecuteAsync("""
+                CREATE TABLE MissionCard (
+                    MissionCardID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID INTEGER NOT NULL,
+                    Value REAL NOT NULL DEFAULT 0
+                );
+                """);
+            await db.ExecuteAsync("INSERT INTO MissionCard (CardID, Value) VALUES (?, ?);", 101, 10);
+            await db.ExecuteAsync("INSERT INTO MissionCard (CardID, Value) VALUES (?, ?);", 102, 20);
+
+            await MissionCardSchemaMigration.EnsureAsync(db);
+
+            var columns = await db.QueryAsync<PragmaColumnRow>("PRAGMA table_info(MissionCard);");
+            Assert.Contains(columns, column => column.name == "MissionGuid");
+            Assert.Contains(columns, column => column.name == "SharedWith");
+
+            var rows = await db.QueryAsync<MigratedMissionRow>(
+                @"SELECT MissionCardID, MissionGuid, SharedWith
+                  FROM MissionCard
+                  ORDER BY MissionCardID;");
+
+            Assert.Equal(2, rows.Count);
+            Assert.Equal(2, rows.Select(row => row.MissionGuid).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            Assert.All(rows, row => Assert.True(Guid.TryParse(row.MissionGuid, out _)));
+            Assert.All(rows, row => Assert.Null(row.SharedWith));
+        }
+        finally
+        {
+            await db.CloseAsync();
+
+            if (File.Exists(path))
+                File.Delete(path);
+        }
     }
 
     private static MissionCardModel NewMission(double value)
@@ -212,8 +271,10 @@ public sealed class SqliteMissionCardServiceTests
                 CREATE TABLE IF NOT EXISTS MissionCard (
                     MissionCardID INTEGER PRIMARY KEY,
                     CardID INTEGER NOT NULL,
+                    MissionGuid TEXT NOT NULL DEFAULT '',
                     Status TEXT NOT NULL DEFAULT '',
                     Description TEXT NOT NULL DEFAULT '',
+                    SharedWith TEXT NULL,
                     SubType TEXT NOT NULL DEFAULT '',
                     Value REAL NOT NULL,
                     CreatedDate TEXT NOT NULL,
@@ -270,8 +331,10 @@ public sealed class SqliteMissionCardServiceTests
             return await Db.QueryAsync<MissionRow>(
                 @"SELECT MissionCardID,
                          CardID,
+                         MissionGuid,
                          Status,
                          Description,
+                         SharedWith,
                          SubType,
                          Value,
                          CreatedDate,
@@ -328,8 +391,10 @@ public sealed class SqliteMissionCardServiceTests
     {
         public long MissionCardID { get; set; }
         public long CardID { get; set; }
+        public string MissionGuid { get; set; } = "";
         public string Status { get; set; } = "";
         public string Description { get; set; } = "";
+        public string? SharedWith { get; set; }
         public string SubType { get; set; } = "";
         public double Value { get; set; }
         public string CreatedDate { get; set; } = "";
@@ -340,5 +405,17 @@ public sealed class SqliteMissionCardServiceTests
         public string EstCompletionTimeText { get; set; } = "";
         public int IsFailed { get; set; }
         public double ValuePerMinute { get; set; }
+    }
+
+    private sealed class PragmaColumnRow
+    {
+        public string name { get; set; } = "";
+    }
+
+    private sealed class MigratedMissionRow
+    {
+        public long MissionCardID { get; set; }
+        public string MissionGuid { get; set; } = "";
+        public string? SharedWith { get; set; }
     }
 }

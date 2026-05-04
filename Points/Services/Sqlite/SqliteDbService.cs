@@ -71,6 +71,7 @@ namespace Points.Services.Sqlite
                 });
 
                 await EnsureCardSchemaAsync();
+                await EnsureMissionCardSchemaAsync();
                 await EnsureGoalSchemaAsync();
                 await EnsureAchievementCardSchemaAsync();
                 await EnsureTrackerCardSchemaAsync();
@@ -183,6 +184,14 @@ namespace Points.Services.Sqlite
 
             await Db.ExecuteAsync("ALTER TABLE Card ADD COLUMN DisplayOrder INTEGER NOT NULL DEFAULT 0;");
             await Db.ExecuteAsync("UPDATE Card SET DisplayOrder = CardID WHERE DisplayOrder = 0;");
+        }
+
+        private async Task EnsureMissionCardSchemaAsync()
+        {
+            if (_db == null)
+                throw new InvalidOperationException("Database must be initialized before schema migration.");
+
+            await MissionCardSchemaMigration.EnsureAsync(Db);
         }
 
         private async Task MigrateGoalTableAsync()
