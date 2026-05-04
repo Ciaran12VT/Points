@@ -1,5 +1,6 @@
 using Points.Global;
 using Points.Services.Persistence;
+using Points.Services.Time;
 using System.ComponentModel;
 using System.Globalization;
 using System.Windows.Input;
@@ -9,14 +10,24 @@ namespace Points.ViewModels.Settings
     public class MultipliersSettingsViewModel : Models.ObservableObject, INotifyPropertyChanged
     {
         private readonly ISettingsService _settings;
+        private readonly IHardModePenaltyService _hardModePenalties;
+        private readonly IClock _clock;
         private readonly Func<Task>? _onSaved;
+        private readonly Command _saveCommand;
 
-        public MultipliersSettingsViewModel(ISettingsService settings, Func<Task>? onSaved = null)
+        public MultipliersSettingsViewModel(
+            ISettingsService settings,
+            IHardModePenaltyService hardModePenalties,
+            IClock clock,
+            Func<Task>? onSaved = null)
         {
-            _settings = settings;
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _hardModePenalties = hardModePenalties ?? throw new ArgumentNullException(nameof(hardModePenalties));
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _onSaved = onSaved;
 
-            SaveCommand = new Command(async () => await SaveAsync());
+            _saveCommand = new Command(async () => await SaveAsync(), () => CanSave);
+            SaveCommand = _saveCommand;
 
             _ = InitializeAsync();
         }
@@ -33,6 +44,8 @@ namespace Points.ViewModels.Settings
                 {
                     RaisePropertyChanged(nameof(IsHardModePenaltyValid));
                     RaisePropertyChanged(nameof(HardModeIdlePenaltyPerMinute));
+                    RaisePropertyChanged(nameof(CanSave));
+                    _saveCommand.ChangeCanExecute();
                 }
             }
         }
@@ -47,6 +60,8 @@ namespace Points.ViewModels.Settings
                 {
                     RaisePropertyChanged(nameof(IsHardModePenaltyValid));
                     RaisePropertyChanged(nameof(HardModeIdlePenaltyPerMinute));
+                    RaisePropertyChanged(nameof(CanSave));
+                    _saveCommand.ChangeCanExecute();
                 }
             }
         }
@@ -64,6 +79,8 @@ namespace Points.ViewModels.Settings
                 return -Math.Abs(v);
             }
         }
+
+        public bool CanSave => !HardModeEnabled || IsHardModePenaltyValid;
 
         public bool IsHardModePenaltyValid
         {
@@ -100,11 +117,16 @@ namespace Points.ViewModels.Settings
 
         private async Task SaveAsync()
         {
+            if (!CanSave)
+                return;
+
             await _settings.SetBoolSettingAsync(SettingKeys.HardModeEnabled, HardModeEnabled);
             await _settings.SetDoubleSettingAsync(SettingKeys.HardModeDamagePerMinuteValue, HardModeIdlePenaltyPerMinute);
 
             SettingsProvider.UpdateHardModeEnabled(HardModeEnabled);
             SettingsProvider.UpdateHardModeDamagePerMinuteValue(HardModeIdlePenaltyPerMinute);
+
+            await _hardModePenalties.ReconcileAsync(_clock.UtcNow);
 
             if (_onSaved != null) await _onSaved();
         }

@@ -39,6 +39,7 @@
     <Compile Include="..\Points\Models\CardSchedule.cs" Link="App\Models\CardSchedule.cs" />
     <Compile Include="..\Points\Models\EventTrackerCardModel.cs" Link="App\Models\EventTrackerCardModel.cs" />
     <Compile Include="..\Points\Models\GoalDetailsModel.cs" Link="App\Models\GoalDetailsModel.cs" />
+    <Compile Include="..\Points\Models\HardModePenaltyIntervalModel.cs" Link="App\Models\HardModePenaltyIntervalModel.cs" />
     <Compile Include="..\Points\Models\ICardModel.cs" Link="App\Models\ICardModel.cs" />
     <Compile Include="..\Points\Models\IScheduleable.cs" Link="App\Models\IScheduleable.cs" />
     <Compile Include="..\Points\Models\IScheduleModel.cs" Link="App\Models\IScheduleModel.cs" />
@@ -70,6 +71,7 @@
     <Compile Include="..\Points\Services\Calculations\ArithmeticExpressionEvaluator.cs" Link="App\Calculations\ArithmeticExpressionEvaluator.cs" />
     <Compile Include="..\Points\Services\Cards\SqliteCardService.cs" Link="App\Cards\SqliteCardService.cs" />
     <Compile Include="..\Points\Services\Goals\SqliteGoalService.cs" Link="App\Goals\SqliteGoalService.cs" />
+    <Compile Include="..\Points\Services\HardMode\SqliteHardModePenaltyService.cs" Link="App\HardMode\SqliteHardModePenaltyService.cs" />
     <Compile Include="..\Points\Services\Locks\SqliteLockService.cs" Link="App\Locks\SqliteLockService.cs" />
     <Compile Include="..\Points\Services\Missions\SqliteMissionCardService.cs" Link="App\Missions\SqliteMissionCardService.cs" />
     <Compile Include="..\Points\Services\Notifications\SqliteNotificationLogService.cs" Link="App\Notifications\SqliteNotificationLogService.cs" />

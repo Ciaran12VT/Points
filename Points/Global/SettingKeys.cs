@@ -73,7 +73,7 @@ namespace Points.Global
                 new SettingDefinition
                 {
                     SettingKey = SettingKeys.HardModeDamagePerMinuteValue,
-                    DefaultValue = "0",
+                    DefaultValue = "-0.2",
                     ValueType = SettingValueTypes.Double,
                     Category = "Multipliers",
                     DisplayName = "Idle Penalty Per Minute",
@@ -548,7 +548,7 @@ namespace Points.Global
         // -----------------------
 
         public static bool HardModeEnabled => GetBool(SettingKeys.HardModeEnabled, false);
-        public static double HardModeDamagePerMinuteValue => GetDouble(SettingKeys.HardModeDamagePerMinuteValue, 0d);
+        public static double HardModeDamagePerMinuteValue => GetDouble(SettingKeys.HardModeDamagePerMinuteValue, -0.2d);
         public static bool StatusConditionsEnabled => GetBool(SettingKeys.StatusConditionsEnabled, false);
         public static int? CurrentlyAppliedStatusConditionId => GetNullableInt(SettingKeys.CurrentlyAppliedStatusConditionId);
         public static int? SelectedThemeId => GetNullableInt(SettingKeys.SelectedThemeId);

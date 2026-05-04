@@ -20,6 +20,7 @@ namespace Points.ViewModels.Home
         private readonly IAchievementService _achievements;
         private readonly INotificationLogService _notificationLogs;
         private readonly ISettingsService _settings;
+        private readonly IHardModePenaltyService _hardModePenalties;
         private readonly IPlannerService _planner;
         private readonly ITimeZoneService _timeZoneService;
         private readonly IAppNavigationService _navigation;
@@ -53,6 +54,7 @@ namespace Points.ViewModels.Home
             IAchievementService achievements,
             INotificationLogService notificationLogs,
             ISettingsService settings,
+            IHardModePenaltyService hardModePenalties,
             IPlannerService planner,
             ITimeZoneService timeZoneService,
             IAppNavigationService navigation,
@@ -85,6 +87,7 @@ namespace Points.ViewModels.Home
             _achievements = achievements;
             _notificationLogs = notificationLogs;
             _settings = settings;
+            _hardModePenalties = hardModePenalties;
             _planner = planner;
             _timeZoneService = timeZoneService;
             _navigation = navigation;
@@ -174,6 +177,7 @@ namespace Points.ViewModels.Home
                     _databaseLifecycle,
                     _notificationLogs,
                     _settings,
+                    _hardModePenalties,
                     _navigation,
                     _dialogs,
                     _clock,
@@ -240,7 +244,7 @@ namespace Points.ViewModels.Home
             _setInitialization(initialization);
             await initialization;
 
-            _runtimeTicks.RunImmediate();
+            await _runtimeTicks.RunImmediateAsync();
         }
     }
 }

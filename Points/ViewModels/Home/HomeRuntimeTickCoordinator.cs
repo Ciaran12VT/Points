@@ -1,5 +1,6 @@
 using Points.Evaluators;
 using Points.Models;
+using Points.Services.Diagnostics;
 using Points.Services.Persistence;
 using Points.Services.Time;
 
@@ -21,6 +22,8 @@ namespace Points.ViewModels.Home
         private readonly Action _sortMissionCards;
         private readonly Action<string> _notifyPropertyChanged;
         private readonly Action _notifyTickHappened;
+        private readonly IHardModePenaltyService _hardModePenalties;
+        private readonly SemaphoreSlim _runtimeTickGate = new(1, 1);
         private readonly SemaphoreSlim _achievementTickGate = new(1, 1);
 
         private int _tickSuppressionCount;
@@ -39,7 +42,8 @@ namespace Points.ViewModels.Home
             Action<double> setTopRightValue,
             Action sortMissionCards,
             Action<string> notifyPropertyChanged,
-            Action notifyTickHappened)
+            Action notifyTickHappened,
+            IHardModePenaltyService hardModePenalties)
         {
             _achievements = achievements;
             _clock = clock;
@@ -52,9 +56,15 @@ namespace Points.ViewModels.Home
             _sortMissionCards = sortMissionCards;
             _notifyPropertyChanged = notifyPropertyChanged;
             _notifyTickHappened = notifyTickHappened;
+            _hardModePenalties = hardModePenalties ?? throw new ArgumentNullException(nameof(hardModePenalties));
         }
 
         public void Tick()
+        {
+            TaskSupervisor.Forget(TickAsync(), "Home runtime tick");
+        }
+
+        public async Task TickAsync()
         {
             if (AreTicksSuppressed)
             {
@@ -62,12 +72,17 @@ namespace Points.ViewModels.Home
                 return;
             }
 
-            RunTickCore(_clock.LocalNow);
+            await RunTickCoreAsync(_clock.LocalNow, _clock.UtcNow);
         }
 
         public void RunImmediate()
         {
-            RunTickCore(_clock.LocalNow);
+            TaskSupervisor.Forget(RunImmediateAsync(), "Immediate home runtime tick");
+        }
+
+        public Task RunImmediateAsync()
+        {
+            return RunTickCoreAsync(_clock.LocalNow, _clock.UtcNow);
         }
 
         public void RefreshBudgetCards(DateTime now)
@@ -107,30 +122,44 @@ namespace Points.ViewModels.Home
             return new InteractionSuppressionHandle(this);
         }
 
-        private void RunTickCore(DateTime now)
+        private async Task RunTickCoreAsync(DateTime now, DateTime utcNow)
         {
-            _setNow(now);
+            if (!await _runtimeTickGate.WaitAsync(0))
+                return;
 
-            foreach (var page in _pages)
-                foreach (var card in page.AllCards.OfType<MissionCardModel>())
-                    card.NotifyTimeChanged();
+            try
+            {
+                _setNow(now);
 
-            RefreshBudgetCards(now);
-            _sortMissionCards();
-            _ = UpdateAchievementsPerTickAsync();
+                foreach (var page in _pages)
+                    foreach (var card in page.AllCards.OfType<MissionCardModel>())
+                        card.NotifyTimeChanged();
 
-            var rangeStart = _getRangeStart();
-            var rangeEnd = _getRangeEnd();
-            double total = 0;
-            foreach (var page in _pages)
-                foreach (var card in page.AllCards)
-                    total += card.GetValue(rangeStart, rangeEnd);
+                RefreshBudgetCards(now);
+                _sortMissionCards();
+                _ = UpdateAchievementsPerTickAsync();
 
-            _setTopRightValue(total);
+                await _hardModePenalties.ReconcileAsync(utcNow);
 
-            _notifyPropertyChanged(nameof(HomeViewModel.RangeEnd));
+                var rangeStart = _getRangeStart();
+                var rangeEnd = _getRangeEnd();
+                double total = 0;
+                foreach (var page in _pages)
+                    foreach (var card in page.AllCards)
+                        total += card.GetValue(rangeStart, rangeEnd);
 
-            _notifyTickHappened();
+                total += await _hardModePenalties.GetValueAsync(rangeStart, rangeEnd, utcNow);
+
+                _setTopRightValue(total);
+
+                _notifyPropertyChanged(nameof(HomeViewModel.RangeEnd));
+
+                _notifyTickHappened();
+            }
+            finally
+            {
+                _runtimeTickGate.Release();
+            }
         }
 
         private bool AreTicksSuppressed => Volatile.Read(ref _tickSuppressionCount) > 0;
@@ -195,7 +224,9 @@ namespace Points.ViewModels.Home
                     return;
                 }
 
-                RunTickCore(_clock.LocalNow);
+                TaskSupervisor.Forget(
+                    RunTickCoreAsync(_clock.LocalNow, _clock.UtcNow),
+                    "Home runtime tick after suppression");
             });
         }
 

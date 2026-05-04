@@ -281,7 +281,7 @@ public partial class HomePage : ContentPage
                 while (_timer != null && await _timer.WaitForNextTickAsync(_cts.Token))
                 {
                     if (BindingContext is HomeViewModel vm)
-                        vm.Tick();
+                        await vm.TickAsync();
                 }
             }
             catch (OperationCanceledException) { }

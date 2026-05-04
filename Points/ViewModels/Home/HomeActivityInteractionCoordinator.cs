@@ -1,4 +1,5 @@
 using Points.Evaluators;
+using Points.Global;
 using Points.Models;
 using Points.Services;
 using Points.Services.Locks;
@@ -25,6 +26,7 @@ namespace Points.ViewModels.Home
         private readonly Func<List<IActiveCardModel>> _getActiveCardModels;
         private readonly Action<IActiveCardModel?> _setActiveCard;
         private readonly Action _notifyActiveCardChanged;
+        private readonly IHardModePenaltyService _hardModePenalties;
 
         public HomeActivityInteractionCoordinator(
             IActivityService activity,
@@ -39,7 +41,8 @@ namespace Points.ViewModels.Home
             IReadOnlyList<HomePageModel> pages,
             Func<List<IActiveCardModel>> getActiveCardModels,
             Action<IActiveCardModel?> setActiveCard,
-            Action notifyActiveCardChanged)
+            Action notifyActiveCardChanged,
+            IHardModePenaltyService hardModePenalties)
         {
             _activity = activity;
             _udmd = udmd;
@@ -54,6 +57,7 @@ namespace Points.ViewModels.Home
             _getActiveCardModels = getActiveCardModels;
             _setActiveCard = setActiveCard;
             _notifyActiveCardChanged = notifyActiveCardChanged;
+            _hardModePenalties = hardModePenalties ?? throw new ArgumentNullException(nameof(hardModePenalties));
         }
 
         public async Task RequestActivateAsync(IActiveCardModel card, DateTime? nowUtc = null)
@@ -84,6 +88,12 @@ namespace Points.ViewModels.Home
                     utcNow: nowUtcNonNull,
                     valueRateName: startInputs.Value.RateName,
                     valuePerMinute: startInputs.Value.ValuePerMinute);
+
+                await _hardModePenalties.ReconcileAsync(
+                    SettingsProvider.HardModeEnabled,
+                    SettingsProvider.HardModeDamagePerMinuteValue,
+                    result.Opened != null,
+                    nowUtcNonNull);
 
                 if (result.Opened != null && startInputs.Value.Metadata.Values.Count > 0)
                     await SaveOpenedActivityMetadataAsync(card.CardID, result.Opened.Id, startInputs.Value.Metadata);

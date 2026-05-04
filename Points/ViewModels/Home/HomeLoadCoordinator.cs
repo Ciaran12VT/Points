@@ -21,6 +21,7 @@ namespace Points.ViewModels.Home
         private readonly HomeDashboardShortcutWorkflowCoordinator _dashboardShortcuts;
         private readonly HomeGoalsPageCoordinator _goalsPage;
         private readonly HomeRuntimeTickCoordinator _runtimeTicks;
+        private readonly IHardModePenaltyService _hardModePenalties;
         private readonly Func<int> _getPosition;
         private readonly Action<int> _setPosition;
         private readonly Action _setSelectedPageIcon;
@@ -40,6 +41,7 @@ namespace Points.ViewModels.Home
             HomeDashboardShortcutWorkflowCoordinator dashboardShortcuts,
             HomeGoalsPageCoordinator goalsPage,
             HomeRuntimeTickCoordinator runtimeTicks,
+            IHardModePenaltyService hardModePenalties,
             Func<int> getPosition,
             Action<int> setPosition,
             Action setSelectedPageIcon,
@@ -58,6 +60,7 @@ namespace Points.ViewModels.Home
             _dashboardShortcuts = dashboardShortcuts;
             _goalsPage = goalsPage;
             _runtimeTicks = runtimeTicks;
+            _hardModePenalties = hardModePenalties ?? throw new ArgumentNullException(nameof(hardModePenalties));
             _getPosition = getPosition;
             _setPosition = setPosition;
             _setSelectedPageIcon = setSelectedPageIcon;
@@ -81,6 +84,12 @@ namespace Points.ViewModels.Home
             var goalProgressCards = await _goalsPage.BuildGoalProgressCardsAsync(seed.MainQuestCards);
             var openActivity = await _activity.GetCurrentActiveActivityAsync();
             var shortcuts = await _dashboardShortcuts.GetDashboardShortcutsAsync();
+
+            await _hardModePenalties.ReconcileAsync(
+                SettingsProvider.HardModeEnabled,
+                SettingsProvider.HardModeDamagePerMinuteValue,
+                openActivity != null,
+                _clock.UtcNow);
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {

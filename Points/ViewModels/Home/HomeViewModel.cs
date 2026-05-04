@@ -367,6 +367,7 @@ namespace Points.ViewModels.Home
             ITatCardService tats,
             INotificationLogService notificationLogs,
             ISettingsService settings,
+            IHardModePenaltyService hardModePenalties,
             IUdmdService udmd,
             IPlannerService planner,
             IActiveCardNotificationService activeCardNotificationService,
@@ -416,7 +417,8 @@ namespace Points.ViewModels.Home
                 value => TopRightValue = value,
                 SortMissionCards,
                 propertyName => OnPropertyChanged(propertyName),
-                () => TickHappened?.Invoke());
+                () => TickHappened?.Invoke(),
+                hardModePenalties);
             _activityInteraction = new HomeActivityInteractionCoordinator(
                 activity,
                 udmd,
@@ -430,7 +432,8 @@ namespace Points.ViewModels.Home
                 Pages,
                 _pageState.GetActiveCardModels,
                 SetActiveCard,
-                NotifyActiveCardChanged);
+                NotifyActiveCardChanged,
+                hardModePenalties);
             _cardLifecycle = new HomeCardLifecycleCoordinator(
                 Pages,
                 cardWriter,
@@ -471,6 +474,7 @@ namespace Points.ViewModels.Home
                 _dashboardShortcuts,
                 _goalsPage,
                 _runtimeTicks,
+                hardModePenalties,
                 () => Position,
                 value => Position = value,
                 SetSelectedPageIcon,
@@ -486,6 +490,7 @@ namespace Points.ViewModels.Home
                 achievements,
                 notificationLogs,
                 settings,
+                hardModePenalties,
                 planner,
                 timeZoneService,
                 appNavigation,
@@ -738,6 +743,11 @@ namespace Points.ViewModels.Home
         #endregion
 
         public event Action? TickHappened;
+        public Task TickAsync()
+        {
+            return _runtimeTicks.TickAsync();
+        }
+
         public void Tick()
         {
             _runtimeTicks.Tick();

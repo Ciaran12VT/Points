@@ -208,6 +208,15 @@ namespace Points.Services.Sqlite
                     CHECK (""End"" IS NULL OR Start < ""End"")
                 );
 
+                CREATE TABLE IF NOT EXISTS HardModePenaltyInterval (
+                    HardModePenaltyIntervalID INTEGER PRIMARY KEY,
+                    Start                     TEXT    NOT NULL, -- ISO-8601 UTC datetime
+                    ""End""                     TEXT    NULL,     -- NULL = open
+                    ValuePerMinute            REAL    NOT NULL,
+
+                    CHECK (""End"" IS NULL OR Start <= ""End"")
+                );
+
                 -- =========================
                 -- Trackers
                 -- =========================
@@ -475,6 +484,12 @@ namespace Points.Services.Sqlite
                 CREATE INDEX IF NOT EXISTS IX_Activity_StartEnd
                 ON Activity(Start, ""End"");
 
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_HardModePenalty_OneOpen
+                ON HardModePenaltyInterval(1) WHERE ""End"" IS NULL;
+
+                CREATE INDEX IF NOT EXISTS IX_HardModePenalty_StartEnd
+                ON HardModePenaltyInterval(Start, ""End"");
+
                 CREATE INDEX IF NOT EXISTS IX_ValueTracker_CardID      ON ValueTrackerCard(CardID);
                 CREATE INDEX IF NOT EXISTS IX_EventTracker_CardID      ON EventTrackerCard(CardID);
 
@@ -561,6 +576,7 @@ namespace Points.Services.Sqlite
             return @"
                     DELETE FROM NotificationLog;
                     DELETE FROM Shortcut;
+                    DELETE FROM HardModePenaltyInterval;
                 ";
         }
 

@@ -1,5 +1,6 @@
 using Points.Services.Navigation;
 using Points.Services.Persistence;
+using Points.Services.Time;
 using Points.ViewModels.Settings;
 
 namespace Points.Views.Settings;
@@ -10,11 +11,13 @@ public partial class MultipliersSettingsPage : ContentPage
 
     public MultipliersSettingsPage(
         ISettingsService settings,
+        IHardModePenaltyService hardModePenalties,
+        IClock clock,
         IAppNavigationService navigation)
     {
         InitializeComponent();
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
-        BindingContext = new MultipliersSettingsViewModel(settings, ReturnToSettingsPageAsync);
+        BindingContext = new MultipliersSettingsViewModel(settings, hardModePenalties, clock, ReturnToSettingsPageAsync);
     }
 
     private async Task ReturnToSettingsPageAsync()

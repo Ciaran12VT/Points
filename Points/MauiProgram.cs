@@ -10,6 +10,7 @@ using Points.Services.Backup;
 using Points.Services.Budgets;
 using Points.Services.Cards;
 using Points.Services.Goals;
+using Points.Services.HardMode;
 using Points.Services.Locks;
 using Points.Services.MissionSharing;
 using Points.Services.Missions;
@@ -128,6 +129,10 @@ builder.Services.AddSingleton<ITrackerService>(sp => new SqliteTrackerService(
                 sp.GetRequiredService<ICardScheduleService>()));
             builder.Services.AddSingleton<IActivityService>(sp => new SqliteActivityService(
                 sp.GetRequiredService<ISqliteConnectionContext>(),
+                sp.GetRequiredService<ITimeZoneService>()));
+            builder.Services.AddSingleton<IHardModePenaltyService>(sp => new SqliteHardModePenaltyService(
+                sp.GetRequiredService<ISqliteConnectionContext>(),
+                sp.GetRequiredService<IActivityService>(),
                 sp.GetRequiredService<ITimeZoneService>()));
             builder.Services.AddSingleton<IGoalService, SqliteGoalService>();
             builder.Services.AddSingleton<ILockService, SqliteLockService>();
