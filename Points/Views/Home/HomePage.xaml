@@ -76,7 +76,7 @@
 
 
     <!-- PAGE CONTENT: top toolbar + carousel + bottom toolbar -->
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
 
         <!-- TOP (IN-PAGE) TOOLBAR -->
         <Grid Grid.Row="0"
@@ -256,8 +256,36 @@
         </CarouselView>
 
 
-        <!-- BOTTOM TOOLBAR -->
+        <!-- PREMIUM BANNER -->
         <Grid Grid.Row="3"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="12"
+              Padding="12,8"
+              IsVisible="{Binding IsPremiumBannerVisible}"
+              BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#2B2516}">
+
+            <Label Text="Upgrade to Premium!"
+                   FontSize="15"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#222222, Dark=#FFFFFF}"
+                   VerticalOptions="Center"
+                   LineBreakMode="TailTruncation" />
+
+            <Button Grid.Column="1"
+                    Text="Upgrade"
+                    Command="{Binding OpenPremiumUpgradeCommand}"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="16,0"
+                    FontAttributes="Bold"
+                    TextColor="White"
+                    BackgroundColor="Green"
+                    VerticalOptions="Center" />
+        </Grid>
+
+
+        <!-- BOTTOM TOOLBAR -->
+        <Grid Grid.Row="4"
                   ColumnDefinitions="*,Auto, Auto"
                   Padding="12"
                   BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">

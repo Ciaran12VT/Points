@@ -18,6 +18,7 @@ using Points.Services.Multipliers;
 using Points.Services.Navigation;
 using Points.Services.Notifications;
 using Points.Services.Planner;
+using Points.Services.Premium;
 using Points.Services.Reports;
 using Points.Services.Schedules;
 using Points.Services.Scheduling;
@@ -165,6 +166,7 @@ builder.Services.AddSingleton<ITrackerService>(sp => new SqliteTrackerService(
             builder.Services.AddSingleton<IUdmdService, SqliteUdmdService>();
             builder.Services.AddSingleton<IMissionShareService, MissionShareService>();
             builder.Services.AddSingleton<IMissionShareLaunchHandler, MissionShareLaunchHandler>();
+            builder.Services.AddSingleton<IPremiumSubscriptionService, HardcodedPremiumSubscriptionService>();
 
             var app = builder.Build();
 

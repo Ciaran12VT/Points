@@ -245,6 +245,8 @@ public partial class HomePage : ContentPage
     {
         base.OnAppearing();
 
+        var isFirstAppearance = !_hasAppearedOnce;
+
         if (BindingContext is HomeViewModel vm)
         {
             if (!_hasAppearedOnce && vm.Initialization != null)
@@ -256,6 +258,9 @@ public partial class HomePage : ContentPage
         StartTicker();
         StartScheduledBackupChecks();
         _hasAppearedOnce = true;
+
+        if (isFirstAppearance && BindingContext is HomeViewModel homeViewModel)
+            await homeViewModel.HandleHomeOpenedForPremiumPromptAsync();
     }
 
     protected override void OnDisappearing()

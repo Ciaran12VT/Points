@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
+using Microsoft.Maui.Storage;
 using Points.Models;
 using Points.Global;
 using Points.Services;
@@ -14,7 +15,9 @@ using Points.Services.MissionSharing;
 using System.Windows.Input;
 using Points.Services.Scheduling;
 using Points.Services.Persistence;
+using Points.Services.Premium;
 using Points.Services.Time;
+using Points.Views.Premium;
 
 namespace Points.ViewModels.Home
 {
@@ -22,8 +25,14 @@ namespace Points.ViewModels.Home
     {
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        private const string PremiumPromptLaunchCountKey = "PremiumPromptLaunchCount";
+        private const int PremiumPromptLaunchInterval = 10;
+
         private readonly IClock _clock;
         private readonly ICardWriteService _cardWriter;
+        private readonly IAppDialogService _dialogs;
+        private readonly IPopupService _popups;
+        private readonly IPremiumSubscriptionService _premiumSubscriptions;
         private readonly HomePageStateCoordinator _pageState;
         private readonly HomeActivityInteractionCoordinator _activityInteraction;
         private readonly HomeCardLifecycleCoordinator _cardLifecycle;
@@ -70,6 +79,7 @@ namespace Points.ViewModels.Home
         public Command OpenSettingsCommand { get; }
         public Command OpenReportsCommand { get; }
         public Command OpenLeaderboardCommand { get; }
+        public Command OpenPremiumUpgradeCommand { get; }
 
         public Command ScrollToDashboardCommand { get; }
 
@@ -87,6 +97,22 @@ namespace Points.ViewModels.Home
 
         #region Fields
 
+        private bool _hasRecordedPremiumPromptLaunch;
+        private bool _isPremiumPromptShowing;
+
+        private bool _isPremiumBannerVisible = true;
+        public bool IsPremiumBannerVisible
+        {
+            get => _isPremiumBannerVisible;
+            set
+            {
+                if (_isPremiumBannerVisible == value)
+                    return;
+
+                _isPremiumBannerVisible = value;
+                OnPropertyChanged(nameof(IsPremiumBannerVisible));
+            }
+        }
 
         private bool _isTopToolbarVisible = false;
         public bool IsTopToolbarVisible
@@ -388,10 +414,14 @@ namespace Points.ViewModels.Home
             IScheduledBackupLogStore scheduledBackupLogStore,
             IGoogleDriveBackupConnector googleDriveBackupConnector,
             IScheduledBackupWorkScheduler scheduledBackupWorkScheduler,
+            IPremiumSubscriptionService premiumSubscriptions,
             IClock clock)
         {
             _clock = clock;
             _cardWriter = cardWriter ?? throw new ArgumentNullException(nameof(cardWriter));
+            _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
+            _popups = popups ?? throw new ArgumentNullException(nameof(popups));
+            _premiumSubscriptions = premiumSubscriptions ?? throw new ArgumentNullException(nameof(premiumSubscriptions));
             _pageState = new HomePageStateCoordinator(Pages, clock);
             _dashboardShortcuts = new HomeDashboardShortcutWorkflowCoordinator(
                 shortcuts,
@@ -542,6 +572,7 @@ namespace Points.ViewModels.Home
             OpenSettingsCommand = new Command(async () => await _navigation.OpenSettingsAsync());
             OpenReportsCommand = new Command(async () => await _navigation.OpenReportsAsync());
             OpenLeaderboardCommand = new Command(async () => await _navigation.OpenLeaderboardAsync());
+            OpenPremiumUpgradeCommand = new Command(async () => await ShowPremiumUpgradeAsync());
             OpenShortcutDetailsCommand = new Command<ShortcutModel>(async shortcut => await _navigation.OpenShortcutDetailsAsync(shortcut));
             ScrollToDashboardCommand = new Command(() =>
             {
@@ -595,6 +626,56 @@ namespace Points.ViewModels.Home
         public async Task LoadAsync()
         {
             await _homeLoader.LoadAsync();
+            await RefreshPremiumStateAsync();
+        }
+
+        public async Task HandleHomeOpenedForPremiumPromptAsync()
+        {
+            if (_hasRecordedPremiumPromptLaunch)
+                return;
+
+            _hasRecordedPremiumPromptLaunch = true;
+            await RefreshPremiumStateAsync();
+
+            if (!IsPremiumBannerVisible)
+                return;
+
+            var launchCount = Preferences.Get(PremiumPromptLaunchCountKey, 0) + 1;
+            Preferences.Set(PremiumPromptLaunchCountKey, launchCount);
+
+            if (launchCount % PremiumPromptLaunchInterval == 0)
+                await ShowPremiumUpgradeAsync();
+        }
+
+        private async Task RefreshPremiumStateAsync()
+        {
+            IsPremiumBannerVisible = !await _premiumSubscriptions.HasPremiumAsync();
+        }
+
+        private async Task ShowPremiumUpgradeAsync()
+        {
+            if (_isPremiumPromptShowing)
+                return;
+
+            _isPremiumPromptShowing = true;
+
+            try
+            {
+                var result = await _popups.ShowPopupAsync(new PremiumUpgradePopup());
+
+                if (result is PremiumUpgradePopupResult.Upgrade)
+                {
+                    await _dialogs.DisplayAlertAsync(
+                        "Premium",
+                        "Premium subscriptions are not available yet.",
+                        "OK");
+                }
+            }
+            finally
+            {
+                _isPremiumPromptShowing = false;
+                await RefreshPremiumStateAsync();
+            }
         }
 
         private async Task ReloadGoalsAsync()
