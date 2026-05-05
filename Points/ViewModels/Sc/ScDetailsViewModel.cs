@@ -201,7 +201,7 @@ namespace Points.ViewModels.Sc
             {
                 var sum = Steps.Sum(s => s.StepValue * s.Count(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
                 var signed = (_isNegative ? -1 : 1) * sum;
-                return signed.ToString("F2", CultureInfo.InvariantCulture);
+                return MultiplierValueCalculator.ApplyToCard(_model, signed).ToString("F2", CultureInfo.InvariantCulture);
             }
         }
 
@@ -387,7 +387,7 @@ namespace Points.ViewModels.Sc
             // Compute the delta since the page was opened
             var sum = Steps.Sum(s => s.StepValue * s.Count(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
             var signed = (_isNegative ? -1 : 1) * sum;
-            var amountToAdd = signed - initalTotalValue;
+            var amountToAdd = MultiplierValueCalculator.ApplyToCard(_model, signed - initalTotalValue);
 
             // If user reduced value or made no change, don't evaluate earns.
             if (amountToAdd <= 0)

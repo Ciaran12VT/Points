@@ -14,6 +14,7 @@ public partial class SettingsPage : ContentPage
     private readonly INotificationLogService _notificationLogs;
     private readonly ISettingsService _settings;
     private readonly IHardModePenaltyService _hardModePenalties;
+    private readonly IUserMultiplierService _userMultipliers;
     private readonly IClock _clock;
     private readonly ITimeZoneService _timeZoneService;
     private readonly IBackupFileStorageService _backupFileStorage;
@@ -34,6 +35,7 @@ public partial class SettingsPage : ContentPage
         INotificationLogService notificationLogs,
         ISettingsService settings,
         IHardModePenaltyService hardModePenalties,
+        IUserMultiplierService userMultipliers,
         IAppNavigationService navigation,
         IAppDialogService dialogs,
         IClock clock,
@@ -58,6 +60,7 @@ public partial class SettingsPage : ContentPage
         _notificationLogs = notificationLogs;
         _settings = settings;
         _hardModePenalties = hardModePenalties ?? throw new ArgumentNullException(nameof(hardModePenalties));
+        _userMultipliers = userMultipliers ?? throw new ArgumentNullException(nameof(userMultipliers));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _timeZoneService = timeZoneService ?? throw new ArgumentNullException(nameof(timeZoneService));
         _backupFileStorage = backupFileStorage ?? throw new ArgumentNullException(nameof(backupFileStorage));
@@ -85,7 +88,7 @@ public partial class SettingsPage : ContentPage
 
     private async Task OpenMultipliersSettingsAsync()
     {
-        await _navigation.PushAsync(new MultipliersSettingsPage(_settings, _hardModePenalties, _clock, _navigation));
+        await _navigation.PushAsync(new MultipliersSettingsPage(_settings, _hardModePenalties, _userMultipliers, _clock, _navigation));
     }
 
     private async Task OpenModulesAndFeaturesSettingsAsync()

@@ -12,12 +12,13 @@ public partial class MultipliersSettingsPage : ContentPage
     public MultipliersSettingsPage(
         ISettingsService settings,
         IHardModePenaltyService hardModePenalties,
+        IUserMultiplierService userMultipliers,
         IClock clock,
         IAppNavigationService navigation)
     {
         InitializeComponent();
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
-        BindingContext = new MultipliersSettingsViewModel(settings, hardModePenalties, clock, ReturnToSettingsPageAsync);
+        BindingContext = new MultipliersSettingsViewModel(settings, hardModePenalties, userMultipliers, clock, ReturnToSettingsPageAsync);
     }
 
     private async Task ReturnToSettingsPageAsync()

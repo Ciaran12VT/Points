@@ -41,13 +41,23 @@
             </VerticalStackLayout>
 
             <!-- Warning -->
-            <Label Grid.Column="2"
+            <Label Grid.Column="1"
                Text="!"
                TextColor="Red"
                FontSize="26"
                FontAttributes="Bold"
                IsVisible="{Binding HasNegativeAvailableMission}"
                VerticalOptions="Center" />
+
+            <!-- Active custom multiplier code -->
+            <Label Grid.Column="2"
+               Text="{Binding ActiveMultiplierCode}"
+               TextColor="#F59E0B"
+               FontSize="18"
+               FontAttributes="Bold"
+               IsVisible="{Binding HasActiveMultiplier}"
+               VerticalOptions="Center"
+               HorizontalOptions="End" />
 
             <!-- Top-right value -->
             <Label Grid.Column="3"

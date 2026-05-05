@@ -287,7 +287,7 @@ namespace Points.Services.Locks
                     break;
 
                 case LockDependencyMetricType.Points:
-                    actual = depCard.GetValue(tsr.Start, tsr.End);
+                    actual = MultiplierValueCalculator.GetValue(depCard, tsr.Start, tsr.End);
                     break;
 
                 default:

@@ -341,7 +341,7 @@ namespace Points.ViewModels.Goals
         {
             var range = new TimeScopeRange(goalDetailsModel.TimeScope, now);
 
-            return card.GetValue(range.Start, range.End);
+            return MultiplierValueCalculator.GetValue(card, range.Start, range.End);
         }
 
         private double GetPercentOfTotalTime(double totalGoalHrs, GoalDetailsModel goalDetailsModel, DateTime now)
@@ -356,7 +356,7 @@ namespace Points.ViewModels.Goals
 
         private double GetTotalGoalPoints(IActiveCardModel card, double totalGoalHrs)
         {
-            return (totalGoalHrs * 60) * card.ValuePerMinute;
+            return MultiplierValueCalculator.ApplyToCard(card, (totalGoalHrs * 60) * card.ValuePerMinute);
         }
 
 

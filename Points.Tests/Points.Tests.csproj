@@ -60,9 +60,12 @@
     <Compile Include="..\Points\Models\TatCardModel.cs" Link="App\Models\TatCardModel.cs" />
     <Compile Include="..\Points\Models\TrophyModel.cs" Link="App\Models\TrophyModel.cs" />
     <Compile Include="..\Points\Models\UdmdModels.cs" Link="App\Models\UdmdModels.cs" />
+    <Compile Include="..\Points\Models\UserMultiplierModel.cs" Link="App\Models\UserMultiplierModel.cs" />
     <Compile Include="..\Points\Models\ValueRateModel.cs" Link="App\Models\ValueRateModel.cs" />
     <Compile Include="..\Points\Models\ValueTrackerCardModel.cs" Link="App\Models\ValueTrackerCardModel.cs" />
+    <Compile Include="..\Points\Models\MultiplierValueCalculator.cs" Link="App\Models\MultiplierValueCalculator.cs" />
     <Compile Include="..\Points\Models\DbModels\SettingValueTypes.cs" Link="App\Models\DbModels\SettingValueTypes.cs" />
+    <Compile Include="..\Points\Global\MultiplierRuntimeState.cs" Link="App\Global\MultiplierRuntimeState.cs" />
     <Compile Include="..\Points\Services\Achievements\SqliteAchievementService.cs" Link="App\Achievements\SqliteAchievementService.cs" />
     <Compile Include="..\Points\Services\Activity\ActivityIntervalCalculator.cs" Link="App\Activity\ActivityIntervalCalculator.cs" />
     <Compile Include="..\Points\Services\Activity\CardRecencyCalculator.cs" Link="App\Activity\CardRecencyCalculator.cs" />
@@ -74,6 +77,7 @@
     <Compile Include="..\Points\Services\HardMode\SqliteHardModePenaltyService.cs" Link="App\HardMode\SqliteHardModePenaltyService.cs" />
     <Compile Include="..\Points\Services\Locks\SqliteLockService.cs" Link="App\Locks\SqliteLockService.cs" />
     <Compile Include="..\Points\Services\Missions\SqliteMissionCardService.cs" Link="App\Missions\SqliteMissionCardService.cs" />
+    <Compile Include="..\Points\Services\Multipliers\SqliteUserMultiplierService.cs" Link="App\Multipliers\SqliteUserMultiplierService.cs" />
     <Compile Include="..\Points\Services\Notifications\SqliteNotificationLogService.cs" Link="App\Notifications\SqliteNotificationLogService.cs" />
     <Compile Include="..\Points\Services\Planner\IPlannerCardSource.cs" Link="App\Planner\IPlannerCardSource.cs" />
     <Compile Include="..\Points\Services\Planner\SqlitePlannerService.cs" Link="App\Planner\SqlitePlannerService.cs" />

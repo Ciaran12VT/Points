@@ -22,6 +22,7 @@ namespace Points.ViewModels.Home
         private readonly HomeGoalsPageCoordinator _goalsPage;
         private readonly HomeRuntimeTickCoordinator _runtimeTicks;
         private readonly IHardModePenaltyService _hardModePenalties;
+        private readonly IUserMultiplierService _userMultipliers;
         private readonly Func<int> _getPosition;
         private readonly Action<int> _setPosition;
         private readonly Action _setSelectedPageIcon;
@@ -42,6 +43,7 @@ namespace Points.ViewModels.Home
             HomeGoalsPageCoordinator goalsPage,
             HomeRuntimeTickCoordinator runtimeTicks,
             IHardModePenaltyService hardModePenalties,
+            IUserMultiplierService userMultipliers,
             Func<int> getPosition,
             Action<int> setPosition,
             Action setSelectedPageIcon,
@@ -61,6 +63,7 @@ namespace Points.ViewModels.Home
             _goalsPage = goalsPage;
             _runtimeTicks = runtimeTicks;
             _hardModePenalties = hardModePenalties ?? throw new ArgumentNullException(nameof(hardModePenalties));
+            _userMultipliers = userMultipliers ?? throw new ArgumentNullException(nameof(userMultipliers));
             _getPosition = getPosition;
             _setPosition = setPosition;
             _setSelectedPageIcon = setSelectedPageIcon;
@@ -72,6 +75,7 @@ namespace Points.ViewModels.Home
         {
             var settings = await _settings.GetSettingsAsync();
             SettingsProvider.Initialize(settings);
+            await _userMultipliers.GetActiveMultiplierAsync();
 
             var pageToRestore = GetPageToRestore();
 
@@ -153,6 +157,8 @@ namespace Points.ViewModels.Home
             _notifyPropertyChanged(nameof(HomeViewModel.GlobalValueColor));
             _notifyPropertyChanged(nameof(HomeViewModel.ActivePhaseName));
             _notifyPropertyChanged(nameof(HomeViewModel.ActivePhaseColor));
+            _notifyPropertyChanged(nameof(HomeViewModel.ActiveMultiplierCode));
+            _notifyPropertyChanged(nameof(HomeViewModel.HasActiveMultiplier));
 
             _goalsPage.AppendGoalProgressCards(goals, goalProgressCards);
         }

@@ -242,7 +242,7 @@ namespace Points.ViewModels.Tat
             => _model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString(@"hh\:mm\:ss");
 
         public string CurrentAccruedValueText
-            => _model.GetValue(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString("F2");
+            => MultiplierValueCalculator.GetValue(_model, GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString("F2");
 
         public string ScheduleSummaryText => FormatCount(_model.Schedules.Count, "schedule");
 

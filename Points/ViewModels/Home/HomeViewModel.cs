@@ -227,6 +227,10 @@ namespace Points.ViewModels.Home
             get => _pageState.HasNegativeAvailableMission();
         }
 
+        public string ActiveMultiplierCode => MultiplierRuntimeState.ActiveCode;
+
+        public bool HasActiveMultiplier => MultiplierRuntimeState.HasActiveMultiplier;
+
         //The index of the currently displayed carousel page. Setting this here changes the page displayed.
         private int _position;
         public int Position
@@ -368,6 +372,7 @@ namespace Points.ViewModels.Home
             INotificationLogService notificationLogs,
             ISettingsService settings,
             IHardModePenaltyService hardModePenalties,
+            IUserMultiplierService userMultipliers,
             IUdmdService udmd,
             IPlannerService planner,
             IActiveCardNotificationService activeCardNotificationService,
@@ -475,6 +480,7 @@ namespace Points.ViewModels.Home
                 _goalsPage,
                 _runtimeTicks,
                 hardModePenalties,
+                userMultipliers,
                 () => Position,
                 value => Position = value,
                 SetSelectedPageIcon,
@@ -491,6 +497,7 @@ namespace Points.ViewModels.Home
                 notificationLogs,
                 settings,
                 hardModePenalties,
+                userMultipliers,
                 planner,
                 timeZoneService,
                 appNavigation,

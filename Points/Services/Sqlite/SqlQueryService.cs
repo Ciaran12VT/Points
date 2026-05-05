@@ -217,6 +217,35 @@ namespace Points.Services.Sqlite
                     CHECK (""End"" IS NULL OR Start <= ""End"")
                 );
 
+                CREATE TABLE IF NOT EXISTS UserMultiplier (
+                    UserMultiplierID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Name             TEXT    NOT NULL DEFAULT '',
+                    Code             TEXT    NOT NULL DEFAULT '',
+                    Description      TEXT    NOT NULL DEFAULT '',
+                    MultiplyBy       REAL    NOT NULL DEFAULT 1.0,
+                    CreatedAtUtc     TEXT    NOT NULL,
+                    UpdatedAtUtc     TEXT    NOT NULL,
+
+                    CHECK (length(Code) <= 3),
+                    CHECK (MultiplyBy > 0)
+                );
+
+                CREATE TABLE IF NOT EXISTS UserMultiplierActivationInterval (
+                    UserMultiplierActivationIntervalID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    UserMultiplierID                   INTEGER NULL,
+                    Name                               TEXT    NOT NULL DEFAULT '',
+                    Code                               TEXT    NOT NULL DEFAULT '',
+                    Description                        TEXT    NOT NULL DEFAULT '',
+                    MultiplyBy                         REAL    NOT NULL,
+                    Start                              TEXT    NOT NULL, -- ISO-8601 UTC datetime
+                    ""End""                              TEXT    NULL,     -- NULL = open
+
+                    FOREIGN KEY (UserMultiplierID) REFERENCES UserMultiplier(UserMultiplierID) ON DELETE SET NULL,
+                    CHECK (length(Code) <= 3),
+                    CHECK (MultiplyBy > 0),
+                    CHECK (""End"" IS NULL OR Start <= ""End"")
+                );
+
                 -- =========================
                 -- Trackers
                 -- =========================
@@ -490,6 +519,15 @@ namespace Points.Services.Sqlite
                 CREATE INDEX IF NOT EXISTS IX_HardModePenalty_StartEnd
                 ON HardModePenaltyInterval(Start, ""End"");
 
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_UserMultiplier_Code
+                ON UserMultiplier(Code COLLATE NOCASE);
+
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_UserMultiplierActivation_OneOpen
+                ON UserMultiplierActivationInterval(1) WHERE ""End"" IS NULL;
+
+                CREATE INDEX IF NOT EXISTS IX_UserMultiplierActivation_StartEnd
+                ON UserMultiplierActivationInterval(Start, ""End"");
+
                 CREATE INDEX IF NOT EXISTS IX_ValueTracker_CardID      ON ValueTrackerCard(CardID);
                 CREATE INDEX IF NOT EXISTS IX_EventTracker_CardID      ON EventTrackerCard(CardID);
 
@@ -576,6 +614,8 @@ namespace Points.Services.Sqlite
             return @"
                     DELETE FROM NotificationLog;
                     DELETE FROM Shortcut;
+                    DELETE FROM UserMultiplierActivationInterval;
+                    DELETE FROM UserMultiplier;
                     DELETE FROM HardModePenaltyInterval;
                 ";
         }

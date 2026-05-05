@@ -21,6 +21,7 @@ namespace Points.ViewModels.Home
         private readonly INotificationLogService _notificationLogs;
         private readonly ISettingsService _settings;
         private readonly IHardModePenaltyService _hardModePenalties;
+        private readonly IUserMultiplierService _userMultipliers;
         private readonly IPlannerService _planner;
         private readonly ITimeZoneService _timeZoneService;
         private readonly IAppNavigationService _navigation;
@@ -55,6 +56,7 @@ namespace Points.ViewModels.Home
             INotificationLogService notificationLogs,
             ISettingsService settings,
             IHardModePenaltyService hardModePenalties,
+            IUserMultiplierService userMultipliers,
             IPlannerService planner,
             ITimeZoneService timeZoneService,
             IAppNavigationService navigation,
@@ -88,6 +90,7 @@ namespace Points.ViewModels.Home
             _notificationLogs = notificationLogs;
             _settings = settings;
             _hardModePenalties = hardModePenalties;
+            _userMultipliers = userMultipliers;
             _planner = planner;
             _timeZoneService = timeZoneService;
             _navigation = navigation;
@@ -178,6 +181,7 @@ namespace Points.ViewModels.Home
                     _notificationLogs,
                     _settings,
                     _hardModePenalties,
+                    _userMultipliers,
                     _navigation,
                     _dialogs,
                     _clock,

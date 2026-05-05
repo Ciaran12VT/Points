@@ -23,7 +23,7 @@ internal static class LeaderboardRowsBuilder
             .Select(card =>
             {
                 var hours = getClippedActiveTime(card, start, end, now).TotalHours;
-                var points = card.GetValue(start, end);
+                var points = MultiplierValueCalculator.GetValue(card, start, end);
 
                 return new
                 {

@@ -14,6 +14,7 @@ using Points.Services.HardMode;
 using Points.Services.Locks;
 using Points.Services.MissionSharing;
 using Points.Services.Missions;
+using Points.Services.Multipliers;
 using Points.Services.Navigation;
 using Points.Services.Notifications;
 using Points.Services.Planner;
@@ -134,6 +135,7 @@ builder.Services.AddSingleton<ITrackerService>(sp => new SqliteTrackerService(
                 sp.GetRequiredService<ISqliteConnectionContext>(),
                 sp.GetRequiredService<IActivityService>(),
                 sp.GetRequiredService<ITimeZoneService>()));
+            builder.Services.AddSingleton<IUserMultiplierService, SqliteUserMultiplierService>();
             builder.Services.AddSingleton<IGoalService, SqliteGoalService>();
             builder.Services.AddSingleton<ILockService, SqliteLockService>();
             builder.Services.AddSingleton<SqliteCardService>(sp => new SqliteCardService(

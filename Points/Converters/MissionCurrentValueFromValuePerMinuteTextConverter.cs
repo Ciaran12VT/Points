@@ -34,7 +34,9 @@ namespace Points.Converters
                 if (nowObj is not DateTime now)
                     return "Value: --";
 
-                var v = mission.GetValueFromValuePerMinute(GlobalVariables.RangeStart, GlobalVariables.RangeEnd);
+                var v = MultiplierValueCalculator.ApplyToCard(
+                    mission,
+                    mission.GetValueFromValuePerMinute(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
                 var formatted = $"Earned: {v:F2}";
                 return formatted;
             }

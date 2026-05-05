@@ -146,13 +146,15 @@ namespace Points.ViewModels.Home
                 double total = 0;
                 foreach (var page in _pages)
                     foreach (var card in page.AllCards)
-                        total += card.GetValue(rangeStart, rangeEnd);
+                        total += MultiplierValueCalculator.GetValue(card, rangeStart, rangeEnd);
 
                 total += await _hardModePenalties.GetValueAsync(rangeStart, rangeEnd, utcNow);
 
                 _setTopRightValue(total);
 
                 _notifyPropertyChanged(nameof(HomeViewModel.RangeEnd));
+                _notifyPropertyChanged(nameof(HomeViewModel.ActiveMultiplierCode));
+                _notifyPropertyChanged(nameof(HomeViewModel.HasActiveMultiplier));
 
                 _notifyTickHappened();
             }
