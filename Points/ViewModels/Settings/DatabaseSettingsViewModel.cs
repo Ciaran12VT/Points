@@ -1,17 +1,22 @@
 using CommunityToolkit.Maui.Storage;
+using Points.Global;
 using Points.Models;
 using Points.Services.Backup;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Scheduling;
 using Points.Services.Time;
+using System.Globalization;
 
 namespace Points.ViewModels.Settings
 {
     public class DatabaseSettingsViewModel : ObservableObject
     {
+        private const int DefaultReportQueryTimeoutMilliseconds = 5000;
+
         private readonly IDatabaseMaintenanceService _databaseMaintenance;
         private readonly IDatabaseInitializationService _databaseLifecycle;
+        private readonly ISettingsService _settings;
         private readonly IClock _clock;
         private readonly IAppDialogService _dialogs;
         private readonly IBackupFileStorageService _backupFileStorage;
@@ -31,14 +36,18 @@ namespace Points.ViewModels.Settings
         private string _automaticExportToggleText = "Enable";
         private bool _automaticExportHasError;
         private bool _automaticExportCanReconnect;
+        private string _reportQueryTimeoutMillisecondsText = DefaultReportQueryTimeoutMilliseconds.ToString(CultureInfo.InvariantCulture);
+        private string _reportSettingsStatusText = "";
 
         public Command WipeDatabaseCommand { get; }
+        public Command SaveReportSettingsCommand { get; }
 
         public bool AutomaticExportUiEnabled => BackupFeatureFlags.AutomaticExportUiEnabled;
 
         public DatabaseSettingsViewModel(
             IDatabaseMaintenanceService databaseMaintenance,
             IDatabaseInitializationService databaseLifecycle,
+            ISettingsService settings,
             IClock clock,
             IAppDialogService dialogs,
             IBackupFileStorageService backupFileStorage,
@@ -49,6 +58,7 @@ namespace Points.ViewModels.Settings
         {
             _databaseMaintenance = databaseMaintenance;
             _databaseLifecycle = databaseLifecycle;
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
             _backupFileStorage = backupFileStorage ?? throw new ArgumentNullException(nameof(backupFileStorage));
@@ -58,7 +68,27 @@ namespace Points.ViewModels.Settings
             _scheduledBackupWorkScheduler = scheduledBackupWorkScheduler ?? throw new ArgumentNullException(nameof(scheduledBackupWorkScheduler));
 
             WipeDatabaseCommand = new Command(async () => await ConfirmAndWipeDatabaseAsync());
+            SaveReportSettingsCommand = new Command(async () => await SaveReportSettingsAsync());
             RefreshAutomaticExportSummary(null);
+        }
+
+        public string ReportQueryTimeoutMillisecondsText
+        {
+            get => _reportQueryTimeoutMillisecondsText;
+            set
+            {
+                if (SetProperty(ref _reportQueryTimeoutMillisecondsText, value))
+                    RaiseReportSettingsValidationChanged();
+            }
+        }
+
+        public bool HasInvalidReportQueryTimeout =>
+            !TryParseReportQueryTimeoutMilliseconds(ReportQueryTimeoutMillisecondsText, out _);
+
+        public string ReportSettingsStatusText
+        {
+            get => _reportSettingsStatusText;
+            private set => SetProperty(ref _reportSettingsStatusText, value);
         }
 
         public string AutomaticExportStatus
@@ -132,6 +162,22 @@ namespace Points.ViewModels.Settings
             await _databaseMaintenance.WipeAsync();
         }
 
+        public async Task LoadAsync()
+        {
+            await LoadReportSettingsAsync();
+            await LoadAutomaticExportConfigAsync();
+        }
+
+        public async Task LoadReportSettingsAsync()
+        {
+            var settings = await _settings.GetSettingsAsync();
+            var timeout = settings.FirstOrDefault(x => x.SettingKey == SettingKeys.ReportQueryTimeoutMilliseconds)?.IntValue
+                ?? DefaultReportQueryTimeoutMilliseconds;
+
+            ReportQueryTimeoutMillisecondsText = Math.Max(1, timeout).ToString(CultureInfo.InvariantCulture);
+            ReportSettingsStatusText = "";
+        }
+
         public async Task ConfirmAndWipeDatabaseAsync()
         {
             var input = await _dialogs.DisplayPromptAsync(
@@ -154,6 +200,20 @@ namespace Points.ViewModels.Settings
             _automaticExportConfig = await _scheduledBackupConfigStore.GetAsync();
             var lastRun = (await _scheduledBackupLogStore.GetRecentAsync(1)).FirstOrDefault();
             RefreshAutomaticExportSummary(lastRun);
+        }
+
+        public async Task SaveReportSettingsAsync()
+        {
+            if (!TryParseReportQueryTimeoutMilliseconds(ReportQueryTimeoutMillisecondsText, out var timeoutMilliseconds))
+            {
+                RaiseReportSettingsValidationChanged();
+                return;
+            }
+
+            await _settings.SetIntSettingAsync(SettingKeys.ReportQueryTimeoutMilliseconds, timeoutMilliseconds);
+            SettingsProvider.UpdateReportQueryTimeoutMilliseconds(timeoutMilliseconds);
+            ReportQueryTimeoutMillisecondsText = timeoutMilliseconds.ToString(CultureInfo.InvariantCulture);
+            ReportSettingsStatusText = "Saved.";
         }
 
         public ScheduledBackupConfig GetAutomaticExportDraft()
@@ -514,6 +574,25 @@ namespace Points.ViewModels.Settings
             {
                 // Best effort cleanup for cache files.
             }
+        }
+
+        private void RaiseReportSettingsValidationChanged()
+        {
+            RaisePropertyChanged(nameof(HasInvalidReportQueryTimeout));
+            SaveReportSettingsCommand.ChangeCanExecute();
+            ReportSettingsStatusText = "";
+        }
+
+        private static bool TryParseReportQueryTimeoutMilliseconds(string? value, out int timeoutMilliseconds)
+        {
+            if (int.TryParse(value?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out timeoutMilliseconds) &&
+                timeoutMilliseconds > 0)
+            {
+                return true;
+            }
+
+            timeoutMilliseconds = 0;
+            return false;
         }
     }
 }

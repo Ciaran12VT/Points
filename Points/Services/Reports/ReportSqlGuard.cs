@@ -3,7 +3,13 @@ namespace Points.Services.Reports
     internal static class ReportSqlGuard
     {
         public const int DefaultMaxRows = 500;
-        public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
+        public const int DefaultTimeoutMilliseconds = 5000;
+        public static readonly TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(DefaultTimeoutMilliseconds);
+
+        public static TimeSpan NormalizeTimeoutMilliseconds(int milliseconds)
+        {
+            return TimeSpan.FromMilliseconds(milliseconds > 0 ? milliseconds : DefaultTimeoutMilliseconds);
+        }
 
         public static string ValidateSelectStatement(string sql)
         {

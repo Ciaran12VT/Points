@@ -75,6 +75,7 @@ public partial class SettingsPage : ContentPage
         await _navigation.PushAsync(new DatabaseSettingsPage(
             _databaseMaintenance,
             _databaseLifecycle,
+            _settings,
             _backupFileStorage,
             _scheduledBackupConfigStore,
             _scheduledBackupLogStore,

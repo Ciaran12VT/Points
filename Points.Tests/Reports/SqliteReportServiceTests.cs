@@ -1,5 +1,7 @@
+using Points.Global;
 using Points.Services.Sqlite;
 using Points.Models;
+using Points.Models.DbModels;
 using Points.Services.Reports;
 using Points.Services.Persistence;
 using SQLite;
@@ -106,6 +108,57 @@ namespace Points.Tests.Reports
 
             await Assert.ThrowsAsync<InvalidOperationException>(
                 () => service.ExecuteSelectForReportAsync("DELETE FROM Report"));
+        }
+
+        [Fact]
+        public async Task ExecuteSelectForReportAsync_InterruptsWhenConfiguredTimeoutExpires()
+        {
+            await using var context = new TestSqliteConnectionContext();
+            var service = new SqliteReportService(
+                context,
+                settings: new TestSettingsService(timeoutMilliseconds: 1));
+
+            var ex = await Assert.ThrowsAsync<TimeoutException>(
+                () => service.ExecuteSelectForReportAsync("""
+                    WITH RECURSIVE numbers(value) AS (
+                        SELECT 1
+                        UNION ALL
+                        SELECT value + 1 FROM numbers WHERE value < 100000000
+                    )
+                    SELECT sum(value) FROM numbers;
+                    """));
+
+            Assert.Contains("1 milliseconds", ex.Message);
+        }
+
+        private sealed class TestSettingsService : ISettingsService
+        {
+            private readonly int _timeoutMilliseconds;
+
+            public TestSettingsService(int timeoutMilliseconds)
+            {
+                _timeoutMilliseconds = timeoutMilliseconds;
+            }
+
+            public Task<List<AcquiredSetting>> GetSettingsAsync()
+            {
+                return Task.FromResult(new List<AcquiredSetting>
+                {
+                    new()
+                    {
+                        SettingKey = SettingKeys.ReportQueryTimeoutMilliseconds,
+                        ValueType = SettingValueTypes.Int,
+                        RawValue = _timeoutMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        IntValue = _timeoutMilliseconds
+                    }
+                });
+            }
+
+            public Task SetStringSettingAsync(string settingKey, string value) => throw new NotSupportedException();
+            public Task SetBoolSettingAsync(string settingKey, bool value) => throw new NotSupportedException();
+            public Task SetIntSettingAsync(string settingKey, int value) => throw new NotSupportedException();
+            public Task SetNullableIntSettingAsync(string settingKey, int? value) => throw new NotSupportedException();
+            public Task SetDoubleSettingAsync(string settingKey, double value) => throw new NotSupportedException();
         }
 
         private sealed class TestSqliteConnectionContext : ISqliteConnectionContext, IAsyncDisposable

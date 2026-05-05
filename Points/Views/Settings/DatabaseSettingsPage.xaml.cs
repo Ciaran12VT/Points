@@ -26,6 +26,7 @@ public partial class DatabaseSettingsPage : ContentPage
     public DatabaseSettingsPage(
         IDatabaseMaintenanceService databaseMaintenance,
         IDatabaseInitializationService databaseLifecycle,
+        ISettingsService settings,
         IBackupFileStorageService backupFileStorage,
         IScheduledBackupConfigStore scheduledBackupConfigStore,
         IScheduledBackupLogStore scheduledBackupLogStore,
@@ -52,6 +53,7 @@ public partial class DatabaseSettingsPage : ContentPage
         BindingContext = new DatabaseSettingsViewModel(
             databaseMaintenance,
             databaseLifecycle,
+            settings,
             clock,
             _dialogs,
             backupFileStorage,
@@ -66,7 +68,7 @@ public partial class DatabaseSettingsPage : ContentPage
         base.OnAppearing();
 
         if (BindingContext is DatabaseSettingsViewModel vm)
-            await vm.LoadAutomaticExportConfigAsync();
+            await vm.LoadAsync();
     }
 
     private async Task ExportDatabaseAsync()

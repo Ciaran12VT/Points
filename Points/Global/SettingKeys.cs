@@ -54,6 +54,7 @@ namespace Points.Global
         public const string MissionDefaultDueByDateOffsetDays = "MissionDefaultDueByDateOffsetDays";
         public const string MissionDefaultDueByTime = "MissionDefaultDueByTime";
         public const string MissionDefaultEstimatedTime = "MissionDefaultEstimatedTime";
+        public const string ReportQueryTimeoutMilliseconds = "ReportQueryTimeoutMilliseconds";
 
         public static List<SettingDefinition> GetBuiltInSettingDefinitions()
         {
@@ -487,6 +488,17 @@ namespace Points.Global
                     Description = "Default estimated time assigned when creating a new mission.",
                     IsUserEditable = true,
                     SortOrder = 130
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.ReportQueryTimeoutMilliseconds,
+                    DefaultValue = "5000",
+                    ValueType = SettingValueTypes.Int,
+                    Category = "Database",
+                    DisplayName = "Report Query Timeout",
+                    Description = "Maximum time, in milliseconds, that a report query may run before it is interrupted.",
+                    IsUserEditable = true,
+                    SortOrder = 10
                 }
             };
         }
@@ -606,6 +618,7 @@ namespace Points.Global
         public static int? DefaultMissionDueByDateOffsetDays => GetNullableInt(SettingKeys.MissionDefaultDueByDateOffsetDays);
         public static TimeSpan? DefaultMissionDueByTime => GetOptionalTime(SettingKeys.MissionDefaultDueByTime);
         public static TimeSpan? DefaultMissionEstimatedTime => GetOptionalDuration(SettingKeys.MissionDefaultEstimatedTime);
+        public static int ReportQueryTimeoutMilliseconds => GetInt(SettingKeys.ReportQueryTimeoutMilliseconds, 5000);
 
         // -----------------------
         // Public helpers
@@ -856,6 +869,7 @@ namespace Points.Global
         public static void UpdateMissionDefaultDueByDateOffsetDays(int? value) => UpdateNullableInt(SettingKeys.MissionDefaultDueByDateOffsetDays, value);
         public static void UpdateMissionDefaultDueByTime(string value) => UpdateString(SettingKeys.MissionDefaultDueByTime, value);
         public static void UpdateMissionDefaultEstimatedTime(string value) => UpdateString(SettingKeys.MissionDefaultEstimatedTime, value);
+        public static void UpdateReportQueryTimeoutMilliseconds(int value) => UpdateInt(SettingKeys.ReportQueryTimeoutMilliseconds, value);
 
         // -----------------------
         // Internals

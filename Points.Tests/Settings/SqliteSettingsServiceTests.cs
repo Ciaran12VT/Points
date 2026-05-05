@@ -25,6 +25,7 @@ namespace Points.Tests.Settings
             var hardMode = Assert.Single(settings, x => x.SettingKey == SettingKeys.HardModeEnabled);
             var username = Assert.Single(settings, x => x.SettingKey == SettingKeys.Username);
             var eventOffset = Assert.Single(settings, x => x.SettingKey == SettingKeys.MissionDefaultEventDateOffsetDays);
+            var reportTimeout = Assert.Single(settings, x => x.SettingKey == SettingKeys.ReportQueryTimeoutMilliseconds);
 
             Assert.True(hardMode.BoolValue);
             Assert.Equal("Multipliers", hardMode.Category);
@@ -32,6 +33,8 @@ namespace Points.Tests.Settings
             Assert.Equal("DefaultsAndMisc", username.Category);
             Assert.Equal(SettingValueTypes.NullableInt, eventOffset.ValueType);
             Assert.Null(eventOffset.IntValue);
+            Assert.Equal("Database", reportTimeout.Category);
+            Assert.Equal(5000, reportTimeout.IntValue);
             Assert.DoesNotContain(settings, x => x.SettingKey == "RemovedSetting");
         }
 

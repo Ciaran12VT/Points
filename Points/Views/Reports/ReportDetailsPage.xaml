@@ -32,6 +32,16 @@
                     BackgroundColor="Green"
                     TextColor="White" />
 
+            <Button Text="⧉"
+                    Command="{Binding CopyResultsCommand}"
+                    IsEnabled="{Binding CanCopyResults}"
+                    WidthRequest="48"
+                    FontSize="18"
+                    FontAttributes="Bold"
+                    BackgroundColor="Green"
+                    TextColor="White"
+                    SemanticProperties.Description="Copy report results to clipboard" />
+
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                                IsVisible="{Binding IsBusy}"
                                VerticalOptions="Center" />

@@ -1,3 +1,4 @@
+using Points.Global;
 using Points.Services.Sqlite;
 using Points.Models;
 using Points.Services.Persistence;
@@ -12,11 +13,16 @@ namespace Points.Services.Reports
     {
         private readonly ISqliteConnectionContext _context;
         private readonly ITimeZoneService? _timeZoneService;
+        private readonly ISettingsService? _settings;
 
-        public SqliteReportService(ISqliteConnectionContext context, ITimeZoneService? timeZoneService = null)
+        public SqliteReportService(
+            ISqliteConnectionContext context,
+            ITimeZoneService? timeZoneService = null,
+            ISettingsService? settings = null)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _timeZoneService = timeZoneService;
+            _settings = settings;
         }
 
         /// <summary>
@@ -33,12 +39,14 @@ namespace Points.Services.Reports
                 return Array.Empty<string>();
 
             var guardedSql = ReportSqlGuard.ValidateSelectStatement(sql);
+            var timeout = await GetReportQueryTimeoutAsync();
 
             return await Task.Run(() =>
             {
                 sqlite3? db = null;
                 sqlite3_stmt? stmt = null;
                 var stopwatch = Stopwatch.StartNew();
+                delegate_progress? progressHandler = null;
 
                 try
                 {
@@ -50,6 +58,11 @@ namespace Points.Services.Reports
 
                     if (rc != raw.SQLITE_OK || db == null)
                         throw new InvalidOperationException($"Failed to open SQLite database. rc={rc}");
+
+                    raw.sqlite3_busy_timeout(db, ToMilliseconds(timeout));
+
+                    progressHandler = _ => stopwatch.Elapsed > timeout ? 1 : 0;
+                    raw.sqlite3_progress_handler(db, 1000, progressHandler, null);
 
                     rc = raw.sqlite3_prepare_v2(db, guardedSql, out stmt);
                     if (rc != raw.SQLITE_OK || stmt == null)
@@ -81,8 +94,7 @@ namespace Points.Services.Reports
 
                     while (true)
                     {
-                        if (stopwatch.Elapsed > ReportSqlGuard.DefaultTimeout)
-                            throw new TimeoutException($"Report execution exceeded {ReportSqlGuard.DefaultTimeout.TotalSeconds:0.#} seconds.");
+                        ThrowIfTimedOut(stopwatch, timeout);
 
                         rc = raw.sqlite3_step(stmt);
 
@@ -105,6 +117,9 @@ namespace Points.Services.Reports
                         if (rc == raw.SQLITE_DONE)
                             break;
 
+                        if (rc == raw.SQLITE_INTERRUPT && stopwatch.Elapsed > timeout)
+                            throw CreateTimeoutException(timeout);
+
                         throw new InvalidOperationException($"sqlite3_step failed. rc={rc}. {raw.sqlite3_errmsg(db).utf8_to_string()}");
                     }
 
@@ -116,6 +131,7 @@ namespace Points.Services.Reports
                 finally
                 {
                     if (stmt != null) raw.sqlite3_finalize(stmt);
+                    if (db != null) raw.sqlite3_progress_handler(db, 0, null, null);
                     if (db != null) raw.sqlite3_close(db);
                 }
             });
@@ -276,6 +292,36 @@ namespace Points.Services.Reports
                 raw.SQLITE_BLOB => $"[BLOB {raw.sqlite3_column_bytes(stmt, colIndex)} bytes]",
                 _ => ""
             };
+        }
+
+        private async Task<TimeSpan> GetReportQueryTimeoutAsync()
+        {
+            if (_settings == null)
+                return ReportSqlGuard.DefaultTimeout;
+
+            var settings = await _settings.GetSettingsAsync();
+            var timeoutMilliseconds = settings
+                .FirstOrDefault(x => x.SettingKey == SettingKeys.ReportQueryTimeoutMilliseconds)
+                ?.IntValue
+                ?? ReportSqlGuard.DefaultTimeoutMilliseconds;
+
+            return ReportSqlGuard.NormalizeTimeoutMilliseconds(timeoutMilliseconds);
+        }
+
+        private static void ThrowIfTimedOut(Stopwatch stopwatch, TimeSpan timeout)
+        {
+            if (stopwatch.Elapsed > timeout)
+                throw CreateTimeoutException(timeout);
+        }
+
+        private static TimeoutException CreateTimeoutException(TimeSpan timeout)
+        {
+            return new TimeoutException($"Report execution exceeded {ToMilliseconds(timeout)} milliseconds.");
+        }
+
+        private static int ToMilliseconds(TimeSpan timeout)
+        {
+            return (int)Math.Min(int.MaxValue, Math.Max(1, timeout.TotalMilliseconds));
         }
 
         private ReportModel MapReportRow(ReportRow row)

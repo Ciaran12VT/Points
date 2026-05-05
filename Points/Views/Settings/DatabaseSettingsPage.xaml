@@ -32,6 +32,49 @@
             <Frame Padding="12"
                    CornerRadius="12"
                    HasShadow="False"
+                   BorderColor="#DDDDDD">
+
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Reports"
+                           FontAttributes="Bold"
+                           FontSize="18" />
+
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="12"
+                          VerticalOptions="Center">
+                        <Label Text="Query Timeout (ms)"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+
+                        <Entry Grid.Column="1"
+                               Text="{Binding ReportQueryTimeoutMillisecondsText}"
+                               Keyboard="Numeric"
+                               Placeholder="5000" />
+                    </Grid>
+
+                    <Label Text="Enter a positive whole number."
+                           TextColor="#B00020"
+                           FontSize="12"
+                           IsVisible="{Binding HasInvalidReportQueryTimeout}" />
+
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="12">
+                        <Label Text="{Binding ReportSettingsStatusText}"
+                               TextColor="Green"
+                               FontSize="12"
+                               VerticalOptions="Center" />
+
+                        <Button Grid.Column="1"
+                                Text="Save"
+                                Command="{Binding SaveReportSettingsCommand}"
+                                IsEnabled="{Binding HasInvalidReportQueryTimeout, Converter={StaticResource InverseBoolConverter}}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+
+            <Frame Padding="12"
+                   CornerRadius="12"
+                   HasShadow="False"
                    BorderColor="#DDDDDD"
                    IsVisible="{Binding AutomaticExportUiEnabled}">
 

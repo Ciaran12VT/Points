@@ -1,10 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Maui.ApplicationModel.DataTransfer;
 using Points.Models;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Time;
 using System.Collections.ObjectModel;
+using System.Text;
 using System.Windows.Input;
 
 namespace Points.ViewModels.Reports
@@ -13,6 +15,7 @@ namespace Points.ViewModels.Reports
     {
         public ICommand SaveCommand { get; }
         public ICommand DeleteCommand { get; }
+        public IAsyncRelayCommand CopyResultsCommand { get; }
 
 
         private readonly Func<ReportModel, Task> _onSaved;
@@ -44,6 +47,8 @@ namespace Points.ViewModels.Reports
         // Each string = "col1|col2|..."
         public ObservableCollection<string> Results { get; } = new();
 
+        public bool CanCopyResults => !IsBusy && Results.Count > 0;
+
         private string _resultsMessage = "";
         public string ResultsMessage
         {
@@ -55,7 +60,11 @@ namespace Points.ViewModels.Reports
         public bool IsBusy
         {
             get => _isBusy;
-            set => SetProperty(ref _isBusy, value);
+            set
+            {
+                if (SetProperty(ref _isBusy, value))
+                    RefreshCopyAvailability();
+            }
         }
 
         // ?? Fire this when the results set is ready
@@ -82,6 +91,7 @@ namespace Points.ViewModels.Reports
 
             SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
             DeleteCommand = new AsyncRelayCommand(DeleteAsync, () => !IsBusy);
+            CopyResultsCommand = new AsyncRelayCommand(CopyResultsAsync, () => CanCopyResults);
         }
 
         private async Task SaveAsync()
@@ -148,6 +158,7 @@ namespace Points.ViewModels.Reports
             try
             {
                 Results.Clear();
+                RefreshCopyAvailability();
                 ResultsMessage = "Executing...";
 
                 var results = await _reports.ExecuteSelectForReportAsync(SqlText);
@@ -161,6 +172,7 @@ namespace Points.ViewModels.Reports
                 Report.SQLQuery = SqlText;
 
                 ResultsMessage = $"{Results.Count} rows returned.";
+                RefreshCopyAvailability();
 
                 // ?? Tell the view that the results are ready
                 ResultsUpdated?.Invoke();
@@ -173,6 +185,61 @@ namespace Points.ViewModels.Reports
             {
                 IsBusy = false;
             }
+        }
+
+        private async Task CopyResultsAsync()
+        {
+            if (!CanCopyResults) return;
+
+            try
+            {
+                await Clipboard.Default.SetTextAsync(ConvertResultsToCsv());
+                ResultsMessage = $"{Results.Count} rows copied to clipboard.";
+            }
+            catch (Exception ex)
+            {
+                ResultsMessage = $"ERROR (Copy): {ex.Message}";
+            }
+        }
+
+        private string ConvertResultsToCsv()
+        {
+            var builder = new StringBuilder();
+
+            for (var i = 0; i < Results.Count; i++)
+            {
+                if (i > 0)
+                    builder.AppendLine();
+
+                builder.Append(ConvertResultRowToCsv(Results[i]));
+            }
+
+            return builder.ToString();
+        }
+
+        private static string ConvertResultRowToCsv(string? row)
+        {
+            var cells = (row ?? string.Empty)
+                .Split('|')
+                .Select(cell => EscapeCsvCell(cell.Trim()));
+
+            return string.Join(",", cells);
+        }
+
+        private static string EscapeCsvCell(string cell)
+        {
+            if (cell.Contains('"'))
+                cell = cell.Replace("\"", "\"\"");
+
+            return cell.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0
+                ? $"\"{cell}\""
+                : cell;
+        }
+
+        private void RefreshCopyAvailability()
+        {
+            OnPropertyChanged(nameof(CanCopyResults));
+            CopyResultsCommand?.NotifyCanExecuteChanged();
         }
     }
 }
