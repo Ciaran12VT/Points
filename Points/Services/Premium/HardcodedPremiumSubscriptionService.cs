@@ -4,6 +4,6 @@ public sealed class HardcodedPremiumSubscriptionService : IPremiumSubscriptionSe
 {
     public Task<bool> HasPremiumAsync(CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(false);
+        return Task.FromResult(true);
     }
 }
