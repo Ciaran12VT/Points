@@ -539,6 +539,7 @@ namespace Points.ViewModels.Home
                 scheduledBackupLogStore,
                 googleDriveBackupConnector,
                 scheduledBackupWorkScheduler,
+                premiumSubscriptions,
                 Pages,
                 _pageState,
                 _cardWorkflow,

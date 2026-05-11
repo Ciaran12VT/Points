@@ -67,6 +67,17 @@
                             FontAttributes="Bold"
                             HeightRequest="56" />
 
+                    <BoxView HeightRequest="1"
+                             Color="#DDDDDD" />
+
+                    <Button Text="Tutorial"
+                            Command="{Binding Source={x:Reference SettingsRoot}, Path=OpenTutorialCommand}"
+                            HorizontalOptions="Fill"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                            FontAttributes="Bold"
+                            HeightRequest="56" />
+
                 </VerticalStackLayout>
             </Frame>
 

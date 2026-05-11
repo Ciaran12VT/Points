@@ -3,6 +3,7 @@ using Points.Models;
 using Points.Services.Backup;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
+using Points.Services.Premium;
 using Points.Services.Time;
 using Points.ViewModels.Leaderboard;
 using Points.Views.Leaderboard;
@@ -33,6 +34,7 @@ namespace Points.ViewModels.Home
         private readonly IScheduledBackupLogStore _scheduledBackupLogStore;
         private readonly IGoogleDriveBackupConnector _googleDriveBackupConnector;
         private readonly IScheduledBackupWorkScheduler _scheduledBackupWorkScheduler;
+        private readonly IPremiumSubscriptionService _premiumSubscriptions;
         private readonly IReadOnlyList<HomePageModel> _pages;
         private readonly HomePageStateCoordinator _pageState;
         private readonly HomeCardWorkflowCoordinator _cardWorkflow;
@@ -68,6 +70,7 @@ namespace Points.ViewModels.Home
             IScheduledBackupLogStore scheduledBackupLogStore,
             IGoogleDriveBackupConnector googleDriveBackupConnector,
             IScheduledBackupWorkScheduler scheduledBackupWorkScheduler,
+            IPremiumSubscriptionService premiumSubscriptions,
             IReadOnlyList<HomePageModel> pages,
             HomePageStateCoordinator pageState,
             HomeCardWorkflowCoordinator cardWorkflow,
@@ -102,6 +105,7 @@ namespace Points.ViewModels.Home
             _scheduledBackupLogStore = scheduledBackupLogStore;
             _googleDriveBackupConnector = googleDriveBackupConnector;
             _scheduledBackupWorkScheduler = scheduledBackupWorkScheduler;
+            _premiumSubscriptions = premiumSubscriptions ?? throw new ArgumentNullException(nameof(premiumSubscriptions));
             _pages = pages;
             _pageState = pageState;
             _cardWorkflow = cardWorkflow;
@@ -190,7 +194,8 @@ namespace Points.ViewModels.Home
                     _scheduledBackupConfigStore,
                     _scheduledBackupLogStore,
                     _googleDriveBackupConnector,
-                    _scheduledBackupWorkScheduler));
+                    _scheduledBackupWorkScheduler,
+                    _premiumSubscriptions));
         }
 
         public async Task OpenReportsAsync()

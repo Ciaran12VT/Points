@@ -1,6 +1,7 @@
 using Points.Services.Backup;
 using Points.Services.Navigation;
 using Points.Services.Persistence;
+using Points.Services.Premium;
 using Points.Services.Time;
 
 namespace Points.Views.Settings;
@@ -22,12 +23,14 @@ public partial class SettingsPage : ContentPage
     private readonly IScheduledBackupLogStore _scheduledBackupLogStore;
     private readonly IGoogleDriveBackupConnector _googleDriveBackupConnector;
     private readonly IScheduledBackupWorkScheduler _scheduledBackupWorkScheduler;
+    private readonly IPremiumSubscriptionService _premiumSubscriptions;
 
     public Command OpenDatabaseSettingsCommand { get; }
     public Command OpenMultipliersSettingsCommand { get; }
     public Command OpenModulesAndFeaturesSettingsCommand { get; }
     public Command OpenDefaultsAndMiscSettingsCommand { get; }
     public Command OpenNotificationsLogCommand { get; }
+    public Command OpenTutorialCommand { get; }
 
     public SettingsPage(
         IDatabaseMaintenanceService databaseMaintenance,
@@ -44,13 +47,15 @@ public partial class SettingsPage : ContentPage
         IScheduledBackupConfigStore scheduledBackupConfigStore,
         IScheduledBackupLogStore scheduledBackupLogStore,
         IGoogleDriveBackupConnector googleDriveBackupConnector,
-        IScheduledBackupWorkScheduler scheduledBackupWorkScheduler)
+        IScheduledBackupWorkScheduler scheduledBackupWorkScheduler,
+        IPremiumSubscriptionService premiumSubscriptions)
     {
         OpenDatabaseSettingsCommand = new Command(async () => await OpenDatabaseSettingsAsync());
         OpenMultipliersSettingsCommand = new Command(async () => await OpenMultipliersSettingsAsync());
         OpenModulesAndFeaturesSettingsCommand = new Command(async () => await OpenModulesAndFeaturesSettingsAsync());
         OpenDefaultsAndMiscSettingsCommand = new Command(async () => await OpenDefaultsAndMiscSettingsAsync());
         OpenNotificationsLogCommand = new Command(async () => await OpenNotificationsLogAsync());
+        OpenTutorialCommand = new Command(async () => await OpenTutorialAsync());
 
         InitializeComponent();
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
@@ -68,6 +73,7 @@ public partial class SettingsPage : ContentPage
         _scheduledBackupLogStore = scheduledBackupLogStore ?? throw new ArgumentNullException(nameof(scheduledBackupLogStore));
         _googleDriveBackupConnector = googleDriveBackupConnector ?? throw new ArgumentNullException(nameof(googleDriveBackupConnector));
         _scheduledBackupWorkScheduler = scheduledBackupWorkScheduler ?? throw new ArgumentNullException(nameof(scheduledBackupWorkScheduler));
+        _premiumSubscriptions = premiumSubscriptions ?? throw new ArgumentNullException(nameof(premiumSubscriptions));
     }
 
     private async Task OpenDatabaseSettingsAsync()
@@ -105,5 +111,10 @@ public partial class SettingsPage : ContentPage
     private async Task OpenNotificationsLogAsync()
     {
         await _navigation.PushAsync(new NotificationLogPage(_notificationLogs, _clock, _timeZoneService));
+    }
+
+    private async Task OpenTutorialAsync()
+    {
+        await _navigation.PushAsync(new TutorialPage(_premiumSubscriptions));
     }
 }
