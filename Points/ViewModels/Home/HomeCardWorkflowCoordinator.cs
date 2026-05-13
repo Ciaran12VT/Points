@@ -129,7 +129,7 @@ namespace Points.ViewModels.Home
                     new MissionDetailsPage(
                         mission,
                         saved => _cardLifecycle.CommitCardToPage(page, saved),
-                        onDelete: _cardLifecycle.DeleteMission,
+                        onDelete: deleted => _cardLifecycle.DeleteCardFromPageAndDbAsync(page, deleted),
                         onFail: _cardLifecycle.FailMissionAsync,
                         _getTags(),
                         _activity,

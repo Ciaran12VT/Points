@@ -103,6 +103,38 @@ public sealed class SqliteCardServiceTests
         Assert.False(Directory.Exists(imageFolder));
     }
 
+    [Fact]
+    public async Task DeleteCardModelAsync_RemovesMissionCardAndBaseCardReferences()
+    {
+        await using var context = new TestSqliteConnectionContext();
+        var harness = CreateHarness(context);
+        var cardId = await context.InsertCardAsync("Delete mission", "mission");
+        var missionId = await context.InsertMissionCardAsync(cardId);
+        var mission = new MissionCardModel
+        {
+            Id = missionId,
+            CardID = cardId,
+            Title = "Delete mission",
+            Tags = "mission"
+        };
+        await context.InsertDeleteReferencesAsync(cardId);
+
+        Assert.False(await harness.Service.WouldArchiveCardModelOnDeleteAsync(mission));
+
+        await harness.Service.DeleteCardModelAsync(mission);
+
+        Assert.Equal(0, mission.Id);
+        Assert.Equal(0, mission.CardID);
+        Assert.Equal(0, await context.CountAsync("Card"));
+        Assert.Equal(0, await context.CountAsync("MissionCard"));
+        Assert.Equal(0, await context.CountAsync("Shortcut"));
+        Assert.Equal(0, await context.CountAsync("NotificationLog"));
+        Assert.Equal(0, await context.CountAsync("CardSchedule"));
+        Assert.Equal(0, await context.CountAsync("Lock"));
+        Assert.Equal(0, await context.CountAsync("LockSchedule"));
+        Assert.Equal(0, await context.CountAsync("LockTaskDependency"));
+    }
+
     [Theory]
     [InlineData("Tat")]
     [InlineData("Sc")]
@@ -556,6 +588,27 @@ public sealed class SqliteCardServiceTests
                 );
                 """);
             await _db.ExecuteAsync("""
+                CREATE TABLE IF NOT EXISTS MissionCard (
+                    MissionCardID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CardID INTEGER NOT NULL,
+                    MissionGuid TEXT NOT NULL DEFAULT '',
+                    Status TEXT NOT NULL DEFAULT '',
+                    Description TEXT NOT NULL DEFAULT '',
+                    SharedWith TEXT NULL,
+                    SubType TEXT NOT NULL DEFAULT '',
+                    Value REAL NOT NULL,
+                    CreatedDate TEXT NOT NULL,
+                    AvailableFromDate TEXT NOT NULL,
+                    DueDate TEXT NOT NULL,
+                    CompletedDate TEXT NULL,
+                    EventDate TEXT NULL,
+                    EstCompletionTimeText TEXT NOT NULL DEFAULT '',
+                    IsFailed INTEGER NOT NULL DEFAULT 0,
+                    ValuePerMinute REAL NOT NULL,
+                    FOREIGN KEY(CardID) REFERENCES Card(CardID) ON DELETE CASCADE
+                );
+                """);
+            await _db.ExecuteAsync("""
                 CREATE TABLE IF NOT EXISTS BudgetCard (
                     BudgetCardID INTEGER PRIMARY KEY AUTOINCREMENT,
                     CardID INTEGER NOT NULL,
@@ -808,6 +861,40 @@ public sealed class SqliteCardServiceTests
             await InitializeAsync();
             await Db.ExecuteAsync("INSERT INTO Card (Title, Tags) VALUES (?, ?);", title, tags);
             return await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
+        }
+
+        public async Task<int> InsertMissionCardAsync(long cardId)
+        {
+            await InitializeAsync();
+            await Db.ExecuteAsync(
+                @"INSERT INTO MissionCard
+                    (CardID,
+                     MissionGuid,
+                     Status,
+                     Description,
+                     SubType,
+                     Value,
+                     CreatedDate,
+                     AvailableFromDate,
+                     DueDate,
+                     EstCompletionTimeText,
+                     IsFailed,
+                     ValuePerMinute)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                cardId,
+                Guid.NewGuid().ToString("D"),
+                "In-Progress",
+                "",
+                "Stable",
+                25,
+                StrictTimeSerializer.SerializeUtcInstant(Utc(2026, 4, 29, 9)),
+                StrictTimeSerializer.SerializeLocalDateTime(Local(2026, 4, 29)),
+                StrictTimeSerializer.SerializeLocalDateTime(Local(2026, 4, 30)),
+                "",
+                0,
+                0);
+
+            return (int)await Db.ExecuteScalarAsync<long>("SELECT last_insert_rowid();");
         }
 
         public async Task<string> GetSubtypeStatusAsync(ICardModel model)

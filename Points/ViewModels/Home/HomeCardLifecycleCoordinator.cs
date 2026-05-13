@@ -105,17 +105,6 @@ namespace Points.ViewModels.Home
             await PromptShareUpdateIfNeededAsync(model, "failed status");
         }
 
-        public void DeleteMission(MissionCardModel model)
-        {
-            var missionPage = _pages.FirstOrDefault(p => p.Name == "Mission");
-            if (missionPage == null)
-                return;
-
-            missionPage.AllCards.Remove(model);
-            missionPage.VisibleCards.Remove(model);
-            RefreshMissionState();
-        }
-
         public async Task SaveMissionAsync(MissionCardModel model)
         {
             await _cardWriter.SaveCardModelAsync(model);

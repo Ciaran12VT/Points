@@ -12,7 +12,7 @@ public partial class MissionDetailsPage : ContentPage
     public MissionDetailsPage(
         MissionCardModel model,
         Action<MissionCardModel> onSaved,
-        Action<MissionCardModel> onDelete,
+        Func<MissionCardModel, Task> onDelete,
         Func<MissionCardModel, Task> onFail,
         List<string> availableTagsList,
         IActivityService activity,

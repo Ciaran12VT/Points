@@ -30,7 +30,7 @@ namespace Points.ViewModels.Missions
         private readonly HashSet<string> _resourceCaptureCachePaths = new();
         private readonly MissionEditSnapshot _originalSnapshot;
 
-        private readonly Action<MissionCardModel> _onDelete;
+        private readonly Func<MissionCardModel, Task> _onDelete;
         private readonly Func<MissionCardModel, Task> _onFail;
         private bool _suspendDueAdjustment;
 
@@ -58,7 +58,7 @@ namespace Points.ViewModels.Missions
         public MissionDetailsViewModel(
             MissionCardModel model,
             Action<MissionCardModel> onSaved,
-            Action<MissionCardModel> onDelete,
+            Func<MissionCardModel, Task> onDelete,
             Func<MissionCardModel, Task> onFail,
             List<string> availableTagsList,
             IActivityService activity,
@@ -71,8 +71,8 @@ namespace Points.ViewModels.Missions
         {
             _model = model;
             _onSaved = onSaved;
-            _onDelete = onDelete;
-            _onFail = onFail;
+            _onDelete = onDelete ?? throw new ArgumentNullException(nameof(onDelete));
+            _onFail = onFail ?? throw new ArgumentNullException(nameof(onFail));
             _timeZoneService = timeZoneService ?? new TimeZoneService();
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
@@ -697,7 +697,7 @@ namespace Points.ViewModels.Missions
             if (choice == "Delete")
             {
                 CleanupResourceCaptureCacheFiles();
-                _onDelete?.Invoke(_model);
+                await _onDelete(_model);
                 await _navigation.PopAsync();
             }
             else if (choice == "Failed")
