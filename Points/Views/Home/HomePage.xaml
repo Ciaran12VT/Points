@@ -176,7 +176,7 @@
 
         <!-- NEW: DYNAMIC (IN-PAGE) TOOLBAR -->
         <Grid Grid.Row="1"
-              ColumnDefinitions="*,Auto"
+              ColumnDefinitions="*,Auto,Auto"
               Padding="12,8,12,12"
               BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
 
@@ -206,8 +206,27 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
 
+            <Frame Grid.Column="1"
+                   WidthRequest="22"
+                   HeightRequest="22"
+                   CornerRadius="11"
+                   Padding="0"
+                   HasShadow="False"
+                   BorderColor="Transparent"
+                   BackgroundColor="{Binding MissedNotificationBadgeColor}"
+                   IsVisible="{Binding HasMissedNotifications}"
+                   VerticalOptions="Center"
+                   Margin="8,0,0,0">
+                <Label Text="{Binding MissedNotificationBadgeText}"
+                       FontSize="11"
+                       FontAttributes="Bold"
+                       TextColor="White"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center" />
+            </Frame>
+
             <!-- Right: show/hide top toolbar -->
-            <Button Grid.Column="1"
+            <Button Grid.Column="2"
                     Text="⋯"  
                     Command="{Binding ToggleTopToolbarCommand}"
                     WidthRequest="36"

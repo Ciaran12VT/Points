@@ -8,6 +8,8 @@ namespace Points.Services.Notifications
     public sealed class SqliteNotificationLogService : INotificationLogService
     {
         private static readonly TimeSpan NotificationSentMatchWindow = TimeSpan.FromMinutes(5);
+        private const int MaxPageSize = 100;
+        private const int MaxLegacyLimit = 1000;
 
         private readonly ISqliteConnectionContext _context;
         private readonly ITimeZoneService _timeZoneService;
@@ -22,30 +24,51 @@ namespace Points.Services.Notifications
         {
             await _context.InitializeAsync();
 
-            var take = Math.Clamp(limit, 1, 1000);
+            var take = Math.Clamp(limit, 1, MaxLegacyLimit);
             var rows = await _context.Db.QueryAsync<NotificationLogRow>(
-                @"SELECT
-                      NotificationLogId AS NotificationLogId,
-                      ScheduleId        AS ScheduleId,
-                      CardId            AS CardId,
-                      CardTitle         AS CardTitle,
-                      Note              AS Note,
-                      Status            AS Status,
-                      CreatedAt         AS CreatedAt,
-                      ScheduledAt       AS ScheduledAt,
-                      ScheduleFor       AS ScheduleFor,
-                      SentAt            AS SentAt,
-                      UpdatedAt         AS UpdatedAt,
-                      Error             AS Error
-                  FROM NotificationLog
-                  ORDER BY ScheduleFor DESC, NotificationLogId DESC;");
+                $@"{SelectNotificationLogSql()}
+                  ORDER BY ScheduleFor DESC, NotificationLogId DESC
+                  LIMIT ?;",
+                take);
 
             return rows
                 .Select(ToNotificationLogModel)
-                .OrderByDescending(log => log.ScheduleFor)
-                .ThenByDescending(log => log.NotificationLogId)
-                .Take(take)
                 .ToList();
+        }
+
+        public async Task<IReadOnlyList<NotificationLogModel>> GetNotificationLogsAsync(
+            NotificationLogFilter filter,
+            int offset,
+            int limit)
+        {
+            await _context.InitializeAsync();
+
+            var (whereClause, args) = BuildFilterClause(filter);
+            args.Add(Math.Clamp(limit, 1, MaxPageSize));
+            args.Add(Math.Max(offset, 0));
+
+            var rows = await _context.Db.QueryAsync<NotificationLogRow>(
+                $@"{SelectNotificationLogSql()}
+                  {whereClause}
+                  ORDER BY ScheduleFor DESC, NotificationLogId DESC
+                  LIMIT ? OFFSET ?;",
+                args.ToArray());
+
+            return rows
+                .Select(ToNotificationLogModel)
+                .ToList();
+        }
+
+        public async Task<int> GetNotificationLogCountAsync(NotificationLogFilter filter)
+        {
+            await _context.InitializeAsync();
+
+            var (whereClause, args) = BuildFilterClause(filter);
+            return await _context.Db.ExecuteScalarAsync<int>(
+                $@"SELECT COUNT(*)
+                  FROM NotificationLog
+                  {whereClause};",
+                args.ToArray());
         }
 
         public async Task<NotificationLogModel> UpsertNotificationLogCreatedAsync(
@@ -155,12 +178,13 @@ namespace Points.Services.Notifications
                 @"SELECT *
                   FROM NotificationLog
                   WHERE ScheduleId = ?
-                    AND Status IN (?, ?, ?)
+                    AND Status IN (?, ?, ?, ?)
                   ORDER BY ScheduleFor DESC, NotificationLogId DESC;",
                 schedule.ScheduleId,
                 NotificationLogStatuses.Created,
                 NotificationLogStatuses.Scheduled,
-                NotificationLogStatuses.Missed);
+                NotificationLogStatuses.Missed,
+                NotificationLogStatuses.MissedSeen);
 
             var existing = candidates
                 .Select(row => new { Row = row, ScheduleForUtc = ParseInstantUtc(row.ScheduleFor) })
@@ -223,6 +247,44 @@ namespace Points.Services.Notifications
             }
         }
 
+        public async Task MarkNotificationLogsMissedSeenAsync(IEnumerable<long> notificationLogIds, DateTime seenAt)
+        {
+            if (notificationLogIds == null)
+                throw new ArgumentNullException(nameof(notificationLogIds));
+
+            await _context.InitializeAsync();
+
+            var ids = notificationLogIds
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (ids.Count == 0)
+                return;
+
+            var updatedAtIso = SerializeInstantForDb(seenAt);
+
+            foreach (var batch in Chunk(ids, 100))
+            {
+                var placeholders = string.Join(", ", batch.Select(_ => "?"));
+                var args = new List<object>
+                {
+                    NotificationLogStatuses.MissedSeen,
+                    updatedAtIso,
+                    NotificationLogStatuses.Missed
+                };
+                args.AddRange(batch.Cast<object>());
+
+                await _context.Db.ExecuteAsync(
+                    $@"UPDATE NotificationLog
+                      SET Status = ?,
+                          UpdatedAt = ?
+                      WHERE Status = ?
+                        AND NotificationLogId IN ({placeholders});",
+                    args.ToArray());
+            }
+        }
+
         private async Task<NotificationLogModel?> GetNotificationLogByIdAsync(long notificationLogId)
         {
             var row = (await _context.Db.QueryAsync<NotificationLogRow>(
@@ -252,6 +314,44 @@ namespace Points.Services.Notifications
                 UpdatedAt = ParseInstantUtc(row.UpdatedAt),
                 Error = row.Error
             };
+        }
+
+        private static string SelectNotificationLogSql()
+        {
+            return @"SELECT
+                      NotificationLogId AS NotificationLogId,
+                      ScheduleId        AS ScheduleId,
+                      CardId            AS CardId,
+                      CardTitle         AS CardTitle,
+                      Note              AS Note,
+                      Status            AS Status,
+                      CreatedAt         AS CreatedAt,
+                      ScheduledAt       AS ScheduledAt,
+                      ScheduleFor       AS ScheduleFor,
+                      SentAt            AS SentAt,
+                      UpdatedAt         AS UpdatedAt,
+                      Error             AS Error
+                  FROM NotificationLog";
+        }
+
+        private static (string WhereClause, List<object> Args) BuildFilterClause(NotificationLogFilter filter)
+        {
+            return filter switch
+            {
+                NotificationLogFilter.All => ("", new List<object>()),
+                NotificationLogFilter.Scheduled => ("WHERE Status = ?", new List<object> { NotificationLogStatuses.Scheduled }),
+                NotificationLogFilter.Missed => ("WHERE Status = ?", new List<object> { NotificationLogStatuses.Missed }),
+                NotificationLogFilter.History => (
+                    "WHERE Status IN (?, ?)",
+                    new List<object> { NotificationLogStatuses.Sent, NotificationLogStatuses.MissedSeen }),
+                _ => throw new ArgumentOutOfRangeException(nameof(filter), filter, "Unknown notification log filter.")
+            };
+        }
+
+        private static IEnumerable<List<long>> Chunk(IReadOnlyList<long> ids, int size)
+        {
+            for (var index = 0; index < ids.Count; index += size)
+                yield return ids.Skip(index).Take(size).ToList();
         }
 
         private DateTime ParseInstantUtc(string value)

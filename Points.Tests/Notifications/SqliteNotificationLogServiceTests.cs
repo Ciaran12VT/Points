@@ -146,6 +146,69 @@ namespace Points.Tests.Notifications
             Assert.Equal(Utc(12), clamped[0].ScheduleFor);
         }
 
+        [Fact]
+        public async Task GetNotificationLogsAsync_FiltersCountsAndPagesByLogBucket()
+        {
+            await using var context = new TestSqliteConnectionContext();
+            var service = new SqliteNotificationLogService(context, new TimeZoneService());
+            var scheduled = NewSchedule(scheduleId: 1, cardId: 101);
+            var missed = NewSchedule(scheduleId: 2, cardId: 202);
+            var sent = NewSchedule(scheduleId: 3, cardId: 303);
+
+            var scheduledLog = await service.UpsertNotificationLogCreatedAsync(scheduled, "Scheduled", Utc(12), Utc(8));
+            await service.MarkNotificationLogScheduledAsync(scheduledLog.NotificationLogId, Utc(8, 1));
+
+            await service.UpsertNotificationLogCreatedAsync(missed, "Missed", Utc(11), Utc(8));
+            await service.MarkOverdueNotificationLogsMissedAsync(Utc(12, 10), TimeSpan.FromMinutes(15));
+
+            await service.UpsertNotificationLogCreatedAsync(sent, "Sent", Utc(10), Utc(8));
+            await service.MarkNotificationLogSentAsync(sent, "Sent", Utc(10), Utc(10, 1));
+
+            Assert.Equal(1, await service.GetNotificationLogCountAsync(NotificationLogFilter.Scheduled));
+            Assert.Equal(1, await service.GetNotificationLogCountAsync(NotificationLogFilter.Missed));
+
+            var scheduledRows = await service.GetNotificationLogsAsync(NotificationLogFilter.Scheduled, 0, 10);
+            var missedRows = await service.GetNotificationLogsAsync(NotificationLogFilter.Missed, 0, 10);
+            var historyRows = await service.GetNotificationLogsAsync(NotificationLogFilter.History, 0, 10);
+
+            Assert.Equal(NotificationLogStatuses.Scheduled, Assert.Single(scheduledRows).Status);
+            Assert.Equal(NotificationLogStatuses.Missed, Assert.Single(missedRows).Status);
+            Assert.Equal(NotificationLogStatuses.Sent, Assert.Single(historyRows).Status);
+        }
+
+        [Fact]
+        public async Task MarkNotificationLogsMissedSeenAsync_MarksOnlySelectedMissedLogs()
+        {
+            await using var context = new TestSqliteConnectionContext();
+            var service = new SqliteNotificationLogService(context, new TimeZoneService());
+            var first = NewSchedule(scheduleId: 1, cardId: 101);
+            var second = NewSchedule(scheduleId: 2, cardId: 202);
+            var scheduled = NewSchedule(scheduleId: 3, cardId: 303);
+
+            await service.UpsertNotificationLogCreatedAsync(first, "First", Utc(10), Utc(8));
+            await service.UpsertNotificationLogCreatedAsync(second, "Second", Utc(11), Utc(8));
+            var scheduledLog = await service.UpsertNotificationLogCreatedAsync(scheduled, "Scheduled", Utc(12), Utc(8));
+            await service.MarkNotificationLogScheduledAsync(scheduledLog.NotificationLogId, Utc(8, 1));
+            await service.MarkOverdueNotificationLogsMissedAsync(Utc(12, 10), TimeSpan.FromMinutes(15));
+
+            var missedRows = await service.GetNotificationLogsAsync(NotificationLogFilter.Missed, 0, 10);
+            var selected = missedRows.Single(x => x.ScheduleId == first.ScheduleId);
+
+            await service.MarkNotificationLogsMissedSeenAsync(
+                new[] { selected.NotificationLogId, scheduledLog.NotificationLogId },
+                Utc(12, 15));
+
+            var allRows = await service.GetNotificationLogsAsync();
+            Assert.Equal(NotificationLogStatuses.MissedSeen, allRows.Single(x => x.ScheduleId == first.ScheduleId).Status);
+            Assert.Equal(Utc(12, 15), allRows.Single(x => x.ScheduleId == first.ScheduleId).UpdatedAt);
+            Assert.Equal(NotificationLogStatuses.Missed, allRows.Single(x => x.ScheduleId == second.ScheduleId).Status);
+            Assert.Equal(NotificationLogStatuses.Scheduled, allRows.Single(x => x.ScheduleId == scheduled.ScheduleId).Status);
+
+            var historyRows = await service.GetNotificationLogsAsync(NotificationLogFilter.History, 0, 10);
+            Assert.Equal(NotificationLogStatuses.MissedSeen, Assert.Single(historyRows).Status);
+            Assert.Equal(1, await service.GetNotificationLogCountAsync(NotificationLogFilter.Missed));
+        }
+
         private static CardSchedule NewSchedule(long scheduleId = 1, long cardId = 101, string? note = "Reminder")
         {
             return new CardSchedule
@@ -206,7 +269,8 @@ namespace Points.Tests.Notifications
                         ScheduleFor TEXT NOT NULL,
                         SentAt TEXT NULL,
                         UpdatedAt TEXT NOT NULL,
-                        Error TEXT NULL
+                        Error TEXT NULL,
+                        CHECK (Status IN ('Created', 'Scheduled', 'Sent', 'Missed', 'Missed (seen)'))
                     );
                     """);
                 await _db.ExecuteAsync("""

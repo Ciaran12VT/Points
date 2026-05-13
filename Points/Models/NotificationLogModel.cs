@@ -6,6 +6,24 @@ namespace Points.Models
         public const string Scheduled = "Scheduled";
         public const string Sent = "Sent";
         public const string Missed = "Missed";
+        public const string MissedSeen = "Missed (seen)";
+    }
+
+    public static class NotificationLogStatusColors
+    {
+        public const string Created = "#666666";
+        public const string Scheduled = "#2D7DFF";
+        public const string Sent = "#2E7D32";
+        public const string Missed = "#B00020";
+        public const string MissedSeen = "#B00020";
+    }
+
+    public enum NotificationLogFilter
+    {
+        All,
+        Scheduled,
+        Missed,
+        History
     }
 
     public sealed class NotificationLogModel

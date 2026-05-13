@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
@@ -27,8 +28,10 @@ namespace Points.ViewModels.Home
 
         private const string PremiumPromptLaunchCountKey = "PremiumPromptLaunchCount";
         private const int PremiumPromptLaunchInterval = 10;
+        private static readonly TimeSpan MissedGracePeriod = TimeSpan.FromMinutes(15);
 
         private readonly IClock _clock;
+        private readonly INotificationLogService _notificationLogs;
         private readonly ICardWriteService _cardWriter;
         private readonly IAppDialogService _dialogs;
         private readonly IPopupService _popups;
@@ -99,6 +102,26 @@ namespace Points.ViewModels.Home
 
         private bool _hasRecordedPremiumPromptLaunch;
         private bool _isPremiumPromptShowing;
+        private int _missedNotificationCount;
+
+        public int MissedNotificationCount
+        {
+            get => _missedNotificationCount;
+            private set
+            {
+                if (_missedNotificationCount == value)
+                    return;
+
+                _missedNotificationCount = value;
+                OnPropertyChanged(nameof(MissedNotificationCount));
+                OnPropertyChanged(nameof(HasMissedNotifications));
+                OnPropertyChanged(nameof(MissedNotificationBadgeText));
+            }
+        }
+
+        public bool HasMissedNotifications => MissedNotificationCount > 0;
+        public string MissedNotificationBadgeText => MissedNotificationCount.ToString(CultureInfo.InvariantCulture);
+        public string MissedNotificationBadgeColor => NotificationLogStatusColors.Missed;
 
         private bool _isPremiumBannerVisible = true;
         public bool IsPremiumBannerVisible
@@ -418,6 +441,7 @@ namespace Points.ViewModels.Home
             IClock clock)
         {
             _clock = clock;
+            _notificationLogs = notificationLogs ?? throw new ArgumentNullException(nameof(notificationLogs));
             _cardWriter = cardWriter ?? throw new ArgumentNullException(nameof(cardWriter));
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
             _popups = popups ?? throw new ArgumentNullException(nameof(popups));
@@ -628,6 +652,12 @@ namespace Points.ViewModels.Home
         {
             await _homeLoader.LoadAsync();
             await RefreshPremiumStateAsync();
+        }
+
+        public async Task RefreshMissedNotificationBadgeAsync()
+        {
+            await _notificationLogs.MarkOverdueNotificationLogsMissedAsync(_clock.UtcNow, MissedGracePeriod);
+            MissedNotificationCount = await _notificationLogs.GetNotificationLogCountAsync(NotificationLogFilter.Missed);
         }
 
         public async Task HandleHomeOpenedForPremiumPromptAsync()

@@ -346,7 +346,7 @@ namespace Points.Services.Sqlite
                     SentAt            TEXT    NULL,
                     UpdatedAt         TEXT    NOT NULL,
                     Error             TEXT    NULL,
-                    CHECK (Status IN ('Created', 'Scheduled', 'Sent', 'Missed'))
+                    CHECK (Status IN ('Created', 'Scheduled', 'Sent', 'Missed', 'Missed (seen)'))
                 );
 
                 -- =========================

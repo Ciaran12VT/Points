@@ -246,12 +246,13 @@ public partial class HomePage : ContentPage
         base.OnAppearing();
 
         var isFirstAppearance = !_hasAppearedOnce;
+        var homeViewModel = BindingContext as HomeViewModel;
 
-        if (BindingContext is HomeViewModel vm)
+        if (homeViewModel != null)
         {
-            if (!_hasAppearedOnce && vm.Initialization != null)
+            if (!_hasAppearedOnce && homeViewModel.Initialization != null)
             {
-                await vm.Initialization;
+                await homeViewModel.Initialization;
             }
         }
 
@@ -259,7 +260,10 @@ public partial class HomePage : ContentPage
         StartScheduledBackupChecks();
         _hasAppearedOnce = true;
 
-        if (isFirstAppearance && BindingContext is HomeViewModel homeViewModel)
+        if (homeViewModel != null)
+            await homeViewModel.RefreshMissedNotificationBadgeAsync();
+
+        if (isFirstAppearance && homeViewModel != null)
             await homeViewModel.HandleHomeOpenedForPremiumPromptAsync();
     }
 

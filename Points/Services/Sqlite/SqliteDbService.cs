@@ -75,6 +75,7 @@ namespace Points.Services.Sqlite
                 await EnsureGoalSchemaAsync();
                 await EnsureAchievementCardSchemaAsync();
                 await EnsureTrackerCardSchemaAsync();
+                await EnsureNotificationLogSchemaAsync();
                 await EnsureTimeHandlingMigrationAsync();
                 await SaveBuiltInSettingDefinitionsAsync();
             }
@@ -304,6 +305,67 @@ namespace Points.Services.Sqlite
 
             await AddColumnIfMissingAsync("ValueTrackerCard", "Status", "TEXT NOT NULL DEFAULT ''");
             await AddColumnIfMissingAsync("EventTrackerCard", "Status", "TEXT NOT NULL DEFAULT ''");
+        }
+
+        private async Task EnsureNotificationLogSchemaAsync()
+        {
+            if (_db == null)
+                throw new InvalidOperationException("Database must be initialized before schema migration.");
+
+            if (!await TableExistsAsync("NotificationLog"))
+                return;
+
+            var createSql = await Db.ExecuteScalarAsync<string?>(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'NotificationLog';");
+
+            if (string.IsNullOrWhiteSpace(createSql) ||
+                createSql.Contains("'Missed (seen)'", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await Db.RunInTransactionAsync(conn =>
+            {
+                conn.Execute("DROP TABLE IF EXISTS NotificationLog_StatusMigration;");
+                conn.Execute("""
+                    CREATE TABLE NotificationLog_StatusMigration (
+                        NotificationLogId INTEGER PRIMARY KEY AUTOINCREMENT,
+                        ScheduleId        INTEGER NOT NULL,
+                        CardId            INTEGER NOT NULL,
+                        CardTitle         TEXT    NOT NULL DEFAULT '',
+                        Note              TEXT    NOT NULL DEFAULT '',
+                        Status            TEXT    NOT NULL DEFAULT 'Created',
+                        CreatedAt         TEXT    NOT NULL,
+                        ScheduledAt       TEXT    NULL,
+                        ScheduleFor       TEXT    NOT NULL,
+                        SentAt            TEXT    NULL,
+                        UpdatedAt         TEXT    NOT NULL,
+                        Error             TEXT    NULL,
+                        CHECK (Status IN ('Created', 'Scheduled', 'Sent', 'Missed', 'Missed (seen)'))
+                    );
+                    """);
+                conn.Execute("""
+                    INSERT INTO NotificationLog_StatusMigration
+                        (NotificationLogId, ScheduleId, CardId, CardTitle, Note, Status, CreatedAt, ScheduledAt, ScheduleFor, SentAt, UpdatedAt, Error)
+                    SELECT
+                        NotificationLogId, ScheduleId, CardId, CardTitle, Note, Status, CreatedAt, ScheduledAt, ScheduleFor, SentAt, UpdatedAt, Error
+                    FROM NotificationLog;
+                    """);
+                conn.Execute("DROP TABLE NotificationLog;");
+                conn.Execute("ALTER TABLE NotificationLog_StatusMigration RENAME TO NotificationLog;");
+                conn.Execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS UX_NotificationLog_ScheduleOccurrence
+                    ON NotificationLog(ScheduleId, ScheduleFor);
+                    """);
+                conn.Execute("""
+                    CREATE INDEX IF NOT EXISTS IX_NotificationLog_StatusScheduleFor
+                    ON NotificationLog(Status, ScheduleFor);
+                    """);
+                conn.Execute("""
+                    CREATE INDEX IF NOT EXISTS IX_NotificationLog_ScheduleId
+                    ON NotificationLog(ScheduleId);
+                    """);
+            });
         }
 
         private async Task AddColumnIfMissingAsync(string tableName, string columnName, string definition)
