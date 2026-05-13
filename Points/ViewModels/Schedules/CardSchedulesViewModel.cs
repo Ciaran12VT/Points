@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Microsoft.Maui.ApplicationModel;
 using Points.Models;
 using Points.Services.Navigation;
+using Points.Services.Schedules;
 using Points.Services.Time;
 using Points.Views.Schedules;
 
@@ -76,7 +77,7 @@ public sealed class CardSchedulesViewModel
         if (item == null)
             return;
 
-        await OpenEditorAsync(item.Schedule.Clone());
+        await OpenEditorAsync(item.Schedule.Clone(), item.Schedule);
     }
 
     private async Task DeleteScheduleAsync(ScheduleListItem? item)
@@ -102,7 +103,7 @@ public sealed class CardSchedulesViewModel
         _onChanged?.Invoke();
     }
 
-    private async Task OpenEditorAsync(CardSchedule schedule)
+    private async Task OpenEditorAsync(CardSchedule schedule, CardSchedule? originalSchedule = null)
     {
         async Task OnSaved(IScheduleModel saved)
         {
@@ -111,34 +112,7 @@ public sealed class CardSchedulesViewModel
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                var existing = savedCardSchedule.ScheduleId > 0
-                    ? _schedules.FirstOrDefault(s => s.ScheduleId == savedCardSchedule.ScheduleId)
-                    : null;
-
-                if (existing is null && savedCardSchedule.ScheduleId == 0)
-                {
-                    existing = _schedules.FirstOrDefault(s =>
-                        s.ScheduleId == 0 &&
-                        s.FrequencyType == saved.FrequencyType &&
-                        s.FromDateTime == saved.FromDateTime);
-                }
-
-                if (existing is null)
-                {
-                    _schedules.Add(savedCardSchedule);
-                }
-                else
-                {
-                    existing.FrequencyType = savedCardSchedule.FrequencyType;
-                    existing.FrequencyValue = savedCardSchedule.FrequencyValue;
-                    existing.FromDateTime = savedCardSchedule.FromDateTime;
-                    existing.ToDateTime = savedCardSchedule.ToDateTime;
-                    existing.IsEnabled = savedCardSchedule.IsEnabled;
-                    existing.Note = savedCardSchedule.Note;
-                    existing.ScheduleId = savedCardSchedule.ScheduleId;
-                    existing.CardId = savedCardSchedule.CardId;
-                }
-
+                CardScheduleCollectionMerger.ApplySavedSchedule(_schedules, savedCardSchedule, originalSchedule);
                 RebuildItemsFromSchedules();
             });
 

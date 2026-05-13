@@ -337,7 +337,7 @@ namespace Points.ViewModels.Sc
             ClearError();
 
             await _detailsInteractions.EditSchedulesAsync(
-                _model.Id,
+                _model.CardID,
                 _model.Schedules,
                 RefreshScheduleSummary,
                 ShowError,

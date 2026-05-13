@@ -84,6 +84,7 @@
     <Compile Include="..\Points\Services\Reports\ReportSqlGuard.cs" Link="App\Reports\ReportSqlGuard.cs" />
     <Compile Include="..\Points\Services\Reports\SqliteReportService.cs" Link="App\Reports\SqliteReportService.cs" />
     <Compile Include="..\Points\Services\Schedules\SqliteCardScheduleService.cs" Link="App\Schedules\SqliteCardScheduleService.cs" />
+    <Compile Include="..\Points\Services\Schedules\CardScheduleCollectionMerger.cs" Link="App\Schedules\CardScheduleCollectionMerger.cs" />
     <Compile Include="..\Points\Services\Sc\SqliteScCardService.cs" Link="App\Sc\SqliteScCardService.cs" />
     <Compile Include="..\Points\Services\Settings\SqliteSettingsService.cs" Link="App\Settings\SqliteSettingsService.cs" />
     <Compile Include="..\Points\Services\Shortcuts\SqliteShortcutService.cs" Link="App\Shortcuts\SqliteShortcutService.cs" />
