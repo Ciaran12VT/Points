@@ -271,6 +271,21 @@ namespace Points.Models
             CompletedDate = failedAt ?? ActivityTimeMath.UtcNow;
 
             CompleteCommand.ChangeCanExecute();
+            NotifyCompletionStateChanged();
+        }
+
+        public void Restore()
+        {
+            if (!IsComplete && !IsFailed && !CompletedDate.HasValue)
+                return;
+
+            IsFailed = false;
+            Status = "In-Progress";
+            IsComplete = false;
+            CompletedDate = null;
+
+            CompleteCommand.ChangeCanExecute();
+            NotifyCompletionStateChanged();
         }
 
 
@@ -425,6 +440,7 @@ namespace Points.Models
             CompletedDate = completedAt ?? ActivityTimeMath.UtcNow;
 
             CompleteCommand.ChangeCanExecute();
+            NotifyCompletionStateChanged();
         }
 
         public void ApplyCompletionState(string? status, bool isFailed, DateTime? completedDate)
@@ -442,6 +458,14 @@ namespace Points.Models
                 Status = status;
 
             CompleteCommand.ChangeCanExecute();
+            NotifyCompletionStateChanged();
+        }
+
+        private void NotifyCompletionStateChanged()
+        {
+            RaisePropertyChanged(nameof(StatusDisplay));
+            RaisePropertyChanged(nameof(IsPending));
+            RaisePropertyChanged(nameof(PendingWindowText));
         }
 
         public DateTime GetLastActiveTime()

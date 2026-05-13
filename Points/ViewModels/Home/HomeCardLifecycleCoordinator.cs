@@ -105,6 +105,14 @@ namespace Points.ViewModels.Home
             await PromptShareUpdateIfNeededAsync(model, "failed status");
         }
 
+        public async Task RestoreMissionAsync(MissionCardModel model)
+        {
+            model.Restore();
+            _sortMissionCards();
+            await SaveMissionAsync(model);
+            await PromptShareUpdateIfNeededAsync(model, "restore");
+        }
+
         public async Task SaveMissionAsync(MissionCardModel model)
         {
             await _cardWriter.SaveCardModelAsync(model);

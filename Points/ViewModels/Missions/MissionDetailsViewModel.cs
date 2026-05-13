@@ -32,6 +32,7 @@ namespace Points.ViewModels.Missions
 
         private readonly Func<MissionCardModel, Task> _onDelete;
         private readonly Func<MissionCardModel, Task> _onFail;
+        private readonly Func<MissionCardModel, Task> _onRestore;
         private bool _suspendDueAdjustment;
 
         public List<string> AvailableTagList { get; }
@@ -60,6 +61,7 @@ namespace Points.ViewModels.Missions
             Action<MissionCardModel> onSaved,
             Func<MissionCardModel, Task> onDelete,
             Func<MissionCardModel, Task> onFail,
+            Func<MissionCardModel, Task> onRestore,
             List<string> availableTagsList,
             IActivityService activity,
             IUdmdService udmd,
@@ -73,6 +75,7 @@ namespace Points.ViewModels.Missions
             _onSaved = onSaved;
             _onDelete = onDelete ?? throw new ArgumentNullException(nameof(onDelete));
             _onFail = onFail ?? throw new ArgumentNullException(nameof(onFail));
+            _onRestore = onRestore ?? throw new ArgumentNullException(nameof(onRestore));
             _timeZoneService = timeZoneService ?? new TimeZoneService();
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
@@ -686,12 +689,13 @@ namespace Points.ViewModels.Missions
 
         private async Task OnCancelAsync()
         {
+            var completionAction = _model.IsFailed ? "Restore" : "Failed";
             var choice = await _dialogs.DisplayActionSheetAsync(
                 _model.Title,
                 "Cancel",
                 null,
                 "Delete",
-                "Failed"
+                completionAction
             );
 
             if (choice == "Delete")
@@ -704,6 +708,12 @@ namespace Points.ViewModels.Missions
             {
                 CleanupResourceCaptureCacheFiles();
                 await _onFail(_model);
+                await _navigation.PopAsync();
+            }
+            else if (choice == "Restore")
+            {
+                CleanupResourceCaptureCacheFiles();
+                await _onRestore(_model);
                 await _navigation.PopAsync();
             }
         }

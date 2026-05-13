@@ -131,6 +131,7 @@ namespace Points.ViewModels.Home
                         saved => _cardLifecycle.CommitCardToPage(page, saved),
                         onDelete: deleted => _cardLifecycle.DeleteCardFromPageAndDbAsync(page, deleted),
                         onFail: _cardLifecycle.FailMissionAsync,
+                        onRestore: _cardLifecycle.RestoreMissionAsync,
                         _getTags(),
                         _activity,
                         _udmd,
