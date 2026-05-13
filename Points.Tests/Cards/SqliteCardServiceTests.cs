@@ -145,8 +145,8 @@ public sealed class SqliteCardServiceTests
         var harness = CreateHarness(context);
         var rangeStart = Utc(2026, 4, 29, 0);
         var rangeEnd = Utc(2026, 4, 29, 23, 59);
-        var tat = new TatCardModel { CardID = 1, Title = "Focus", Tags = "work", IsLocksEnabled = true };
-        var sc = new ScCardModel { CardID = 2, Title = "Practice", Tags = "music", IsLocksEnabled = true };
+        var tat = new TatCardModel { CardID = 1, Title = "Focus", Tags = "work" };
+        var sc = new ScCardModel { CardID = 2, Title = "Practice", Tags = "music" };
         var openMission = new MissionCardModel { CardID = 3, Title = "Open", Tags = "work" };
         var completedInRange = new MissionCardModel { CardID = 4, Title = "Done", Tags = "work" };
         completedInRange.Complete(Utc(2026, 4, 29, 12));

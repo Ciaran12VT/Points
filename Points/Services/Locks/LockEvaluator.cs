@@ -1,4 +1,5 @@
 using Points.Models;
+using Points.Global;
 using Points.Services.Scheduling;
 using System.Globalization;
 
@@ -14,6 +15,9 @@ namespace Points.Services.Locks
         {
             availableAt = default;
             var localNow = ToLocalWallClock(now);
+
+            if (!SettingsProvider.IsLocksEnabled)
+                return false;
 
             if (card.Locks == null || card.Locks.Count == 0)
                 return false;

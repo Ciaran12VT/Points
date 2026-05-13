@@ -66,20 +66,13 @@ namespace Points.Models
 
         public List<LockModel> Locks
         {
-            get
-            {
-                if (!IsLocksEnabled)
-                    return EmptyLocks;
-
-                return _locks;
-            }
+            get => _locks;
             set
             {
                 _locks = value ?? new List<LockModel>();
+                RaisePropertyChanged();
             }
         }
-
-        private static readonly List<LockModel> EmptyLocks = new();
 
         public ObservableCollection<CardSchedule> Schedules { get; set; } = new();
 
