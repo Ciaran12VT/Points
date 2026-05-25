@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Settings.WatchAppConfigPage"
+             Title="Watch App Config">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="12">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="4">
+            <Label Text="{Binding SelectedCountText}"
+                   FontAttributes="Bold"
+                   FontSize="16" />
+            <Label Text="Eligible cards must have a dashboard shortcut and no required metadata."
+                   Opacity="0.65"
+                   FontSize="12" />
+            <Label Text="{Binding StatusText}"
+                   TextColor="OrangeRed"
+                   FontSize="12"
+                   IsVisible="{Binding HasStatus}" />
+        </VerticalStackLayout>
+
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding Shortcuts}">
+            <CollectionView.EmptyView>
+                <Label Text="No eligible dashboard shortcuts."
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       Opacity="0.65" />
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="Auto,*,Auto"
+                          Padding="0,10"
+                          ColumnSpacing="12">
+
+                        <Label Grid.Column="0"
+                               Text="{Binding IconChar}"
+                               WidthRequest="44"
+                               HeightRequest="44"
+                               FontSize="28"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center" />
+
+                        <VerticalStackLayout Grid.Column="1"
+                                             Spacing="2"
+                                             VerticalOptions="Center">
+                            <Label Text="{Binding Title}"
+                                   FontAttributes="Bold"
+                                   LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding KindText}"
+                                   FontSize="12"
+                                   Opacity="0.65" />
+                        </VerticalStackLayout>
+
+                        <Switch Grid.Column="2"
+                                IsToggled="{Binding IsSelected}"
+                                VerticalOptions="Center" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Grid Grid.Row="2"
+              ColumnDefinitions="*,*"
+              ColumnSpacing="10">
+            <Button Text="Refresh"
+                    Command="{Binding RefreshCommand}"
+                    HeightRequest="48" />
+            <Button Grid.Column="1"
+                    Text="Save"
+                    BackgroundColor="Green"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    Command="{Binding SaveCommand}"
+                    HeightRequest="48" />
+        </Grid>
+    </Grid>
+</ContentPage>

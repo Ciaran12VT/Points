@@ -31,6 +31,7 @@ using Points.Services.Tat;
 using Points.Services.Time;
 using Points.Services.Trackers;
 using Points.Services.Udmd;
+using Points.Services.Watch;
 using Points.ViewModels.Home;
 using Points.Views.Home;
 
@@ -60,24 +61,28 @@ namespace Points
             builder.Services.AddSingleton<IDeviceAlarmScheduler, Points.Platforms.Android.AndroidDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, Points.Platforms.Android.AndroidScheduleNotificationPresenter>();
             builder.Services.AddSingleton<IScheduledBackupWorkScheduler, Points.Platforms.Android.AndroidScheduledBackupWorkScheduler>();
+            builder.Services.AddSingleton<IWatchBridge, Points.Platforms.Android.AndroidWearBridge>();
 #elif IOS
             builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
             builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
             builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
             builder.Services.AddSingleton<IScheduledBackupWorkScheduler, Points.Platforms.iOS.IosScheduledBackupWorkScheduler>();
+            builder.Services.AddSingleton<IWatchBridge, NoopWatchBridge>();
 #elif WINDOWS
             builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
             builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
             builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
             builder.Services.AddSingleton<IScheduledBackupWorkScheduler, Points.Platforms.Windows.WindowsScheduledBackupWorkScheduler>();
+            builder.Services.AddSingleton<IWatchBridge, NoopWatchBridge>();
 #else
             builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
             builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
             builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
             builder.Services.AddSingleton<IScheduledBackupWorkScheduler, NullScheduledBackupWorkScheduler>();
+            builder.Services.AddSingleton<IWatchBridge, NoopWatchBridge>();
 #endif
             builder.Services.AddSingleton<IClock, SystemClock>();
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
@@ -164,6 +169,12 @@ builder.Services.AddSingleton<ITrackerService>(sp => new SqliteTrackerService(
             builder.Services.AddSingleton<ISettingsService, SqliteSettingsService>();
             builder.Services.AddSingleton<IShortcutService, SqliteShortcutService>();
             builder.Services.AddSingleton<IUdmdService, SqliteUdmdService>();
+            builder.Services.AddSingleton<IWatchShortcutSettingsService, WatchShortcutSettingsService>();
+            builder.Services.AddSingleton<IWatchEventStore, SqliteWatchEventStore>();
+            builder.Services.AddSingleton<IWatchSnapshotBuilder, WatchSnapshotBuilder>();
+            builder.Services.AddSingleton<IWatchSnapshotPublishService, WatchSnapshotPublishService>();
+            builder.Services.AddSingleton<IActiveCardChangeNotifier, ActiveCardChangeNotifier>();
+            builder.Services.AddSingleton<IWatchCommandProcessor, WatchCommandProcessor>();
             builder.Services.AddSingleton<IMissionShareService, MissionShareService>();
             builder.Services.AddSingleton<IMissionShareLaunchHandler, MissionShareLaunchHandler>();
             builder.Services.AddSingleton<IPremiumSubscriptionService, HardcodedPremiumSubscriptionService>();

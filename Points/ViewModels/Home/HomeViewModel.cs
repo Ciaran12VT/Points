@@ -18,6 +18,8 @@ using Points.Services.Scheduling;
 using Points.Services.Persistence;
 using Points.Services.Premium;
 using Points.Services.Time;
+using Points.Services.Diagnostics;
+using Points.Services.Watch;
 using Points.Views.Premium;
 
 namespace Points.ViewModels.Home
@@ -31,6 +33,9 @@ namespace Points.ViewModels.Home
         private static readonly TimeSpan MissedGracePeriod = TimeSpan.FromMinutes(15);
 
         private readonly IClock _clock;
+        private readonly IActivityService _activity;
+        private readonly IWatchSnapshotPublishService _watchSnapshots;
+        private readonly IActiveCardChangeNotifier _activeCardChanges;
         private readonly INotificationLogService _notificationLogs;
         private readonly ICardWriteService _cardWriter;
         private readonly IAppDialogService _dialogs;
@@ -103,6 +108,8 @@ namespace Points.ViewModels.Home
         private bool _hasRecordedPremiumPromptLaunch;
         private bool _isPremiumPromptShowing;
         private int _missedNotificationCount;
+        private int _externalActiveCardRefreshInProgress;
+        private int _externalCardDataRefreshInProgress;
 
         public int MissedNotificationCount
         {
@@ -438,9 +445,15 @@ namespace Points.ViewModels.Home
             IGoogleDriveBackupConnector googleDriveBackupConnector,
             IScheduledBackupWorkScheduler scheduledBackupWorkScheduler,
             IPremiumSubscriptionService premiumSubscriptions,
+            IWatchSnapshotPublishService watchSnapshots,
+            IWatchShortcutSettingsService watchShortcuts,
+            IActiveCardChangeNotifier activeCardChanges,
             IClock clock)
         {
             _clock = clock;
+            _activity = activity ?? throw new ArgumentNullException(nameof(activity));
+            _watchSnapshots = watchSnapshots ?? throw new ArgumentNullException(nameof(watchSnapshots));
+            _activeCardChanges = activeCardChanges ?? throw new ArgumentNullException(nameof(activeCardChanges));
             _notificationLogs = notificationLogs ?? throw new ArgumentNullException(nameof(notificationLogs));
             _cardWriter = cardWriter ?? throw new ArgumentNullException(nameof(cardWriter));
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
@@ -476,7 +489,11 @@ namespace Points.ViewModels.Home
                 value => TopRightValue = value,
                 SortMissionCards,
                 propertyName => OnPropertyChanged(propertyName),
-                () => TickHappened?.Invoke(),
+                () =>
+                {
+                    TickHappened?.Invoke();
+                    _watchSnapshots.RequestPublishAsync().Forget("Watch snapshot tick publish");
+                },
                 hardModePenalties);
             _activityInteraction = new HomeActivityInteractionCoordinator(
                 activity,
@@ -564,6 +581,8 @@ namespace Points.ViewModels.Home
                 googleDriveBackupConnector,
                 scheduledBackupWorkScheduler,
                 premiumSubscriptions,
+                _watchSnapshots,
+                watchShortcuts,
                 Pages,
                 _pageState,
                 _cardWorkflow,
@@ -581,7 +600,11 @@ namespace Points.ViewModels.Home
             ActivateCardCommand = new Command<IActiveCardModel>(RequestActivate);
             OpenCardDetailsCommand = new Command<ICardModel>(async model => await OpenExistingCardAsync(model));
             CompleteMissionCommand = new Command<MissionCardModel>(async model => await CompleteMissionAsync(model));
-            AddScFirstStepCommand = new Command<ScCardModel>(async model => await _activityInteraction.AddScFirstStepAsync(model));
+            AddScFirstStepCommand = new Command<ScCardModel>(async model =>
+            {
+                await _activityInteraction.AddScFirstStepAsync(model);
+                await _watchSnapshots.RequestPublishAsync(force: true);
+            });
             ShortcutClickedCommand = new Command<ShortcutModel>(OnShortcutClicked);
             AddCardCommand = new Command(async () => await AddCardAsync());
             FilterPositiveCommand = new Command(ApplyPositiveFilter);
@@ -631,6 +654,72 @@ namespace Points.ViewModels.Home
 
             // kick off async load without awaiting
             Initialization = LoadAsync();
+            _activeCardChanges.ActiveCardChanged += OnExternalActiveCardChanged;
+            _activeCardChanges.CardDataChanged += OnExternalCardDataChanged;
+        }
+
+        private void OnExternalActiveCardChanged(object? sender, ActiveCardChangedEventArgs e)
+        {
+            if (Interlocked.Exchange(ref _externalActiveCardRefreshInProgress, 1) == 1)
+                return;
+
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try
+                {
+                    await RefreshExternalActiveCardStateAsync(e);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(ex);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _externalActiveCardRefreshInProgress, 0);
+                }
+            });
+        }
+
+        private async Task RefreshExternalActiveCardStateAsync(ActiveCardChangedEventArgs change)
+        {
+            if (change.ToggleResult != null)
+            {
+                _activityInteraction.ApplyExternalToggleResult(change.ToggleResult);
+            }
+            else
+            {
+                var openActivity = await _activity.GetCurrentActiveActivityAsync();
+                _activityInteraction.RestoreActiveCardFromOpenActivity(openActivity);
+            }
+
+            await _runtimeTicks.RunImmediateAsync();
+        }
+
+        private void OnExternalCardDataChanged(object? sender, CardDataChangedEventArgs e)
+        {
+            if (Interlocked.Exchange(ref _externalCardDataRefreshInProgress, 1) == 1)
+                return;
+
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try
+                {
+                    var initialization = Initialization;
+                    if (initialization != null)
+                        await initialization;
+
+                    await LoadAsync();
+                    await _runtimeTicks.RunImmediateAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(ex);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _externalCardDataRefreshInProgress, 0);
+                }
+            });
         }
 
         private async Task AddTrackerValueWithMetadataAsync(TrackerCardModel? card)
@@ -646,12 +735,14 @@ namespace Points.ViewModels.Home
         private async Task PromptAndRecordBudgetTransactionAsync(BudgetCardModel? budget, BudgetTransactionType type)
         {
             await _valueEntries.PromptAndRecordBudgetTransactionAsync(budget, type);
+            await _watchSnapshots.RequestPublishAsync(force: true);
         }
 
         public async Task LoadAsync()
         {
             await _homeLoader.LoadAsync();
             await RefreshPremiumStateAsync();
+            await _watchSnapshots.RequestPublishAsync(force: true);
         }
 
         public async Task RefreshMissedNotificationBadgeAsync()
@@ -750,11 +841,13 @@ namespace Points.ViewModels.Home
         public async void RequestActivate(IActiveCardModel card)
         {
             await _activityInteraction.RequestActivateAsync(card);
+            await _watchSnapshots.RequestPublishAsync(force: true);
         }
 
         public async void RequestActivate(IActiveCardModel card, DateTime? nowUtc = null)
         {
             await _activityInteraction.RequestActivateAsync(card, nowUtc);
+            await _watchSnapshots.RequestPublishAsync(force: true);
         }
 
         private async Task CompleteMissionAsync(MissionCardModel? model)
@@ -887,11 +980,13 @@ namespace Points.ViewModels.Home
         public async Task SaveBudget(BudgetCardModel b)
         {
             await _valueEntries.SaveBudgetAsync(b);
+            await _watchSnapshots.RequestPublishAsync(force: true);
         }
 
         public async Task RecordBudgetTransactionAsync(BudgetCardModel budget, BudgetTransactionType type, double amount)
         {
             await _valueEntries.RecordBudgetTransactionAsync(budget, type, amount);
+            await _watchSnapshots.RequestPublishAsync(force: true);
         }
 
     }

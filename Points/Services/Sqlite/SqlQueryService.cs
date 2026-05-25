@@ -483,6 +483,15 @@ namespace Points.Services.Sqlite
                     AppliedAtUtc TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS WatchProcessedEvent (
+                    EventId        TEXT PRIMARY KEY,
+                    BaseSnapshotId TEXT NOT NULL DEFAULT '',
+                    CreatedAtUtc   TEXT NOT NULL DEFAULT '',
+                    ProcessedAtUtc TEXT NOT NULL DEFAULT '',
+                    Status         TEXT NOT NULL DEFAULT '',
+                    Message        TEXT NOT NULL DEFAULT ''
+                );
+
                 -- =========================
                 -- Helpful indexes
                 -- =========================
@@ -604,6 +613,9 @@ namespace Points.Services.Sqlite
                 CREATE INDEX IF NOT EXISTS IX_Shortcut_TargetCardId ON Shortcut(TargetCardId);
 
                 CREATE UNIQUE INDEX IF NOT EXISTS UX_Report_Title ON Report(Title);
+
+                CREATE INDEX IF NOT EXISTS IX_WatchProcessedEvent_ProcessedAtUtc
+                ON WatchProcessedEvent(ProcessedAtUtc);
 
                 ";
         }

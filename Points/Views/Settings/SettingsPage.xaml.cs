@@ -3,6 +3,7 @@ using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Premium;
 using Points.Services.Time;
+using Points.Services.Watch;
 
 namespace Points.Views.Settings;
 
@@ -24,10 +25,13 @@ public partial class SettingsPage : ContentPage
     private readonly IGoogleDriveBackupConnector _googleDriveBackupConnector;
     private readonly IScheduledBackupWorkScheduler _scheduledBackupWorkScheduler;
     private readonly IPremiumSubscriptionService _premiumSubscriptions;
+    private readonly IWatchShortcutSettingsService _watchShortcuts;
+    private readonly IWatchSnapshotPublishService _watchSnapshots;
 
     public Command OpenDatabaseSettingsCommand { get; }
     public Command OpenMultipliersSettingsCommand { get; }
     public Command OpenModulesAndFeaturesSettingsCommand { get; }
+    public Command OpenWatchAppConfigCommand { get; }
     public Command OpenDefaultsAndMiscSettingsCommand { get; }
     public Command OpenNotificationsLogCommand { get; }
     public Command OpenTutorialCommand { get; }
@@ -48,11 +52,14 @@ public partial class SettingsPage : ContentPage
         IScheduledBackupLogStore scheduledBackupLogStore,
         IGoogleDriveBackupConnector googleDriveBackupConnector,
         IScheduledBackupWorkScheduler scheduledBackupWorkScheduler,
-        IPremiumSubscriptionService premiumSubscriptions)
+        IPremiumSubscriptionService premiumSubscriptions,
+        IWatchShortcutSettingsService watchShortcuts,
+        IWatchSnapshotPublishService watchSnapshots)
     {
         OpenDatabaseSettingsCommand = new Command(async () => await OpenDatabaseSettingsAsync());
         OpenMultipliersSettingsCommand = new Command(async () => await OpenMultipliersSettingsAsync());
         OpenModulesAndFeaturesSettingsCommand = new Command(async () => await OpenModulesAndFeaturesSettingsAsync());
+        OpenWatchAppConfigCommand = new Command(async () => await OpenWatchAppConfigAsync());
         OpenDefaultsAndMiscSettingsCommand = new Command(async () => await OpenDefaultsAndMiscSettingsAsync());
         OpenNotificationsLogCommand = new Command(async () => await OpenNotificationsLogAsync());
         OpenTutorialCommand = new Command(async () => await OpenTutorialAsync());
@@ -74,6 +81,8 @@ public partial class SettingsPage : ContentPage
         _googleDriveBackupConnector = googleDriveBackupConnector ?? throw new ArgumentNullException(nameof(googleDriveBackupConnector));
         _scheduledBackupWorkScheduler = scheduledBackupWorkScheduler ?? throw new ArgumentNullException(nameof(scheduledBackupWorkScheduler));
         _premiumSubscriptions = premiumSubscriptions ?? throw new ArgumentNullException(nameof(premiumSubscriptions));
+        _watchShortcuts = watchShortcuts ?? throw new ArgumentNullException(nameof(watchShortcuts));
+        _watchSnapshots = watchSnapshots ?? throw new ArgumentNullException(nameof(watchSnapshots));
     }
 
     private async Task OpenDatabaseSettingsAsync()
@@ -101,6 +110,11 @@ public partial class SettingsPage : ContentPage
     private async Task OpenModulesAndFeaturesSettingsAsync()
     {
         await _navigation.PushAsync(new ModulesAndFeaturesSettingsPage(_settings, _navigation));
+    }
+
+    private async Task OpenWatchAppConfigAsync()
+    {
+        await _navigation.PushAsync(new WatchAppConfigPage(_watchShortcuts, _watchSnapshots, _navigation));
     }
 
     private async Task OpenDefaultsAndMiscSettingsAsync()

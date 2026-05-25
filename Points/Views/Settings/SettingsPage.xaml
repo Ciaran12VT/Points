@@ -48,6 +48,17 @@
                     <BoxView HeightRequest="1"
                              Color="#DDDDDD" />
 
+                    <Button Text="Watch App Config"
+                            Command="{Binding Source={x:Reference SettingsRoot}, Path=OpenWatchAppConfigCommand}"
+                            HorizontalOptions="Fill"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                            FontAttributes="Bold"
+                            HeightRequest="56" />
+
+                    <BoxView HeightRequest="1"
+                             Color="#DDDDDD" />
+
                     <Button Text="Defaults and Misc"
                             Command="{Binding Source={x:Reference SettingsRoot}, Path=OpenDefaultsAndMiscSettingsCommand}"
                             HorizontalOptions="Fill"

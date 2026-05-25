@@ -6,7 +6,9 @@ using Android.OS;
 using Points.Helpers;
 using Points.Models;
 using Points.Platforms.Android;
+using Points.Services.Diagnostics;
 using Points.Services.MissionSharing;
+using Points.Services.Watch;
 
 namespace Points
 {
@@ -39,6 +41,7 @@ namespace Points
             RequestNotificationPermissionIfNeeded();
 
             new ActiveCardForegroundService().ForceCreateChannels(this);
+            ServiceHelper.GetService<IWatchBridge>().StartAsync().Forget("Watch bridge startup");
 
             HandleMissionShareIntent(Intent);
         }

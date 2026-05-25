@@ -148,10 +148,26 @@ namespace Points.ViewModels.Home
         public void RestoreActiveCardFromOpenActivity(ActivityModel? openActivity)
         {
             IActiveCardModel? activeCard = null;
+            var activeModels = _pages
+                .SelectMany(page => page.AllCards)
+                .OfType<IActiveCardModel>()
+                .ToList();
+
+            foreach (var model in activeModels)
+            {
+                if (openActivity != null && model.CardID == openActivity.CardID)
+                    continue;
+
+                if (!model.IsActive)
+                    continue;
+
+                model.IsActive = false;
+                RefreshComputedProperties(model);
+            }
 
             if (openActivity != null)
             {
-                activeCard = ResolveCard(openActivity.CardID);
+                activeCard = activeModels.FirstOrDefault(card => card.CardID == openActivity.CardID);
 
                 if (activeCard != null)
                 {
@@ -163,10 +179,59 @@ namespace Points.ViewModels.Home
                     }
 
                     activeCard.IsActive = true;
+                    RefreshComputedProperties(activeCard);
                 }
             }
 
             _setActiveCard(activeCard);
+            _notifyActiveCardChanged();
+            _activeCardNotificationService.UpdateActiveCardNotification(activeCard);
+        }
+
+        public void ApplyExternalToggleResult(ToggleActivityModelResult result)
+        {
+            if (result == null)
+                return;
+
+            IActiveCardModel? activeCard = null;
+            var openedCardId = result.Opened?.CardID;
+
+            foreach (var model in _pages.SelectMany(page => page.AllCards).OfType<IActiveCardModel>())
+            {
+                if (openedCardId.HasValue && model.CardID == openedCardId.Value)
+                    continue;
+
+                if (!model.IsActive)
+                    continue;
+
+                model.IsActive = false;
+                RefreshComputedProperties(model);
+            }
+
+            if (result.Closed != null)
+            {
+                var closedCard = ResolveCard(result.Closed.CardID);
+                if (closedCard != null)
+                {
+                    UpsertActivity(closedCard, result.Closed);
+                    closedCard.IsActive = false;
+                    RefreshComputedProperties(closedCard);
+                }
+            }
+
+            if (result.Opened != null)
+            {
+                activeCard = ResolveCard(result.Opened.CardID);
+                if (activeCard != null)
+                {
+                    UpsertActivity(activeCard, result.Opened);
+                    activeCard.IsActive = true;
+                    RefreshComputedProperties(activeCard);
+                }
+            }
+
+            _setActiveCard(activeCard);
+            _notifyActiveCardChanged();
             _activeCardNotificationService.UpdateActiveCardNotification(activeCard);
         }
 

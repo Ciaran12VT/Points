@@ -5,6 +5,7 @@ using Points.Services.Navigation;
 using Points.Services.Persistence;
 using Points.Services.Premium;
 using Points.Services.Time;
+using Points.Services.Watch;
 using Points.ViewModels.Leaderboard;
 using Points.Views.Leaderboard;
 
@@ -35,6 +36,8 @@ namespace Points.ViewModels.Home
         private readonly IGoogleDriveBackupConnector _googleDriveBackupConnector;
         private readonly IScheduledBackupWorkScheduler _scheduledBackupWorkScheduler;
         private readonly IPremiumSubscriptionService _premiumSubscriptions;
+        private readonly IWatchSnapshotPublishService _watchSnapshots;
+        private readonly IWatchShortcutSettingsService _watchShortcuts;
         private readonly IReadOnlyList<HomePageModel> _pages;
         private readonly HomePageStateCoordinator _pageState;
         private readonly HomeCardWorkflowCoordinator _cardWorkflow;
@@ -71,6 +74,8 @@ namespace Points.ViewModels.Home
             IGoogleDriveBackupConnector googleDriveBackupConnector,
             IScheduledBackupWorkScheduler scheduledBackupWorkScheduler,
             IPremiumSubscriptionService premiumSubscriptions,
+            IWatchSnapshotPublishService watchSnapshots,
+            IWatchShortcutSettingsService watchShortcuts,
             IReadOnlyList<HomePageModel> pages,
             HomePageStateCoordinator pageState,
             HomeCardWorkflowCoordinator cardWorkflow,
@@ -106,6 +111,8 @@ namespace Points.ViewModels.Home
             _googleDriveBackupConnector = googleDriveBackupConnector;
             _scheduledBackupWorkScheduler = scheduledBackupWorkScheduler;
             _premiumSubscriptions = premiumSubscriptions ?? throw new ArgumentNullException(nameof(premiumSubscriptions));
+            _watchSnapshots = watchSnapshots ?? throw new ArgumentNullException(nameof(watchSnapshots));
+            _watchShortcuts = watchShortcuts ?? throw new ArgumentNullException(nameof(watchShortcuts));
             _pages = pages;
             _pageState = pageState;
             _cardWorkflow = cardWorkflow;
@@ -195,7 +202,9 @@ namespace Points.ViewModels.Home
                     _scheduledBackupLogStore,
                     _googleDriveBackupConnector,
                     _scheduledBackupWorkScheduler,
-                    _premiumSubscriptions));
+                    _premiumSubscriptions,
+                    _watchShortcuts,
+                    _watchSnapshots));
         }
 
         public async Task OpenReportsAsync()

@@ -36,6 +36,7 @@ namespace Points.Global
         public const string SchedulesActive = "SchedulesActive";
         public const string ValueRatesActive = "ValueRatesActive";
         public const string CashInActive = "CashInActive";
+        public const string WatchShortcutCardIds = "WatchShortcutCardIds";
 
         //Defaults
         public const string MissionType = "MissionType";
@@ -312,6 +313,17 @@ namespace Points.Global
                     Description = "Whether Cash In features are enabled.",
                     IsUserEditable = true,
                     SortOrder = 180
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.WatchShortcutCardIds,
+                    DefaultValue = "[]",
+                    ValueType = SettingValueTypes.String,
+                    Category = "Watch",
+                    DisplayName = "Watch Shortcut Card IDs",
+                    Description = "Ordered list of card IDs selected for the Wear OS companion app.",
+                    IsUserEditable = false,
+                    SortOrder = 10
                 },
                 new SettingDefinition
                 {
