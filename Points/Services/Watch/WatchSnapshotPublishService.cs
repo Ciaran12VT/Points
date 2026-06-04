@@ -1,5 +1,6 @@
 using Points.Services.Diagnostics;
 using Points.Services.Time;
+using System.Diagnostics;
 
 namespace Points.Services.Watch;
 
@@ -63,9 +64,20 @@ public sealed class WatchSnapshotPublishService : IWatchSnapshotPublishService
             if (!force && string.Equals(json, _lastPublishedJson, StringComparison.Ordinal))
                 return;
 
-            await _bridge.PublishSnapshotAsync(json, ct);
-            _lastPublishedJson = json;
-            _lastPublishedUtc = _clock.UtcNow;
+            try
+            {
+                await _bridge.PublishSnapshotAsync(json, ct);
+                _lastPublishedJson = json;
+                _lastPublishedUtc = _clock.UtcNow;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Watch snapshot publish failed: {ex}");
+            }
         }
         finally
         {

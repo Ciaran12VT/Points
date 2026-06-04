@@ -13,6 +13,7 @@ namespace Points
         {
             InitializeComponent();
 
+            UserAppTheme = AppTheme.Dark;
             MainPage = shell;
 
             TaskSupervisor.Forget(
