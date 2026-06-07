@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Settings.ScheduledBackupHistoryPage"
+             Title="Automatic Export History">
+
+    <Grid RowDefinitions="Auto,*" Padding="12" RowSpacing="12">
+
+        <Button Grid.Row="0"
+                Text="Refresh"
+                Command="{Binding RefreshCommand}"
+                HeightRequest="44"
+                HorizontalOptions="End" />
+
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding Rows}"
+                        SelectionMode="None">
+
+            <CollectionView.EmptyView>
+                <VerticalStackLayout Padding="8" Spacing="6">
+                    <Label Text="No automatic exports logged yet."
+                           FontAttributes="Bold" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Padding="12"
+                           Margin="0,0,0,10"
+                           CornerRadius="8"
+                           HasShadow="False"
+                           BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
+
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                              RowSpacing="8"
+                              ColumnDefinitions="*,Auto"
+                              ColumnSpacing="12">
+
+                            <Label Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="{Binding DestinationText}"
+                                   FontAttributes="Bold"
+                                   LineBreakMode="TailTruncation" />
+
+                            <Label Grid.Row="0"
+                                   Grid.Column="1"
+                                   Text="{Binding StatusText}"
+                                   TextColor="{Binding StatusColor}"
+                                   FontAttributes="Bold"
+                                   HorizontalOptions="End" />
+
+                            <Label Grid.Row="1"
+                                   Grid.ColumnSpan="2"
+                                   Text="{Binding ResourcesText}"
+                                   FontSize="12"
+                                   Opacity="0.75"
+                                   LineBreakMode="TailTruncation" />
+
+                            <Grid Grid.Row="2"
+                                  Grid.ColumnSpan="2"
+                                  RowDefinitions="Auto,Auto"
+                                  ColumnDefinitions="*,*"
+                                  ColumnSpacing="12"
+                                  RowSpacing="6">
+
+                                <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="2">
+                                    <Label Text="Started"
+                                           FontSize="11"
+                                           Opacity="0.65" />
+                                    <Label Text="{Binding StartedAtText}"
+                                           FontSize="13"
+                                           LineBreakMode="NoWrap" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Row="0" Grid.Column="1" Spacing="2">
+                                    <Label Text="Completed"
+                                           FontSize="11"
+                                           Opacity="0.65" />
+                                    <Label Text="{Binding CompletedAtText}"
+                                           FontSize="13"
+                                           LineBreakMode="NoWrap" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Row="1" Grid.Column="0" Spacing="2">
+                                    <Label Text="Duration"
+                                           FontSize="11"
+                                           Opacity="0.65" />
+                                    <Label Text="{Binding DurationText}"
+                                           FontSize="13"
+                                           LineBreakMode="NoWrap" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="2">
+                                    <Label Text="Size"
+                                           FontSize="11"
+                                           Opacity="0.65"
+                                           IsVisible="{Binding HasBytes}" />
+                                    <Label Text="{Binding BytesText}"
+                                           FontSize="13"
+                                           LineBreakMode="NoWrap"
+                                           IsVisible="{Binding HasBytes}" />
+                                </VerticalStackLayout>
+
+                            </Grid>
+
+                            <VerticalStackLayout Grid.Row="3"
+                                                 Grid.ColumnSpan="2"
+                                                 Spacing="2"
+                                                 IsVisible="{Binding HasFileName}">
+                                <Label Text="{Binding FileNameText}"
+                                       FontSize="12"
+                                       FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding FilePathText}"
+                                       FontSize="12"
+                                       Opacity="0.75"
+                                       IsVisible="{Binding HasFilePath}"
+                                       LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+
+                            <Label Grid.Row="4"
+                                   Grid.ColumnSpan="2"
+                                   Text="{Binding ErrorText}"
+                                   IsVisible="{Binding HasError}"
+                                   TextColor="#B00020"
+                                   FontSize="12"
+                                   LineBreakMode="TailTruncation" />
+
+                        </Grid>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+        </CollectionView>
+
+    </Grid>
+</ContentPage>

@@ -68,6 +68,132 @@
                     </VerticalStackLayout>
                 </Frame>
 
+                <Frame Padding="12"
+                       CornerRadius="12"
+                       HasShadow="False"
+                       BorderColor="#DDDDDD">
+
+                    <VerticalStackLayout Spacing="12">
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Custom Multipliers"
+                                   FontAttributes="Bold"
+                                   FontSize="16" />
+
+                            <Label Text="Create a multiplier, then turn it on when you want those points adjusted. Only one custom multiplier can be active at a time."
+                                   Opacity="0.7"
+                                   FontSize="12" />
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="*,88"
+                              ColumnSpacing="8">
+                            <Entry Text="{Binding NewMultiplierName}"
+                                   Placeholder="Name" />
+
+                            <Entry Grid.Column="1"
+                                   Text="{Binding NewMultiplierCode}"
+                                   Placeholder="Code"
+                                   MaxLength="3"
+                                   HorizontalTextAlignment="Center"
+                                   CharacterSpacing="1" />
+                        </Grid>
+
+                        <Editor Text="{Binding NewMultiplierDescription}"
+                                Placeholder="Description"
+                                AutoSize="TextChanges"
+                                MinimumHeightRequest="72" />
+
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="8">
+                            <Entry Text="{Binding NewMultiplierMultiplyByText}"
+                                   Keyboard="Numeric"
+                                   Placeholder="Multiply by, e.g. 1.1" />
+
+                            <Button Grid.Column="1"
+                                    Text="Add"
+                                    Command="{Binding AddMultiplierCommand}"
+                                    IsEnabled="{Binding CanAddMultiplier}"
+                                    VerticalOptions="Center" />
+                        </Grid>
+
+                        <Label Text="{Binding CustomMultiplierErrorText}"
+                               TextColor="#B00020"
+                               FontSize="12"
+                               IsVisible="{Binding HasCustomMultiplierError}" />
+
+                        <VerticalStackLayout Spacing="8"
+                                             BindableLayout.ItemsSource="{Binding Multipliers}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame Padding="10"
+                                           CornerRadius="8"
+                                           HasShadow="False"
+                                           BorderColor="#DDDDDD">
+                                        <VerticalStackLayout Spacing="8">
+
+                                            <Grid ColumnDefinitions="*,Auto"
+                                                  ColumnSpacing="8">
+                                                <VerticalStackLayout Spacing="2">
+                                                    <Entry Text="{Binding Name}"
+                                                           Placeholder="Name"
+                                                           FontAttributes="Bold" />
+
+                                                    <Label Text="{Binding ActiveStatusText}"
+                                                           TextColor="{Binding ActiveStatusColor}"
+                                                           FontSize="11" />
+                                                </VerticalStackLayout>
+
+                                                <Switch Grid.Column="1"
+                                                        IsToggled="{Binding IsActive}"
+                                                        IsEnabled="{Binding CanToggle}"
+                                                        VerticalOptions="Center" />
+                                            </Grid>
+
+                                            <Grid ColumnDefinitions="88,*"
+                                                  ColumnSpacing="8">
+                                                <Entry Text="{Binding Code}"
+                                                       Placeholder="Code"
+                                                       MaxLength="3"
+                                                       HorizontalTextAlignment="Center"
+                                                       CharacterSpacing="1" />
+
+                                                <Entry Grid.Column="1"
+                                                       Text="{Binding MultiplyByText}"
+                                                       Keyboard="Numeric"
+                                                       Placeholder="Multiply by" />
+                                            </Grid>
+
+                                            <Editor Text="{Binding Description}"
+                                                    Placeholder="Description"
+                                                    AutoSize="TextChanges"
+                                                    MinimumHeightRequest="64" />
+
+                                            <Label Text="{Binding ValidationMessage}"
+                                                   TextColor="#B00020"
+                                                   FontSize="12"
+                                                   IsVisible="{Binding HasValidationMessage}" />
+
+                                            <HorizontalStackLayout Spacing="8"
+                                                                   HorizontalOptions="End">
+                                                <Button Text="Save"
+                                                        Command="{Binding SaveCommand}"
+                                                        IsEnabled="{Binding IsValid}" />
+
+                                                <Button Text="Delete"
+                                                        Command="{Binding DeleteCommand}"
+                                                        BackgroundColor="#B00020"
+                                                        TextColor="White" />
+                                            </HorizontalStackLayout>
+
+                                        </VerticalStackLayout>
+                                    </Frame>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+
+                    </VerticalStackLayout>
+                </Frame>
+
             </VerticalStackLayout>
         </ScrollView>
 
@@ -77,6 +203,7 @@
                 TextColor="White"
                 FontAttributes="Bold"
                 FontSize="21"
+                IsEnabled="{Binding CanSave}"
                 Command="{Binding SaveCommand}"
                 HeightRequest="48" />
 

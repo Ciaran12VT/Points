@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:Points.ViewModels"
+             xmlns:vm="clr-namespace:Points.ViewModels.Reports"
              xmlns:cards="clr-namespace:Points.Views.Cards;assembly=Points"
              x:Class="Points.Views.Reports.ReportPage"
              Title="Reports">
@@ -27,7 +27,16 @@
 
                         <CollectionView Grid.Row="1"
                                         ItemsSource="{Binding Cards}"
-                                        ItemTemplate="{StaticResource ReportSelector}" />
+                                        ItemTemplate="{StaticResource ReportSelector}">
+                            <CollectionView.EmptyView>
+                                <Grid Padding="24">
+                                    <Label Text="{Binding EmptyStateText}"
+                                           TextColor="Gray"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center" />
+                                </Grid>
+                            </CollectionView.EmptyView>
+                        </CollectionView>
                     </Grid>
                 </DataTemplate>
             </CarouselView.ItemTemplate>

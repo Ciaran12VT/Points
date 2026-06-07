@@ -1,4 +1,4 @@
-﻿#if ANDROID
+#if ANDROID
 using Android.App;
 using Android.Content;
 using Android.OS;
@@ -11,32 +11,36 @@ using Java.Sql;
 using am = Android.Media;
 using System.Threading;
 using Points.Helpers;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Diagnostics;
+using Points.Services.Persistence;
 using Points.Services.Time;
 
 // Namespace: use your actual root namespace
 namespace Points.Platforms.Android
 {
     // The ForegroundServiceType = TypeDataSync is a reasonable generic type
-    // for “app internal ongoing work” under Android 14’s rules.
+    // for �app internal ongoing work� under Android 14�s rules.
     [Service(ForegroundServiceType = ForegroundService.TypeDataSync, Exported = false)]
     public class ActiveCardForegroundService : Service
     {
         //Intent Extras
         public const string ExtraCardJson = "EXTRA_ACTIVE_CARD_JSON";
         public const string ExtraSessionId = "EXTRA_SERVICE_SESSION_ID";
+        public const string ActionOpenActiveCard = "com.companyname.points.OPEN_ACTIVE_CARD";
+        public const string ExtraOpenActiveCard = "EXTRA_OPEN_ACTIVE_CARD";
+        public const string ExtraTargetCardId = "EXTRA_TARGET_CARD_ID";
 
         //Channel meta-data
         const string NotificationChannelId = "points_active_card_channel";
         const string NotificationChannelName = "Active card";
         const int NotificationId = 1001;
 
-        // 🔔 New: alert channel for noisy/vibrating notifications
+        // ?? New: alert channel for noisy/vibrating notifications
         const string AlertChannelId = "points_active_card_alert_channel_v2";
         const string AlertChannelName = "Active card alerts";
         const int AlertNotificationId = 2001;
 
-        // 🏆 Achievement alert channel (noisy)
+        // ?? Achievement alert channel (noisy)
         const string AchievementChannelId = "points_achievement_alert_channel_v1";
         const string AchievementChannelName = "Achievements";
         const int AchievementNotificationBaseId = 3000;
@@ -45,6 +49,7 @@ namespace Points.Platforms.Android
         private IActiveCardModel? _activeCard;
         private DateTime _startDate;
         private System.Threading.CancellationTokenSource? _cts;
+        private Task? _timerTask;
 
         //Shared Preferences Meta-data
         const string PrefsName = "points_service_prefs";
@@ -70,6 +75,8 @@ namespace Points.Platforms.Android
         public override void OnDestroy()
         {
             _cts?.Cancel();
+            _timerTask?.Forget("Active card foreground timer shutdown");
+            _timerTask = null;
             _cts = null;
             base.OnDestroy();
         }
@@ -112,7 +119,8 @@ namespace Points.Platforms.Android
                             if (_cts == null)
                             {
                                 _cts = new CancellationTokenSource();
-                                StartTimer(_cts.Token);
+                                _timerTask = RunTimerAsync(_cts.Token);
+                                _timerTask.Forget("Active card foreground timer");
                             }
 
                             var intentSessionId = intent?.GetStringExtra(ExtraSessionId);
@@ -121,7 +129,7 @@ namespace Points.Platforms.Android
 
                             if (isRestoredAfterRestart)
                             {
-                                // ✅ do your one-time DB recrunch for the evaluations in this active card
+                                // ? do your one-time DB recrunch for the evaluations in this active card
                                 _achievementsSeededForCurrentCard = false;
                                 TriggerAchievementRefreshOnce(acm);
                             }
@@ -169,7 +177,7 @@ namespace Points.Platforms.Android
                 return;
             }
 
-            _ = Task.Run(async () =>
+            Task.Run(async () =>
             {
                 try
                 {
@@ -188,20 +196,20 @@ namespace Points.Platforms.Android
                 {
                     Interlocked.Exchange(ref _achievementRefreshInProgress, 0);
                 }
-            });
+            }).Forget("Achievement refresh");
         }
 
 
         private async Task EnsureSeededAsync(IActiveCardModel acm)
         {
-            var db = ServiceHelper.GetService<IDbService>();
-            acm.TimeValueAchievementEvaluators = await db.RefreshEvaluatorsAsync(acm.TimeValueAchievementEvaluators);
+            var achievements = ServiceHelper.GetService<IAchievementService>();
+            acm.TimeValueAchievementEvaluators = await achievements.RefreshEvaluatorsAsync(acm.TimeValueAchievementEvaluators);
         }
 
         #endregion
 
         //Timer tick logic is in here
-        private async void StartTimer(CancellationToken token)
+        private async Task RunTimerAsync(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
@@ -242,7 +250,8 @@ namespace Points.Platforms.Android
 
                                 if(earnedAchievements != null && earnedAchievements.Count > 0)
                                 {
-                                    _ = PersistEarnedAchievementsAsync(earnedAchievements);
+                                    PersistEarnedAchievementsAsync(earnedAchievements)
+                                        .Forget("Persist earned achievements");
 
                                     ShowAchievementEarnedNotification(earnedAchievements);
                                 }
@@ -250,9 +259,9 @@ namespace Points.Platforms.Android
                         }                      
                     }
                 }
-                catch
+                catch (Exception ex) when (!token.IsCancellationRequested)
                 {
-                    // swallow tick errors to avoid service crash
+                    System.Diagnostics.Debug.WriteLine($"Active card foreground timer tick failed: {ex}");
                 }
 
                 try
@@ -261,7 +270,7 @@ namespace Points.Platforms.Android
                 }
                 catch (TaskCanceledException)
                 {
-                    // Expected when the service/app is shutting down – safe to ignore.
+                    // Expected when the service/app is shutting down � safe to ignore.
                 }
 
             }
@@ -285,7 +294,7 @@ namespace Points.Platforms.Android
             var channel = new NotificationChannel(
                 AlertChannelId,
                 AlertChannelName,
-                NotificationImportance.High // 🔊 high => heads-up, sound by default
+                NotificationImportance.High // ?? high => heads-up, sound by default
             )
             {
                 Description = "Alerts when the active card reaches its target time.",
@@ -357,7 +366,7 @@ namespace Points.Platforms.Android
             var channel = new NotificationChannel(
                 NotificationChannelId,
                 NotificationChannelName,
-                NotificationImportance.Low // Low so it doesn’t ping constantly
+                NotificationImportance.Low // Low so it doesn�t ping constantly
             )
             {
                 Description = "Shows the currently active card."
@@ -371,30 +380,38 @@ namespace Points.Platforms.Android
 
         Notification BuildNotification(string cardTitle)
         {
-            // PendingIntent to reopen the app when the notification is tapped.
-            // For now it just brings the app to the foreground; later we’ll add card-specific logic.
-            Intent launchIntent = PackageManager!.GetLaunchIntentForPackage(PackageName)!;
-            launchIntent?.AddFlags(ActivityFlags.SingleTop | ActivityFlags.ClearTop);
-
-            PendingIntent? pendingIntent = PendingIntent.GetActivity(
-                this,
-                0,
-                launchIntent!,
-                PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable
-            );
-
             var builder = new NotificationCompat.Builder(this, NotificationChannelId)
                 .SetContentTitle(cardTitle)
                 .SetContentText("Current Activity")
-                .SetSmallIcon(Resource.Drawable.ic_m3_chip_close) // we’ll talk about this below
-                .SetOngoing(true) // makes it “persistent”
+                .SetSmallIcon(Resource.Drawable.ic_m3_chip_close) // we'll talk about this below
+                .SetOngoing(true) // makes it "persistent"
                 .SetAutoCancel(false)
-                .SetContentIntent(pendingIntent)
+                .SetContentIntent(BuildActiveCardContentPendingIntent())
                 // Visible on lock screen; you can tweak if you want it hidden
                 .SetVisibility((int)NotificationVisibility.Public)
-                .SetOnlyAlertOnce(true); // don’t re-sound each update
+                .SetOnlyAlertOnce(true); // don't re-sound each update
 
             return builder.Build();
+        }
+
+        private PendingIntent? BuildActiveCardContentPendingIntent()
+        {
+            var launchIntent = PackageManager?.GetLaunchIntentForPackage(PackageName);
+            if (launchIntent == null)
+                return null;
+
+            launchIntent.SetAction(ActionOpenActiveCard);
+            launchIntent.AddFlags(ActivityFlags.SingleTop | ActivityFlags.ClearTop);
+            launchIntent.PutExtra(ExtraOpenActiveCard, true);
+
+            if (_activeCard?.CardID > 0)
+                launchIntent.PutExtra(ExtraTargetCardId, _activeCard.CardID);
+
+            return PendingIntent.GetActivity(
+                this,
+                NotificationId,
+                launchIntent,
+                PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
         }
 
         private void UpdateNotification(string contentText)
@@ -405,13 +422,13 @@ namespace Points.Platforms.Android
                 .SetSmallIcon(Resource.Drawable.ic_m3_chip_close)
                 .SetOngoing(true)
                 .SetAutoCancel(false)
+                .SetContentIntent(BuildActiveCardContentPendingIntent())
                 .SetVisibility((int)NotificationVisibility.Public)
                 .SetOnlyAlertOnce(true);
 
             var nm = NotificationManagerCompat.From(this);
             nm.Notify(NotificationId, builder.Build());
         }
-
         #endregion
 
         #region Alert II notification channel (for Achievements Earned notification)
@@ -508,7 +525,7 @@ namespace Points.Platforms.Android
 
         private async Task PersistEarnedAchievementsAsync(IEnumerable<AchievementCardModel> earned)
         {
-            var db = ServiceHelper.GetService<IDbService>();
+            var achievements = ServiceHelper.GetService<IAchievementService>();
             var now = ServiceHelper.GetService<IClock>().UtcNow;
 
             foreach (var ach in earned)
@@ -516,7 +533,7 @@ namespace Points.Platforms.Android
                 if (!_earnedThisSession.Add(ach.Id)) continue;
 
                 // Assuming AchievementCardModel has a numeric Id
-                await db.MarkAchievementEarnedAsync(ach.Id, now);
+                await achievements.MarkAchievementEarnedAsync(ach.Id, now);
 
                 // Optional: update in-memory model too, if it has a LastEarnedAt property:
                 ach.LastEarnedAt = now;

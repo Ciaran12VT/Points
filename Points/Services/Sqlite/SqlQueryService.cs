@@ -17,9 +17,10 @@ namespace Points.Services.Sqlite
                 -- Core / base entity
                 -- =========================
                 CREATE TABLE IF NOT EXISTS Card (
-                    CardID   INTEGER PRIMARY KEY,
-                    Title    TEXT    NOT NULL DEFAULT '',
-                    Tags     TEXT    NOT NULL DEFAULT ''
+                    CardID       INTEGER PRIMARY KEY,
+                    DisplayOrder INTEGER NOT NULL DEFAULT 0,
+                    Title        TEXT    NOT NULL DEFAULT '',
+                    Tags         TEXT    NOT NULL DEFAULT ''
                 );
 
                 -- =========================
@@ -78,9 +79,11 @@ namespace Points.Services.Sqlite
                 CREATE TABLE IF NOT EXISTS MissionCard (
                     MissionCardID          INTEGER PRIMARY KEY,
                     CardID                 INTEGER NOT NULL,
+                    MissionGuid            TEXT    NOT NULL DEFAULT '',
 
                     Status                 TEXT    NOT NULL DEFAULT '',
                     Description            TEXT    NOT NULL DEFAULT '',
+                    SharedWith             TEXT    NULL,
                     SubType                TEXT    NOT NULL DEFAULT '',
 
                     Value                  REAL    NOT NULL,
@@ -205,6 +208,44 @@ namespace Points.Services.Sqlite
                     CHECK (""End"" IS NULL OR Start < ""End"")
                 );
 
+                CREATE TABLE IF NOT EXISTS HardModePenaltyInterval (
+                    HardModePenaltyIntervalID INTEGER PRIMARY KEY,
+                    Start                     TEXT    NOT NULL, -- ISO-8601 UTC datetime
+                    ""End""                     TEXT    NULL,     -- NULL = open
+                    ValuePerMinute            REAL    NOT NULL,
+
+                    CHECK (""End"" IS NULL OR Start <= ""End"")
+                );
+
+                CREATE TABLE IF NOT EXISTS UserMultiplier (
+                    UserMultiplierID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Name             TEXT    NOT NULL DEFAULT '',
+                    Code             TEXT    NOT NULL DEFAULT '',
+                    Description      TEXT    NOT NULL DEFAULT '',
+                    MultiplyBy       REAL    NOT NULL DEFAULT 1.0,
+                    CreatedAtUtc     TEXT    NOT NULL,
+                    UpdatedAtUtc     TEXT    NOT NULL,
+
+                    CHECK (length(Code) <= 3),
+                    CHECK (MultiplyBy > 0)
+                );
+
+                CREATE TABLE IF NOT EXISTS UserMultiplierActivationInterval (
+                    UserMultiplierActivationIntervalID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    UserMultiplierID                   INTEGER NULL,
+                    Name                               TEXT    NOT NULL DEFAULT '',
+                    Code                               TEXT    NOT NULL DEFAULT '',
+                    Description                        TEXT    NOT NULL DEFAULT '',
+                    MultiplyBy                         REAL    NOT NULL,
+                    Start                              TEXT    NOT NULL, -- ISO-8601 UTC datetime
+                    ""End""                              TEXT    NULL,     -- NULL = open
+
+                    FOREIGN KEY (UserMultiplierID) REFERENCES UserMultiplier(UserMultiplierID) ON DELETE SET NULL,
+                    CHECK (length(Code) <= 3),
+                    CHECK (MultiplyBy > 0),
+                    CHECK (""End"" IS NULL OR Start <= ""End"")
+                );
+
                 -- =========================
                 -- Trackers
                 -- =========================
@@ -213,6 +254,7 @@ namespace Points.Services.Sqlite
                     ValueTrackerCardID  INTEGER PRIMARY KEY,
                     CardID              INTEGER NOT NULL,
 
+                    Status              TEXT    NOT NULL DEFAULT '',
                     Unit                TEXT    NOT NULL DEFAULT '',
                     CreatedDate         TEXT    NOT NULL, -- ISO-8601 datetime
                     RangeStart          TEXT    NOT NULL, -- ISO-8601 datetime
@@ -227,6 +269,7 @@ namespace Points.Services.Sqlite
                     EventTrackerCardID  INTEGER PRIMARY KEY,
                     CardID              INTEGER NOT NULL,
 
+                    Status              TEXT    NOT NULL DEFAULT '',
                     Unit                TEXT    NOT NULL DEFAULT '',
                     CreatedDate         TEXT    NOT NULL, -- ISO-8601 datetime
                     RangeStart          TEXT    NOT NULL, -- ISO-8601 datetime
@@ -303,7 +346,7 @@ namespace Points.Services.Sqlite
                     SentAt            TEXT    NULL,
                     UpdatedAt         TEXT    NOT NULL,
                     Error             TEXT    NULL,
-                    CHECK (Status IN ('Created', 'Scheduled', 'Sent', 'Missed'))
+                    CHECK (Status IN ('Created', 'Scheduled', 'Sent', 'Missed', 'Missed (seen)'))
                 );
 
                 -- =========================
@@ -440,6 +483,15 @@ namespace Points.Services.Sqlite
                     AppliedAtUtc TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS WatchProcessedEvent (
+                    EventId        TEXT PRIMARY KEY,
+                    BaseSnapshotId TEXT NOT NULL DEFAULT '',
+                    CreatedAtUtc   TEXT NOT NULL DEFAULT '',
+                    ProcessedAtUtc TEXT NOT NULL DEFAULT '',
+                    Status         TEXT NOT NULL DEFAULT '',
+                    Message        TEXT NOT NULL DEFAULT ''
+                );
+
                 -- =========================
                 -- Helpful indexes
                 -- =========================
@@ -469,6 +521,21 @@ namespace Points.Services.Sqlite
                 -- Helpful for overlap queries
                 CREATE INDEX IF NOT EXISTS IX_Activity_StartEnd
                 ON Activity(Start, ""End"");
+
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_HardModePenalty_OneOpen
+                ON HardModePenaltyInterval(1) WHERE ""End"" IS NULL;
+
+                CREATE INDEX IF NOT EXISTS IX_HardModePenalty_StartEnd
+                ON HardModePenaltyInterval(Start, ""End"");
+
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_UserMultiplier_Code
+                ON UserMultiplier(Code COLLATE NOCASE);
+
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_UserMultiplierActivation_OneOpen
+                ON UserMultiplierActivationInterval(1) WHERE ""End"" IS NULL;
+
+                CREATE INDEX IF NOT EXISTS IX_UserMultiplierActivation_StartEnd
+                ON UserMultiplierActivationInterval(Start, ""End"");
 
                 CREATE INDEX IF NOT EXISTS IX_ValueTracker_CardID      ON ValueTrackerCard(CardID);
                 CREATE INDEX IF NOT EXISTS IX_EventTracker_CardID      ON EventTrackerCard(CardID);
@@ -547,6 +614,9 @@ namespace Points.Services.Sqlite
 
                 CREATE UNIQUE INDEX IF NOT EXISTS UX_Report_Title ON Report(Title);
 
+                CREATE INDEX IF NOT EXISTS IX_WatchProcessedEvent_ProcessedAtUtc
+                ON WatchProcessedEvent(ProcessedAtUtc);
+
                 ";
         }
 
@@ -556,6 +626,9 @@ namespace Points.Services.Sqlite
             return @"
                     DELETE FROM NotificationLog;
                     DELETE FROM Shortcut;
+                    DELETE FROM UserMultiplierActivationInterval;
+                    DELETE FROM UserMultiplier;
+                    DELETE FROM HardModePenaltyInterval;
                 ";
         }
 

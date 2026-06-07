@@ -1,5 +1,5 @@
 using Points.Global;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
 using System.IO.Compression;
 using System.Text.Json;
@@ -105,7 +105,7 @@ namespace Points.Services.Backup
         }
 
         public static async Task<string> CreateExportPackageAsync(
-            IDbService db,
+            IDatabaseInitializationService databaseLifecycle,
             IEnumerable<string> selectedKeys,
             CancellationToken cancellationToken = default,
             IClock? clock = null)
@@ -122,7 +122,7 @@ namespace Points.Services.Backup
             var packageCreated = false;
 
             if (includesDatabase)
-                await db.CloseDatabaseAsync();
+                await databaseLifecycle.CloseDatabaseAsync();
 
             try
             {
@@ -173,7 +173,7 @@ namespace Points.Services.Backup
             finally
             {
                 if (includesDatabase)
-                    await db.ReinitializeDatabaseAsync();
+                    await databaseLifecycle.ReinitializeDatabaseAsync();
 
                 if (!packageCreated)
                     TryDelete(zipPath);
@@ -256,7 +256,7 @@ namespace Points.Services.Backup
         }
 
         public static async Task RestoreAsync(
-            IDbService db,
+            IDatabaseInitializationService databaseLifecycle,
             BackupImportPlan plan,
             IEnumerable<string> selectedKeys,
             CancellationToken cancellationToken = default)
@@ -272,7 +272,7 @@ namespace Points.Services.Backup
             var includesDatabase = selectedResources.Any(x => x.Kind == BackupResourceKind.Database);
 
             if (includesDatabase)
-                await db.CloseDatabaseAsync();
+                await databaseLifecycle.CloseDatabaseAsync();
 
             try
             {
@@ -295,7 +295,7 @@ namespace Points.Services.Backup
             finally
             {
                 if (includesDatabase)
-                    await db.ReinitializeDatabaseAsync();
+                    await databaseLifecycle.ReinitializeDatabaseAsync();
             }
         }
 

@@ -1,0 +1,31 @@
+using Points.Models;
+namespace Points.Services.Persistence
+{
+    public interface IActivityService
+    {
+        Task<ActivityModel?> GetCurrentActiveActivityAsync();
+
+        Task<ToggleActivityModelResult> ToggleActivityAsync(
+            long cardId,
+            DateTime utcNow,
+            string valueRateName,
+            double valuePerMinute);
+
+        Task<bool> HasActivityOverlapAsync(
+            int excludeActivityId,
+            DateTime candidateStart,
+            DateTime? candidateEnd);
+
+        Task<ActivityUpdateResult> UpsertActivitiesAsync(
+            List<ActivityModel> activities,
+            long? replaceCardId = null);
+
+        Task<DateTime?> GetCurrentOpenActivityStartUtcAsync(long cardId);
+        Task<DateTime?> GetLastClosedActivityEndUtcAsync();
+
+        Task AddRepForStep(int scCardStepID, DateTime repTime, double stepValue);
+    }
+
+
+
+}

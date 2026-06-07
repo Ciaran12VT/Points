@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Points.Services.Time;
 
 namespace Points.Global
 {
     public static class GlobalVariables
     {
-        private static DateTime _rangeStart = AsLocalWallClock(DateTime.Today);
-        private static DateTime _rangeEnd = AsLocalWallClock(DateTime.Today.AddDays(1).AddTicks(-1));
+        private static readonly IClock Clock = new SystemClock();
+        private static DateTime _rangeStart = AsLocalWallClock(Clock.LocalNow.Date);
+        private static DateTime _rangeEnd = AsLocalWallClock(Clock.LocalNow.Date.AddDays(1).AddTicks(-1));
 
         public static DateTime RangeStart
         {

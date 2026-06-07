@@ -15,6 +15,13 @@ public enum LegacyLocalDateTimeReadKind
     WallClockWithIgnoredOffset = 1
 }
 
+public enum LegacyLocalTimeReadKind
+{
+    StrictLocalTime = 0,
+    FlexibleLocalTime = 1,
+    DateTimeTimeComponent = 2
+}
+
 public sealed class LegacyInstantReadResult
 {
     public LegacyInstantReadResult(
@@ -59,6 +66,19 @@ public sealed class LegacyLocalDateTimeReadResult
     public bool IgnoredOffset => Kind == LegacyLocalDateTimeReadKind.WallClockWithIgnoredOffset;
 }
 
+public sealed class LegacyLocalTimeReadResult
+{
+    public LegacyLocalTimeReadResult(TimeOnly localTime, LegacyLocalTimeReadKind kind)
+    {
+        LocalTime = localTime;
+        Kind = kind;
+    }
+
+    public TimeOnly LocalTime { get; }
+
+    public LegacyLocalTimeReadKind Kind { get; }
+}
+
 public static class LegacyTimeReader
 {
     private static readonly string[] FlexibleLocalDateTimeFormats =
@@ -70,6 +90,14 @@ public static class LegacyTimeReader
         "yyyy-MM-dd HH:mm:ss",
         "yyyy-MM-dd HH:mm",
         StrictTimeSerializer.LocalDateFormat
+    };
+
+    private static readonly string[] FlexibleLocalTimeFormats =
+    {
+        StrictTimeSerializer.LocalTimeFormat,
+        "HH:mm",
+        "H:mm:ss",
+        "H:mm"
     };
 
     public static LegacyInstantReadResult ReadInstantUtc(
@@ -164,6 +192,53 @@ public static class LegacyTimeReader
         try
         {
             result = ReadLocalDateTime(value);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static LegacyLocalTimeReadResult ReadLocalTime(string value)
+    {
+        var trimmed = RequireValue(value);
+
+        if (StrictTimeSerializer.TryParseLocalTime(trimmed, out var strictTime))
+            return new LegacyLocalTimeReadResult(strictTime, LegacyLocalTimeReadKind.StrictLocalTime);
+
+        foreach (var format in FlexibleLocalTimeFormats)
+        {
+            if (TimeOnly.TryParseExact(
+                    trimmed,
+                    format,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var exactTime))
+            {
+                return new LegacyLocalTimeReadResult(exactTime, LegacyLocalTimeReadKind.FlexibleLocalTime);
+            }
+        }
+
+        if (TimeOnly.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedTime))
+            return new LegacyLocalTimeReadResult(parsedTime, LegacyLocalTimeReadKind.FlexibleLocalTime);
+
+        var localDateTime = ReadLocalDateTime(trimmed).LocalDateTime;
+        return new LegacyLocalTimeReadResult(
+            TimeOnly.FromDateTime(localDateTime),
+            LegacyLocalTimeReadKind.DateTimeTimeComponent);
+    }
+
+    public static bool TryReadLocalTime(string? value, out LegacyLocalTimeReadResult? result)
+    {
+        result = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        try
+        {
+            result = ReadLocalTime(value);
             return true;
         }
         catch

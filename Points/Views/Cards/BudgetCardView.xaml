@@ -54,7 +54,7 @@
                                 TextColor="White"
                                 BackgroundColor="Red"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SpendCommand}"
-                                Clicked="OnSpendClicked" />
+                                CommandParameter="{Binding .}" />
 
                             <!-- Cash-in button -->
                             <Button
@@ -67,7 +67,7 @@
                                 TextColor="White"
                                 BackgroundColor="Green"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CashInCommand}"
-                                Clicked="OnCashInClicked" 
+                                CommandParameter="{Binding .}"
                                 IsVisible="{Binding IsCashInEnabled}"/>
 
             </HorizontalStackLayout>
@@ -221,7 +221,9 @@
         </Grid>
 
         <Frame.GestureRecognizers>
-            <TapGestureRecognizer Tapped="OnCardTapped" />
+            <TapGestureRecognizer
+                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenCardDetailsCommand}"
+                CommandParameter="{Binding .}" />
         </Frame.GestureRecognizers>
 
     </Frame>

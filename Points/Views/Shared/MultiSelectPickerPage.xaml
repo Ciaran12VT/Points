@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Shared.MultiSelectPickerPage"
+             x:Name="MultiSelectPicker"
+             Title="{Binding TitleText}">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto"
+          Padding="12"
+          RowSpacing="10">
+
+        <!-- Search -->
+        <Entry Grid.Row="0"
+               Text="{Binding SearchText}"
+               Placeholder="Search..."
+               ClearButtonVisibility="WhileEditing" />
+
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding FilteredItems}"
+                        SelectionMode="None">
+            <CollectionView.EmptyView>
+                <Grid Padding="24">
+                    <Label Text="{Binding EmptyStateText}"
+                           TextColor="Gray"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center" />
+                </Grid>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Padding="10" Margin="0,6" CornerRadius="10" HasShadow="True">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="{Binding .}" VerticalOptions="Center"/>
+
+                            <Button Grid.Column="1"
+                                    Text="+"
+                                    WidthRequest="36"
+                                    HeightRequest="36"
+                                    CornerRadius="18"
+                                    Padding="0"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.AddCommand}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Selected preview + clear -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <Entry Text="{Binding SelectedText}"
+                   IsReadOnly="{Binding IsReadOnly}"
+                   Placeholder="Selected..."
+                   VerticalOptions="Center"
+                   TextChanged="OnSelectedTextChanged" />
+
+            <Button Grid.Column="1"
+                    Text="Clear"
+                    Command="{Binding ClearCommand}"
+                    VerticalOptions="Center"/>
+        </Grid>
+
+        <!-- OK / Cancel -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="12">
+            <Button Text="Cancel"
+                    Command="{Binding Source={x:Reference MultiSelectPicker}, Path=CancelCommand}"/>
+
+            <Button Grid.Column="1"
+                    Text="OK"
+                    BackgroundColor="Green"
+                    TextColor="White"
+                    Command="{Binding Source={x:Reference MultiSelectPicker}, Path=OkCommand}"/>
+        </Grid>
+
+    </Grid>
+</ContentPage>

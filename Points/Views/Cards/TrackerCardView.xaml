@@ -3,7 +3,8 @@
     x:Class="Points.Views.Cards.TrackerCardView"
     x:Name="Root"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:cards="clr-namespace:Points.Views.Cards">
 
     <Frame
         Padding="14"
@@ -23,7 +24,7 @@
                     LineBreakMode="TailTruncation"
                     VerticalTextAlignment="Center" />
 
-                            <Button
+                            <cards:LongPressButton
                     Grid.Column="1"
                     Text="+"
                     WidthRequest="36"
@@ -33,7 +34,8 @@
                     Margin="0"
                     TextColor="White"
                     BackgroundColor="Green"
-                    Command="{Binding Source={x:Reference Root}, Path=AddValueCommand}"
+                    TapCommand="{Binding Source={x:Reference Root}, Path=AddValueCommand}"
+                    LongPressCommand="{Binding Source={x:Reference Root}, Path=AddValueAtSelectedTimeCommand}"
                     CommandParameter="{Binding .}"/>
 
             </Grid>
@@ -88,7 +90,9 @@
         </Grid>
 
         <Frame.GestureRecognizers>
-            <TapGestureRecognizer Tapped="OnCardTapped" />
+            <TapGestureRecognizer
+                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenCardDetailsCommand}"
+                CommandParameter="{Binding .}" />
         </Frame.GestureRecognizers>
 
     </Frame>

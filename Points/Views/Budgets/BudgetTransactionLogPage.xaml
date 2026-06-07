@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="Points.Views.Budgets.BudgetTransactionLogPage"
+    Title="Transaction Log">
+
+    <Grid RowDefinitions="*,Auto" Padding="12" RowSpacing="12">
+
+        <CollectionView
+            Grid.Row="0"
+            ItemsSource="{Binding Rows}"
+            SelectionMode="None">
+
+            <CollectionView.EmptyView>
+                <Grid Padding="24">
+                    <Label Text="No transactions yet. Use Spend or Cash In from the budget card."
+                           TextColor="Gray"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center" />
+                </Grid>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid
+                        ColumnDefinitions="*,*,Auto,44"
+                        ColumnSpacing="10"
+                        Padding="0,6"
+                        VerticalOptions="Center">
+
+                        <!-- Amount cell (tap to edit) -->
+                        <Frame
+                            Grid.Column="0"
+                            Padding="12"
+                            CornerRadius="12"
+                            HasShadow="False"
+                            BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding BindingContext.EditAmountCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                    CommandParameter="{Binding .}" />
+                            </Frame.GestureRecognizers>
+
+                            <Label
+                                Text="{Binding AmountText}"
+                                VerticalOptions="Center"
+                                HorizontalOptions="Center"
+                                LineBreakMode="NoWrap" />
+                        </Frame>
+
+                        <!-- Timestamp cell (tap to edit) -->
+                        <Frame
+                            Grid.Column="1"
+                            Padding="12"
+                            CornerRadius="12"
+                            HasShadow="False"
+                            BorderColor="{AppThemeBinding Light=#DDDDDD, Dark=#333333}">
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding BindingContext.EditTimestampCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                    CommandParameter="{Binding .}" />
+                            </Frame.GestureRecognizers>
+
+                            <Label
+                                Text="{Binding TimestampText}"
+                                VerticalOptions="Center"
+                                HorizontalOptions="Center"
+                                LineBreakMode="NoWrap"/>
+                        </Frame>
+
+                        <!-- Metadata -->
+                        <Button
+                            Grid.Column="2"
+                            Text="i"
+                            IsEnabled="{Binding HasMetadata}"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            FontAttributes="Bold"
+                            BackgroundColor="DodgerBlue"
+                            TextColor="White"
+                            Command="{Binding BindingContext.OpenMetadataCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                            CommandParameter="{Binding .}">
+                            <Button.Triggers>
+                                <DataTrigger
+                                    TargetType="Button"
+                                    Binding="{Binding HasMetadata}"
+                                    Value="False">
+                                    <Setter Property="BackgroundColor" Value="Gray" />
+                                    <Setter Property="TextColor" Value="White" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+
+                        <!-- Delete -->
+                        <Button
+                            Grid.Column="3"
+                            Text="✕"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            FontAttributes="Bold"
+                            BackgroundColor="{AppThemeBinding Light=#CC3333, Dark=#AA2222}"
+                            TextColor="White"
+                            Command="{Binding BindingContext.DeleteRowCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                            CommandParameter="{Binding .}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Button
+            Grid.Row="1"
+            Text="Save"
+            BackgroundColor="Green"
+            TextColor="White"
+            FontAttributes="Bold"
+            FontSize="21"
+            HeightRequest="48"
+            CornerRadius="12"
+            Command="{Binding SaveCommand}" />
+    </Grid>
+</ContentPage>

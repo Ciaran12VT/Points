@@ -71,6 +71,23 @@ public sealed class TimeSerializationAndDisplayTests
         Assert.Equal(new DateTime(2026, 10, 25, 1, 30, 0, DateTimeKind.Unspecified), result.LocalDateTime);
     }
 
+    [Theory]
+    [InlineData("07:05:00", 7, 5, 0, LegacyLocalTimeReadKind.StrictLocalTime)]
+    [InlineData("7:05", 7, 5, 0, LegacyLocalTimeReadKind.FlexibleLocalTime)]
+    [InlineData("2026-10-25T01:30:00+01:00", 1, 30, 0, LegacyLocalTimeReadKind.DateTimeTimeComponent)]
+    public void LegacyLocalTimeReader_NormalizesStrictAndLegacyValues(
+        string value,
+        int hour,
+        int minute,
+        int second,
+        LegacyLocalTimeReadKind expectedKind)
+    {
+        var result = LegacyTimeReader.ReadLocalTime(value);
+
+        Assert.Equal(expectedKind, result.Kind);
+        Assert.Equal(new TimeOnly(hour, minute, second), result.LocalTime);
+    }
+
     [Fact]
     public void TimeDisplayFormatter_FormatsUtcInstantsInRequestedLocalZone()
     {

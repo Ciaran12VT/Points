@@ -4,9 +4,11 @@
     {
         public int MissionCardID { get; set; }
         public int CardID { get; set; }
+        public string MissionGuid { get; set; } = "";
 
         public string Status { get; set; } = "";
         public string Description { get; set; } = "";
+        public string? SharedWith { get; set; }
         public string SubType { get; set; } = "";
 
         public double Value { get; set; }

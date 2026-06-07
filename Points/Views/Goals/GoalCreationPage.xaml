@@ -17,6 +17,15 @@
 
         <CollectionView Grid.Row="1" x:Name="RowsList" ItemsSource="{Binding Rows}" SelectionMode="Single" SelectionChanged="RowsList_SelectionChanged">
 
+            <CollectionView.EmptyView>
+                <Grid Padding="24">
+                    <Label Text="Create a TAT or SC card before setting goals."
+                           TextColor="Gray"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center" />
+                </Grid>
+            </CollectionView.EmptyView>
+
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <controls:GoalProgressCard />

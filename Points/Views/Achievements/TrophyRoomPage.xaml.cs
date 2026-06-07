@@ -1,27 +1,20 @@
-using Points.Models;
-using Points.Services.Sqlite.Interfaces;
-using Points.ViewModels;
+using Points.Services.Navigation;
+using Points.Services.Persistence;
+using Points.Services.Time;
+using Points.ViewModels.Achievements;
 
 namespace Points.Views.Achievements;
 
 public partial class TrophyRoomPage : ContentPage
 {
-    private IDbService _db;
-
-    public TrophyRoomPage(IDbService db)
+    public TrophyRoomPage(
+        IAchievementService achievements,
+        IAppNavigationService navigation,
+        IAppDialogService dialogs,
+        IClock clock)
 	{
 		InitializeComponent();
-        _db = db;
 
-        BindingContext = new TrophyRoomViewModel(_db);
-    }
-
-    private async void OnViewTrophyClicked(object sender, EventArgs e)
-    {
-        if (sender is not Button btn) return;
-        if (btn.CommandParameter is not TrophyModel trophy) return;
-
-        // Fullscreen modal viewer
-        await Shell.Current.Navigation.PushModalAsync(new NavigationPage(new TrophyViewerPage(trophy, _db)));
+        BindingContext = new TrophyRoomViewModel(achievements, navigation, dialogs, clock);
     }
 }

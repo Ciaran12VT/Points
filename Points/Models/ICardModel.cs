@@ -11,6 +11,7 @@ namespace Points.Models
     {
         int Id { get; set; }
         long CardID { get; set; }
+        int DisplayOrder { get; set; }
         string Title { get; }
         string Tags { get; }
         double GetValue(DateTime start, DateTime end);

@@ -1,0 +1,43 @@
+name: Android Debug APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-android-debug-apk:
+    name: Build Android debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install .NET MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Restore dependencies
+        run: dotnet restore Points/Points.csproj -f net8.0-android
+
+      - name: Build Android debug APK
+        run: dotnet build Points/Points.csproj -f net8.0-android -c Debug --no-restore -p:AndroidPackageFormat=apk
+
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: points-android-debug-apk
+          path: Points/bin/Debug/net8.0-android/**/*.apk
+          if-no-files-found: error

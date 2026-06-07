@@ -17,7 +17,7 @@ namespace Points.Converters
             if (values[1] is not DateTime start) return "Value: --";
             if (values[2] is not DateTime end) return "Value: --";
 
-            var v = card.GetValue(start, end);
+            var v = MultiplierValueCalculator.GetValue(card, start, end);
             return $"Value: {v:F2}";
         }
 

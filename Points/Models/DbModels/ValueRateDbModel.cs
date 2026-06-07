@@ -10,7 +10,7 @@ namespace Points.Models.DbModels
     {
         public int TatCardValueRateID { get; set; }
         public int TatCardID { get; set; }
-        public string RateName { get; set; }
+        public string RateName { get; set; } = "";
         public double ValuePerMinute { get; set; }
     }
 }

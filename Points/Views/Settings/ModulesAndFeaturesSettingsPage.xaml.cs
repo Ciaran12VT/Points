@@ -1,18 +1,24 @@
-using Points.Services.Sqlite.Interfaces;
-using Points.ViewModels;
+using Points.Services.Navigation;
+using Points.Services.Persistence;
+using Points.ViewModels.Settings;
 
 namespace Points.Views.Settings;
 
 public partial class ModulesAndFeaturesSettingsPage : ContentPage
 {
-    public ModulesAndFeaturesSettingsPage(IDbService db)
+    private readonly IAppNavigationService _navigation;
+
+    public ModulesAndFeaturesSettingsPage(
+        ISettingsService settings,
+        IAppNavigationService navigation)
     {
         InitializeComponent();
-        BindingContext = new ModulesAndFeaturesSettingsViewModel(db, ReturnToSettingsPageAsync);
+        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        BindingContext = new ModulesAndFeaturesSettingsViewModel(settings, ReturnToSettingsPageAsync);
     }
 
     private async Task ReturnToSettingsPageAsync()
     {
-        await Shell.Current.Navigation.PopAsync();
+        await _navigation.PopAsync();
     }
 }

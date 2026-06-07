@@ -1,5 +1,5 @@
 using Points.Models;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Persistence;
 using Points.Services.Time;
 
 namespace Points.Services.Scheduling
@@ -8,18 +8,24 @@ namespace Points.Services.Scheduling
     {
         private static readonly TimeSpan MissedGracePeriod = TimeSpan.FromMinutes(15);
 
-        private readonly IDbService _db;
+        private readonly ICardReadService _cards;
+        private readonly ICardScheduleService _cardSchedules;
+        private readonly INotificationLogService _notificationLogs;
         private readonly IDeviceAlarmScheduler _deviceAlarmScheduler;
         private readonly IScheduleNotificationPresenter _notificationPresenter;
         private readonly IClock _clock;
 
         public NotificationScheduleCoordinator(
-            IDbService db,
+            ICardReadService cards,
+            ICardScheduleService cardSchedules,
+            INotificationLogService notificationLogs,
             IDeviceAlarmScheduler deviceAlarmScheduler,
             IScheduleNotificationPresenter notificationPresenter,
             IClock clock)
         {
-            _db = db;
+            _cards = cards;
+            _cardSchedules = cardSchedules;
+            _notificationLogs = notificationLogs;
             _deviceAlarmScheduler = deviceAlarmScheduler;
             _notificationPresenter = notificationPresenter;
             _clock = clock;
@@ -59,15 +65,15 @@ namespace Points.Services.Scheduling
 
         public async Task SyncEnabledSchedulesAsync(CancellationToken ct = default)
         {
-            await _db.MarkOverdueNotificationLogsMissedAsync(_clock.UtcNow, MissedGracePeriod);
+            await _notificationLogs.MarkOverdueNotificationLogsMissedAsync(_clock.UtcNow, MissedGracePeriod);
 
-            var schedules = await _db.GetEnabledCardSchedulesAsync();
+            var schedules = await _cardSchedules.GetEnabledCardSchedulesAsync();
             await ScheduleAllAsync(schedules, ct);
         }
 
         public async Task HandleScheduleFiredAsync(long scheduleId, DateTime firedAt, CancellationToken ct = default)
         {
-            var schedule = await _db.GetCardScheduleByIdAsync(scheduleId);
+            var schedule = await _cardSchedules.GetCardScheduleByIdAsync(scheduleId);
             if (schedule == null)
             {
                 await CancelOneAsync(scheduleId);
@@ -96,9 +102,9 @@ namespace Points.Services.Scheduling
                 return;
             }
 
-            var title = await _db.GetCardTitleByIdAsync(schedule.CardId);
+            var title = await _cards.GetCardTitleByIdAsync(schedule.CardId);
             await _notificationPresenter.ShowScheduleFiredAsync(schedule, title, ct);
-            await _db.MarkNotificationLogSentAsync(schedule, title, firedAtLocal, _clock.UtcNow);
+            await _notificationLogs.MarkNotificationLogSentAsync(schedule, title, firedAtLocal, _clock.UtcNow);
 
             await ScheduleOneAsync(schedule, firedAtLocal, ct);
         }
@@ -123,18 +129,18 @@ namespace Points.Services.Scheduling
                 return;
             }
 
-            var title = await _db.GetCardTitleByIdAsync(schedule.CardId);
+            var title = await _cards.GetCardTitleByIdAsync(schedule.CardId);
             var createdAt = _clock.UtcNow;
-            var log = await _db.UpsertNotificationLogCreatedAsync(schedule, title, next.Value, createdAt);
+            var log = await _notificationLogs.UpsertNotificationLogCreatedAsync(schedule, title, next.Value, createdAt);
 
             try
             {
                 await _deviceAlarmScheduler.ScheduleExactAsync(schedule.ScheduleId, next.Value, ct);
-                await _db.MarkNotificationLogScheduledAsync(log.NotificationLogId, _clock.UtcNow);
+                await _notificationLogs.MarkNotificationLogScheduledAsync(log.NotificationLogId, _clock.UtcNow);
             }
             catch (Exception ex)
             {
-                await _db.MarkNotificationLogScheduleErrorAsync(log.NotificationLogId, ex.Message, _clock.UtcNow);
+                await _notificationLogs.MarkNotificationLogScheduleErrorAsync(log.NotificationLogId, ex.Message, _clock.UtcNow);
                 throw;
             }
         }

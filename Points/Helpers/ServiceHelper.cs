@@ -1,16 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Points.Helpers
 {
     public static class ServiceHelper
     {
-        public static IServiceProvider Services { get; set; } = default!;
+        private static IServiceProvider? _services;
+
+        public static IServiceProvider Services
+        {
+            get => _services ?? throw new InvalidOperationException("Application services have not been initialized.");
+            set => _services = value ?? throw new ArgumentNullException(nameof(value));
+        }
 
         public static T GetService<T>() where T : notnull
-            => (T)Services.GetService(typeof(T))!;
+            => Services.GetRequiredService<T>();
     }
 }

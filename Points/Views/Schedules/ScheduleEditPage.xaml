@@ -3,6 +3,7 @@
     x:Class="Points.Views.Schedules.ScheduleEditPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="ScheduleEditor"
     Title="Edit Schedule">
 
     <ScrollView>
@@ -88,7 +89,7 @@
                         FontSize="18"
                         HeightRequest="48"
                         CornerRadius="12"
-                        Clicked="OnCancelClicked" />
+                        Command="{Binding Source={x:Reference ScheduleEditor}, Path=CancelCommand}" />
 
                 <Button Grid.Column="1"
                         Text="Save"
@@ -98,7 +99,7 @@
                         FontSize="18"
                         HeightRequest="48"
                         CornerRadius="12"
-                        Clicked="OnSaveClicked" />
+                        Command="{Binding Source={x:Reference ScheduleEditor}, Path=SaveCommand}" />
             </Grid>
 
         </VerticalStackLayout>

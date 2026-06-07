@@ -25,6 +25,7 @@ namespace Points.Models
         }
 
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
         
         private string _title = "New Achievement";
         public string Title { get => _title; set => SetProperty(ref _title, value); }
@@ -464,52 +465,25 @@ namespace Points.Models
 
         private Color GetBackColorBasedOnDifficulty()
         {
-            switch (Difficulty)
+            return Difficulty switch
             {
-                case AchievementDifficultyLevels.Easy:
-                    return Colors.White;
-                    break;
-                case AchievementDifficultyLevels.Medium:
-                    return Colors.LightGreen;
-                    break;
-                case AchievementDifficultyLevels.Hard:
-                    return Colors.Brown;
-                    break;
-                case AchievementDifficultyLevels.Ridiculous:
-                    return Colors.Black;
-                    break;
-                case AchievementDifficultyLevels.Special:
-                    return Colors.DarkBlue;
-                    break;
-                default:
-                    return Colors.White;
-                    break;
-            }
+                AchievementDifficultyLevels.Medium => Colors.LightGreen,
+                AchievementDifficultyLevels.Hard => Colors.Brown,
+                AchievementDifficultyLevels.Ridiculous => Colors.Black,
+                AchievementDifficultyLevels.Special => Colors.DarkBlue,
+                _ => Colors.White
+            };
         }
 
         private Color GetForeColorBasedOnDifficulty()
         {
-            switch (Difficulty)
+            return Difficulty switch
             {
-                case AchievementDifficultyLevels.Easy:
-                    return Colors.Black;
-                    break;
-                case AchievementDifficultyLevels.Medium:
-                    return Colors.Black;
-                    break;
-                case AchievementDifficultyLevels.Hard:
-                    return Colors.White;
-                    break;
-                case AchievementDifficultyLevels.Ridiculous:
-                    return Colors.White;
-                    break;
-                case AchievementDifficultyLevels.Special:
-                    return Colors.White;
-                    break;
-                default:
-                    return Colors.Black;
-                    break;
-            }
+                AchievementDifficultyLevels.Hard or
+                AchievementDifficultyLevels.Ridiculous or
+                AchievementDifficultyLevels.Special => Colors.White,
+                _ => Colors.Black
+            };
         }
 
         private AchievementDifficultyLevels _difficulty = AchievementDifficultyLevels.Easy;

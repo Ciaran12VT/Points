@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/points_splash_icon_vector">
+    <target
+        android:name="brush_arc_shadow"
+        android:animation="@animator/points_splash_brush_arc_draw" />
+    <target
+        android:name="brush_arc"
+        android:animation="@animator/points_splash_brush_arc_draw" />
+    <target
+        android:name="brush_arc_highlight"
+        android:animation="@animator/points_splash_brush_arc_draw" />
+</animated-vector>

@@ -12,7 +12,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Maui.Graphics" Version="$(MauiVersion)" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
+    <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -21,7 +25,85 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Points\Global\SettingKeys.cs" Link="App\Global\SettingKeys.cs" />
+    <Compile Include="..\Points\Evaluators\TimeValueAchievementEvaluator.cs" Link="App\Evaluators\TimeValueAchievementEvaluator.cs" />
+    <Compile Include="..\Points\Models\ActivityModel.cs" Link="App\Models\ActivityModel.cs" />
+    <Compile Include="..\Points\Models\ActivityTimeMath.cs" Link="App\Models\ActivityTimeMath.cs" />
+    <Compile Include="..\Points\Models\ActivityUpdateResult.cs" Link="App\Models\ActivityUpdateResult.cs" />
+    <Compile Include="..\Points\Models\AchievementCardModel.cs" Link="App\Models\AchievementCardModel.cs" />
+    <Compile Include="..\Points\Models\AchievementCompletionType.cs" Link="App\Models\AchievementCompletionType.cs" />
+    <Compile Include="..\Points\Models\AchievementRangeUnit.cs" Link="App\Models\AchievementRangeUnit.cs" />
+    <Compile Include="..\Points\Models\AchievementTargetType.cs" Link="App\Models\AchievementTargetType.cs" />
+    <Compile Include="..\Points\Models\BudgetCardModel.cs" Link="App\Models\BudgetCardModel.cs" />
+    <Compile Include="..\Points\Models\BudgetTransaction.cs" Link="App\Models\BudgetTransaction.cs" />
+    <Compile Include="..\Points\Models\CardSchedule.cs" Link="App\Models\CardSchedule.cs" />
+    <Compile Include="..\Points\Models\EventTrackerCardModel.cs" Link="App\Models\EventTrackerCardModel.cs" />
+    <Compile Include="..\Points\Models\GoalDetailsModel.cs" Link="App\Models\GoalDetailsModel.cs" />
+    <Compile Include="..\Points\Models\HardModePenaltyIntervalModel.cs" Link="App\Models\HardModePenaltyIntervalModel.cs" />
+    <Compile Include="..\Points\Models\ICardModel.cs" Link="App\Models\ICardModel.cs" />
+    <Compile Include="..\Points\Models\IScheduleable.cs" Link="App\Models\IScheduleable.cs" />
+    <Compile Include="..\Points\Models\IScheduleModel.cs" Link="App\Models\IScheduleModel.cs" />
+    <Compile Include="..\Points\Models\LockModel.cs" Link="App\Models\LockModel.cs" />
+    <Compile Include="..\Points\Models\MissionCardModel.cs" Link="App\Models\MissionCardModel.cs" />
+    <Compile Include="..\Points\Models\MissionSubType.cs" Link="App\Models\MissionSubType.cs" />
+    <Compile Include="..\Points\Models\NotificationLogModel.cs" Link="App\Models\NotificationLogModel.cs" />
+    <Compile Include="..\Points\Models\ObservableObject.cs" Link="App\Models\ObservableObject.cs" />
+    <Compile Include="..\Points\Models\PlannerModels.cs" Link="App\Models\PlannerModels.cs" />
+    <Compile Include="..\Points\Models\ReportModel.cs" Link="App\Models\ReportModel.cs" />
+    <Compile Include="..\Points\Models\ShortcutModel.cs" Link="App\Models\ShortcutModel.cs" />
+    <Compile Include="..\Points\Models\ScCardModel.cs" Link="App\Models\ScCardModel.cs" />
+    <Compile Include="..\Points\Models\ScStepModel.cs" Link="App\Models\ScStepModel.cs" />
+    <Compile Include="..\Points\Models\ScheduledTopUp.cs" Link="App\Models\ScheduledTopUp.cs" />
+    <Compile Include="..\Points\Models\TimeScopeRange.cs" Link="App\Models\TimeScopeRange.cs" />
+    <Compile Include="..\Points\Models\ToggleActivityModelResult.cs" Link="App\Models\ToggleActivityModelResult.cs" />
+    <Compile Include="..\Points\Models\TrackerCardModel.cs" Link="App\Models\TrackerCardModel.cs" />
+    <Compile Include="..\Points\Models\TatCardModel.cs" Link="App\Models\TatCardModel.cs" />
+    <Compile Include="..\Points\Models\TrophyModel.cs" Link="App\Models\TrophyModel.cs" />
+    <Compile Include="..\Points\Models\UdmdModels.cs" Link="App\Models\UdmdModels.cs" />
+    <Compile Include="..\Points\Models\UserMultiplierModel.cs" Link="App\Models\UserMultiplierModel.cs" />
+    <Compile Include="..\Points\Models\ValueRateModel.cs" Link="App\Models\ValueRateModel.cs" />
+    <Compile Include="..\Points\Models\ValueTrackerCardModel.cs" Link="App\Models\ValueTrackerCardModel.cs" />
+    <Compile Include="..\Points\Models\MultiplierValueCalculator.cs" Link="App\Models\MultiplierValueCalculator.cs" />
+    <Compile Include="..\Points\Models\DbModels\SettingValueTypes.cs" Link="App\Models\DbModels\SettingValueTypes.cs" />
+    <Compile Include="..\Points\Global\MultiplierRuntimeState.cs" Link="App\Global\MultiplierRuntimeState.cs" />
+    <Compile Include="..\Points\Services\Achievements\SqliteAchievementService.cs" Link="App\Achievements\SqliteAchievementService.cs" />
+    <Compile Include="..\Points\Services\Activity\ActivityIntervalCalculator.cs" Link="App\Activity\ActivityIntervalCalculator.cs" />
+    <Compile Include="..\Points\Services\Activity\CardRecencyCalculator.cs" Link="App\Activity\CardRecencyCalculator.cs" />
+    <Compile Include="..\Points\Services\Activity\SqliteActivityService.cs" Link="App\Activity\SqliteActivityService.cs" />
+    <Compile Include="..\Points\Services\Budgets\SqliteBudgetService.cs" Link="App\Budgets\SqliteBudgetService.cs" />
+    <Compile Include="..\Points\Services\Calculations\ArithmeticExpressionEvaluator.cs" Link="App\Calculations\ArithmeticExpressionEvaluator.cs" />
+    <Compile Include="..\Points\Services\Cards\SqliteCardService.cs" Link="App\Cards\SqliteCardService.cs" />
+    <Compile Include="..\Points\Services\Goals\SqliteGoalService.cs" Link="App\Goals\SqliteGoalService.cs" />
+    <Compile Include="..\Points\Services\HardMode\SqliteHardModePenaltyService.cs" Link="App\HardMode\SqliteHardModePenaltyService.cs" />
+    <Compile Include="..\Points\Services\Locks\SqliteLockService.cs" Link="App\Locks\SqliteLockService.cs" />
+    <Compile Include="..\Points\Services\Missions\SqliteMissionCardService.cs" Link="App\Missions\SqliteMissionCardService.cs" />
+    <Compile Include="..\Points\Services\Multipliers\SqliteUserMultiplierService.cs" Link="App\Multipliers\SqliteUserMultiplierService.cs" />
+    <Compile Include="..\Points\Services\Notifications\SqliteNotificationLogService.cs" Link="App\Notifications\SqliteNotificationLogService.cs" />
+    <Compile Include="..\Points\Services\Planner\IPlannerCardSource.cs" Link="App\Planner\IPlannerCardSource.cs" />
+    <Compile Include="..\Points\Services\Planner\SqlitePlannerService.cs" Link="App\Planner\SqlitePlannerService.cs" />
+    <Compile Include="..\Points\Services\Reports\ReportSqlGuard.cs" Link="App\Reports\ReportSqlGuard.cs" />
+    <Compile Include="..\Points\Services\Reports\SqliteReportService.cs" Link="App\Reports\SqliteReportService.cs" />
+    <Compile Include="..\Points\Services\Schedules\SqliteCardScheduleService.cs" Link="App\Schedules\SqliteCardScheduleService.cs" />
+    <Compile Include="..\Points\Services\Schedules\CardScheduleCollectionMerger.cs" Link="App\Schedules\CardScheduleCollectionMerger.cs" />
+    <Compile Include="..\Points\Services\Sc\SqliteScCardService.cs" Link="App\Sc\SqliteScCardService.cs" />
+    <Compile Include="..\Points\Services\Settings\SqliteSettingsService.cs" Link="App\Settings\SqliteSettingsService.cs" />
+    <Compile Include="..\Points\Services\Shortcuts\SqliteShortcutService.cs" Link="App\Shortcuts\SqliteShortcutService.cs" />
+    <Compile Include="..\Points\Services\Tat\SqliteTatCardService.cs" Link="App\Tat\SqliteTatCardService.cs" />
+    <Compile Include="..\Points\Services\Trackers\SqliteTrackerService.cs" Link="App\Trackers\SqliteTrackerService.cs" />
+    <Compile Include="..\Points\Services\Udmd\SqliteUdmdService.cs" Link="App\Udmd\SqliteUdmdService.cs" />
+    <Compile Include="..\Points\Services\Persistence\*.cs" Link="App\Persistence\%(Filename)%(Extension)" />
+    <Compile Include="..\Points\Services\Sqlite\ISqliteConnectionContext.cs" Link="App\Sqlite\ISqliteConnectionContext.cs" />
+    <Compile Include="..\Points\Services\Sqlite\MissionCardSchemaMigration.cs" Link="App\Sqlite\MissionCardSchemaMigration.cs" />
+    <Compile Include="..\Points\Services\Sqlite\Queries\TatSql.cs" Link="App\Sqlite\Queries\TatSql.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupModels.cs" Link="App\AppBackup\ScheduledBackupModels.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupConfigStore.cs" Link="App\AppBackup\ScheduledBackupConfigStore.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupLogStore.cs" Link="App\AppBackup\ScheduledBackupLogStore.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupLocalStorage.cs" Link="App\AppBackup\ScheduledBackupLocalStorage.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupRemoteStorage.cs" Link="App\AppBackup\ScheduledBackupRemoteStorage.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupWorkScheduler.cs" Link="App\AppBackup\ScheduledBackupWorkScheduler.cs" />
+    <Compile Include="..\Points\Services\AppBackup\ScheduledBackupRunner.cs" Link="App\AppBackup\ScheduledBackupRunner.cs" />
     <Compile Include="..\Points\Services\Time\*.cs" Link="App\Time\%(Filename)%(Extension)" />
+    <Compile Include="..\Points\Services\Scheduling\CardScheduleOccurrenceCalculator.cs" Link="App\Scheduling\CardScheduleOccurrenceCalculator.cs" />
     <Compile Include="..\Points\Services\Scheduling\WallClockScheduleTime.cs" Link="App\Scheduling\WallClockScheduleTime.cs" />
   </ItemGroup>
 

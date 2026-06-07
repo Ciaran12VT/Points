@@ -1,24 +1,23 @@
-using Points.Helpers;
+using Points.Services.Navigation;
+using Points.Services.Persistence;
 using Points.Services.Time;
-using Points.ViewModels;
+using Points.ViewModels.Reports;
 
 namespace Points.Views.Reports;
 
 public partial class ReportPage : ContentPage
 {
 
-/* Unmerged change from project 'Points (net8.0-android)'
-Before:
-	public ReportPage(Services.IDbService _db)
-	{
-After:
-	public ReportPage(IDbService _db)
-	{
-*/
-	public ReportPage(Services.Sqlite.Interfaces.IDbService _db)
+	public ReportPage(
+        IReportService reports,
+        IAppNavigationService navigation,
+        IClock clock)
 	{
 		InitializeComponent();
 
-        BindingContext = new ReportsViewModel(_db, ServiceHelper.GetService<IClock>());
+        BindingContext = new ReportsViewModel(
+            reports,
+            navigation,
+            clock);
     }
 }

@@ -1,0 +1,734 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Points.ViewModels.Home"
+             xmlns:cards="clr-namespace:Points.Views.Cards;assembly=Points"
+             xmlns:home="clr-namespace:Points.Views.Home"
+             xmlns:views="clr-namespace:Points.Views.Cards;assembly=Points"
+             xmlns:converters="clr-namespace:Points.Converters"
+             xmlns:customComponents="clr-namespace:Points.CustomComponents;assembly=Points"
+             x:Class="Points.Views.Home.HomePage"
+             x:Name="HomeRoot"
+             Title="Points">
+
+    <!--<ContentPage.BindingContext>
+        <vm:HomeViewModel />
+    </ContentPage.BindingContext>-->
+    
+
+    <!-- TOP TOOLBAR (in the actual top title bar area) -->
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+          Padding="12,0"
+          VerticalOptions="Center"
+          ColumnSpacing="6">
+
+            <!-- Left: Header date + active phase -->
+            <VerticalStackLayout Grid.Column="0"
+                             Spacing="0"
+                             VerticalOptions="Center">
+
+                <Label Text="{Binding HeaderDate}"
+                   FontSize="20"
+                   VerticalOptions="Center"
+                   HorizontalOptions="Start"/>
+
+                <Label Text="{Binding ActivePhaseName}"
+                   FontSize="22"
+                   TextColor="{Binding ActivePhaseColor}"
+                   HorizontalOptions="Start"/>
+                
+            </VerticalStackLayout>
+
+            <!-- Warning -->
+            <Label Grid.Column="1"
+               Text="!"
+               TextColor="Red"
+               FontSize="26"
+               FontAttributes="Bold"
+               IsVisible="{Binding HasNegativeAvailableMission}"
+               VerticalOptions="Center" />
+
+            <!-- Active custom multiplier code -->
+            <Label Grid.Column="2"
+               Text="{Binding ActiveMultiplierCode}"
+               TextColor="#F59E0B"
+               FontSize="18"
+               FontAttributes="Bold"
+               IsVisible="{Binding HasActiveMultiplier}"
+               VerticalOptions="Center"
+               HorizontalOptions="End" />
+
+            <!-- Top-right value -->
+            <Label Grid.Column="3"
+               Text="{Binding TopRightValue, StringFormat='{0:F2}'}"
+               FontSize="30"
+               VerticalOptions="End"
+               HorizontalOptions="End"
+               TextColor="{Binding TopRightValue, Converter={StaticResource GlobalValueColorConverter}}">
+                <Label.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding OpenLeaderboardCommand}" />
+                </Label.GestureRecognizers>
+            </Label>
+        </Grid>
+    </Shell.TitleView>
+
+
+
+    <!-- PAGE CONTENT: top toolbar + carousel + bottom toolbar -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+
+        <!-- TOP (IN-PAGE) TOOLBAR -->
+        <Grid Grid.Row="0"
+              ColumnDefinitions="*,Auto,Auto"
+              Padding="12"
+              Margin="0,8,0,0"
+              IsVisible="{Binding IsTopToolbarVisible}"
+              BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
+
+            <!-- Left-hand button group -->
+            <HorizontalStackLayout Grid.Column="0" Spacing="8" VerticalOptions="Center">
+
+                <!-- Achievements -->
+                <Button Text="🏆"
+                    Command="{Binding OpenAchievementsCommand}"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    VerticalOptions="Center"/>
+
+                <!-- Reports -->
+                <Button Text="📊"
+                Command="{Binding OpenReportsCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                VerticalOptions="Center"/>
+
+
+                <!-- Date Range -->
+                <!--<Button Text="📅"
+                Command="{Binding OpenDateRangePickerViewCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                VerticalOptions="Center"/>-->
+
+                <!-- Goals -->
+                <Button Text="🎯"
+                Command="{Binding OpenGoalViewCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                VerticalOptions="Center"/>
+
+            </HorizontalStackLayout>
+
+            <!-- Right-hand Order mode button -->
+            <Button Grid.Column="1"
+                    Command="{Binding ToggleOrderModeCommand}"
+                    Text="↕"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0,0,8,0"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    VerticalOptions="Center">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsOrderMode}" Value="True">
+                        <Setter Property="BackgroundColor" Value="Green" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+
+            <!-- Right-hand Settings button -->
+            <Button Grid.Column="2"
+            Command="{Binding OpenSettingsCommand}"
+            Text="⚙️"
+            WidthRequest="36"
+            HeightRequest="36"
+            CornerRadius="18"
+            Padding="0"
+            Margin="0"
+            TextColor="White"
+            BackgroundColor="Black"
+            VerticalOptions="Center"/>
+        </Grid>
+
+
+        <!-- NEW: DYNAMIC (IN-PAGE) TOOLBAR -->
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,Auto,Auto"
+              Padding="12,8,12,12"
+              BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
+
+            <!-- Left: Horizontal scrolling button row -->
+            <CollectionView Grid.Column="0"
+                    ItemsSource="{Binding Pages}"
+                    ItemsLayout="HorizontalList"
+                    HorizontalScrollBarVisibility="Never"
+                    VerticalScrollBarVisibility="Never">
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Button 
+                        Text="{Binding IconChar}"
+                        WidthRequest="20"
+                        HeightRequest="20"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0,0,8,0"
+                        TextColor="White"
+                        BackgroundColor="{Binding BackColor}"
+                        VerticalOptions="Center"
+                        FontSize="{Binding FontSize}"
+                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=NavigationItemClickedCommand}"
+                        CommandParameter="{Binding .}" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Frame Grid.Column="1"
+                   WidthRequest="22"
+                   HeightRequest="22"
+                   CornerRadius="11"
+                   Padding="0"
+                   HasShadow="False"
+                   BorderColor="Transparent"
+                   BackgroundColor="{Binding MissedNotificationBadgeColor}"
+                   IsVisible="{Binding HasMissedNotifications}"
+                   VerticalOptions="Center"
+                   Margin="8,0,0,0">
+                <Frame.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding OpenMissedNotificationsLogCommand}" />
+                </Frame.GestureRecognizers>
+                <Label Text="{Binding MissedNotificationBadgeText}"
+                       FontSize="11"
+                       FontAttributes="Bold"
+                       TextColor="White"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center" />
+            </Frame>
+
+            <!-- Right: show/hide top toolbar -->
+            <Button Grid.Column="2"
+                    Text="⋯"  
+                    Command="{Binding ToggleTopToolbarCommand}"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="8,0,0,0"
+                    TextColor="White"
+                    BackgroundColor="Transparent"
+                    VerticalOptions="Center" />
+        </Grid>
+
+
+        <!-- Carousel -->
+        <CarouselView Grid.Row="2" x:Name="MainCarousel"
+                      ItemsSource="{Binding Pages}"
+                      Position="{Binding Position, Mode=TwoWay}"
+                      ItemTemplate="{StaticResource HomePaneTemplateSelector}"
+                      IsSwipeEnabled="True"
+                      Scrolled="Carousel_Scrolled"
+                      PositionChanged="Carousel_PositionChanged">
+
+            <!--<CarouselView.ItemTemplate>
+                <DataTemplate>
+                    <Grid RowDefinitions="Auto,*" Padding="12,8">
+                         Pane title 
+                        <Label Grid.Row="0"
+                           Text="{Binding Name}"
+                           FontSize="18"
+                           Margin="0,0,0,8" />
+
+                         Cards list
+                        <CollectionView 
+                            x:Name="CardsList"
+                            Grid.Row="1" 
+                            ItemsSource="{Binding VisibleCards}" 
+                            ItemTemplate="{StaticResource CardTemplateSelector}"
+                            Scrolled="Cards_Scrolled">
+
+                        </CollectionView>
+                    </Grid>
+                </DataTemplate>
+            </CarouselView.ItemTemplate>-->
+
+
+        </CarouselView>
+
+
+        <!-- PREMIUM BANNER -->
+        <Grid Grid.Row="3"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="12"
+              Padding="12,8"
+              IsVisible="{Binding IsPremiumBannerVisible}"
+              BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#2B2516}">
+
+            <Label Text="Upgrade to Premium!"
+                   FontSize="15"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#222222, Dark=#FFFFFF}"
+                   VerticalOptions="Center"
+                   LineBreakMode="TailTruncation" />
+
+            <Button Grid.Column="1"
+                    Text="Upgrade"
+                    Command="{Binding OpenPremiumUpgradeCommand}"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="16,0"
+                    FontAttributes="Bold"
+                    TextColor="White"
+                    BackgroundColor="Green"
+                    VerticalOptions="Center" />
+        </Grid>
+
+
+        <!-- BOTTOM TOOLBAR -->
+        <Grid Grid.Row="4"
+                  ColumnDefinitions="*,Auto, Auto"
+                  Padding="12"
+                  BackgroundColor="{AppThemeBinding Light=#F2F2F2, Dark=#1E1E1E}">
+
+            <!-- Left-hand button group -->
+            <HorizontalStackLayout Grid.Column="0"
+                           Spacing="8"
+                           VerticalOptions="Center">
+
+                <!-- DEBUG NOTIFICATION BUTTON -->
+                <!--<Button Text="🔔"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    HorizontalOptions="End"
+                    VerticalOptions="Center"/>-->
+
+                <!--<Button Text="*"
+                Command="{Binding ClearFiltersCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>-->
+
+                <Button Text="●"
+                    Command="{Binding ScrollToActiveCardCommand}"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0"
+                    BackgroundColor="{Binding ActivePhaseColor}"
+                    VerticalOptions="Center"
+                    TextColor="White" />
+
+
+                <!--<Button Text="🕑"
+                Command="{Binding SortByLastActiveCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>-->
+
+                <!--<Button Text="-"
+                Command="{Binding FilterNegativeCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+
+                <Button Text="+"
+                Command="{Binding FilterPositiveCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>-->
+
+                <!--<Button Text="#"
+                Command="{Binding FilterByTagCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>-->
+
+                <Button Text="🔎"
+                Command="{Binding SearchCardsCommand}"
+                WidthRequest="36"
+                HeightRequest="36"
+                CornerRadius="18"
+                Padding="0"
+                Margin="0"
+                TextColor="White"
+                BackgroundColor="Black"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+
+            </HorizontalStackLayout>
+
+            <!-- Right-hand Dashbord button -->
+            <Button Grid.Column="1"
+                    Text="𓃑"
+                    FontSize="12"
+                    Command="{Binding ScrollToDashboardCommand}"
+                    VerticalOptions="Center"
+                    HorizontalOptions="Center"
+                    TextColor="White"
+                    BackgroundColor="Black"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    Margin="0,0,25,0"/>
+
+            <!-- Right-hand Add button -->
+            <Button Grid.Column="2"
+                    Text="Add"
+                    Command="{Binding AddCardCommand}"
+                    VerticalOptions="Center"
+                    TextColor="White"
+                    BackgroundColor="Green"/>
+
+        </Grid>
+
+
+    </Grid>
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <cards:CardTemplateSelector x:Key="CardTemplateSelector">
+                
+                <cards:CardTemplateSelector.TatTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:TatCardView Grid.Column="0" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </cards:CardTemplateSelector.TatTemplate>
+
+                <cards:CardTemplateSelector.ScTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:ScCardView Grid.Column="0" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </cards:CardTemplateSelector.ScTemplate>
+
+                <cards:CardTemplateSelector.MissionTemplate>
+                    <DataTemplate>
+                        <cards:MissionCardView />
+                    </DataTemplate>
+                </cards:CardTemplateSelector.MissionTemplate>
+
+                <cards:CardTemplateSelector.BudgetTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:BudgetCardView Grid.Column="0" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </cards:CardTemplateSelector.BudgetTemplate>
+
+                <cards:CardTemplateSelector.GoalTemplate>
+                    <DataTemplate>
+                        <customComponents:GoalProgressCard />
+                    </DataTemplate>
+                </cards:CardTemplateSelector.GoalTemplate>
+
+                <cards:CardTemplateSelector.DateHeaderCardTemplate>
+                    <DataTemplate>
+                        <Grid Padding="8,10">
+                            <Label Text="{Binding Title}"
+                               FontSize="13"
+                               FontAttributes="Bold,Italic"
+                               Opacity="0.8" />
+                        </Grid>
+                    </DataTemplate>
+                </cards:CardTemplateSelector.DateHeaderCardTemplate>
+
+                <cards:CardTemplateSelector.AchievementTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:AchievementCardView Grid.Column="0" />
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </cards:CardTemplateSelector.AchievementTemplate>
+
+                <cards:CardTemplateSelector.TrackerTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <cards:TrackerCardView
+                                Grid.Column="0"
+                                Title="{Binding Title}"
+                                Unit="{Binding Unit}"
+                                Values="{Binding Values}"
+                                FirstRecordedDate="{Binding FirstRecordedDate}"
+                                AddValueCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueCommand}"
+                                AddValueAtSelectedTimeCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=AddTrackerValueAtSelectedTimeCommand}"/>
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="6"
+                                                 VerticalOptions="Center"
+                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=IsOrderMode}">
+                                <Button Text="^"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardUpCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="v"
+                                        WidthRequest="36"
+                                        HeightRequest="36"
+                                        CornerRadius="18"
+                                        Padding="0"
+                                        TextColor="White"
+                                        BackgroundColor="Black"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=MoveCardDownCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                    </DataTemplate>
+                </cards:CardTemplateSelector.TrackerTemplate>
+
+            </cards:CardTemplateSelector>
+
+            <converters:GlobalValueColorConverter x:Key="GlobalValueColorConverter" />
+            
+            <cards:HomePaneTemplateSelector x:Key="HomePaneTemplateSelector">
+
+                <cards:HomePaneTemplateSelector.DefaultPaneTemplate>
+                    <DataTemplate>
+                        <Grid RowDefinitions="Auto,*" Padding="12,8">
+                            <Label Grid.Row="0"
+                                   Text="{Binding Name}"
+                                   FontSize="18"
+                                   Margin="0,0,0,8" />
+
+                            <CollectionView x:Name="CardsList"
+                                            Grid.Row="1"
+                                            ItemsSource="{Binding VisibleCards}"
+                                            ItemTemplate="{StaticResource CardTemplateSelector}"
+                                            Scrolled="Cards_Scrolled"
+                                            Loaded="CardsList_Loaded"
+                                            Unloaded="CardsList_Unloaded">
+                                <CollectionView.EmptyView>
+                                    <Grid Padding="24">
+                                        <Label Text="{Binding EmptyStateText}"
+                                               TextColor="Gray"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center" />
+                                    </Grid>
+                                </CollectionView.EmptyView>
+                            </CollectionView>
+                        </Grid>
+                    </DataTemplate>
+                </cards:HomePaneTemplateSelector.DefaultPaneTemplate>
+
+                <cards:HomePaneTemplateSelector.DashboardPaneTemplate>
+                    <DataTemplate>
+                        <Grid RowDefinitions="Auto,*" Padding="12,8">
+
+                            <Label Grid.Row="0"
+                                   Text="{Binding Name}"
+                                   FontSize="18"
+                                   Margin="0,0,0,8" />
+
+                            <CollectionView Grid.Row="1"
+                                            ItemsSource="{Binding DashboardCells}"
+                                            SelectionMode="None">
+
+                                <CollectionView.EmptyView>
+                                    <Grid Padding="24">
+                                        <Label Text="{Binding EmptyStateText}"
+                                               TextColor="Gray"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center" />
+                                    </Grid>
+                                </CollectionView.EmptyView>
+
+                                <CollectionView.ItemsLayout>
+                                    <GridItemsLayout Orientation="Vertical" Span="4" VerticalItemSpacing="12" />
+                                </CollectionView.ItemsLayout>
+
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Padding="4">
+                                            <home:DashboardShortcutButton Text="{Binding IconChar}"
+                                                                          BackgroundColor="{Binding BackColor}"
+                                                                          TextColor="White"
+                                                                          FontSize="35"
+                                                                          CornerRadius="18"
+                                                                          HeightRequest="74"
+                                                                          WidthRequest="74"
+                                                                          Padding="0"
+                                                                          TapCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=ShortcutClickedCommand}"
+                                                                          LongPressCommand="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=OpenShortcutDetailsCommand}"
+                                                                          CommandParameter="{Binding Shortcut}">
+                                                <home:DashboardShortcutButton.Triggers>
+                                                    <DataTrigger TargetType="home:DashboardShortcutButton"
+                                                                 Binding="{Binding IsPlaceholder}"
+                                                                 Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                        <Setter Property="IsEnabled" Value="False" />
+                                                    </DataTrigger>
+                                                </home:DashboardShortcutButton.Triggers>
+                                            </home:DashboardShortcutButton>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+
+                            </CollectionView>
+                        </Grid>
+                    </DataTemplate>
+                </cards:HomePaneTemplateSelector.DashboardPaneTemplate>
+
+            </cards:HomePaneTemplateSelector>
+            
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+
+</ContentPage>

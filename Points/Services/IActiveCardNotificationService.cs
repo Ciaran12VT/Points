@@ -15,6 +15,5 @@ namespace Points.Services
         /// </summary>
         void UpdateActiveCardNotification(IActiveCardModel? cardModel);
 
-        void DebugBeep();
     }
 }

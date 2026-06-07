@@ -1,19 +1,38 @@
 using System.Globalization;
 using Points.Models; // expects CardSchedule + FrequencyType
+using Points.Services.Navigation;
+using Points.Services.Time;
 
 namespace Points.Views.Schedules;
 
 public partial class ScheduleEditPage : ContentPage
 {
+    private readonly IAppNavigationService _navigation;
+    private readonly IClock _clock;
     private readonly IScheduleModel _schedule;
     private readonly Func<IScheduleModel, Task> _onSaved;
+    private readonly Action? _onCanceled;
 
-    public ScheduleEditPage(IScheduleModel schedule, Func<IScheduleModel, Task> onSaved)
+    public Command CancelCommand { get; }
+    public Command SaveCommand { get; }
+
+    public ScheduleEditPage(
+        IScheduleModel schedule,
+        Func<IScheduleModel, Task> onSaved,
+        IAppNavigationService navigation,
+        IClock clock,
+        Action? onCanceled = null)
     {
+        CancelCommand = new Command(async () => await CancelAsync());
+        SaveCommand = new Command(async () => await SaveAsync());
+
         InitializeComponent();
 
+        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _schedule = schedule;
         _onSaved = onSaved;
+        _onCanceled = onCanceled;
 
         // Populate frequency picker
         var values = Enum.GetValues(typeof(FrequencyType)).Cast<FrequencyType>().ToList();
@@ -41,7 +60,7 @@ public partial class ScheduleEditPage : ContentPage
         {
             HasEndSwitch.IsToggled = false;
             ToRow.IsVisible = false;
-            ToDatePicker.Date = DateTime.Now.Date;
+            ToDatePicker.Date = _clock.LocalNow.Date;
             ToTimePicker.Time = new TimeSpan(9, 0, 0);
         }
 
@@ -95,12 +114,19 @@ public partial class ScheduleEditPage : ContentPage
         PreviewLabel.Text = preview;
     }
 
-    private async void OnCancelClicked(object sender, EventArgs e)
+    private async Task CancelAsync()
     {
-        await Shell.Current.Navigation.PopModalAsync();
+        _onCanceled?.Invoke();
+        await _navigation.PopModalAsync();
     }
 
-    private async void OnSaveClicked(object sender, EventArgs e)
+    protected override bool OnBackButtonPressed()
+    {
+        _onCanceled?.Invoke();
+        return base.OnBackButtonPressed();
+    }
+
+    private async Task SaveAsync()
     {
         ErrorLabel.IsVisible = false;
         ErrorLabel.Text = "";
@@ -142,7 +168,7 @@ public partial class ScheduleEditPage : ContentPage
         await _onSaved(_schedule);
 
         // Close
-        await Shell.Current.Navigation.PopModalAsync();
+        await _navigation.PopModalAsync();
     }
 
     private void ShowError(string msg)
@@ -203,6 +229,6 @@ public partial class ScheduleEditPage : ContentPage
             _ => ft.ToString()
         };
 
-        return $"{freq}  ·  From: {start}  ·  Ends: {end}";
+        return $"{freq}  Â·  From: {start}  Â·  Ends: {end}";
     }
 }

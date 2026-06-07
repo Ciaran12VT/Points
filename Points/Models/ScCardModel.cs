@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Points.Services.Activity;
 
 namespace Points.Models
 {
@@ -61,10 +62,7 @@ namespace Points.Models
         public override DateTime GetLastActiveTime()
         {
             var defaulValue = base.GetLastActiveTime();
-
-            var lastRep = Steps.Count == 0 ? DateTime.MinValue : Steps.SelectMany(x => x.Reps).Max();
-
-            return defaulValue < lastRep ? defaulValue : lastRep;
+            return CardRecencyCalculator.Latest(defaulValue, Steps.SelectMany(x => x.Reps));
         }
     }
 }

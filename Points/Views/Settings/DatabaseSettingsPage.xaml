@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Points.Views.Settings.DatabaseSettingsPage"
+             x:Name="DatabaseSettings"
              Title="Database Settings">
 
     <ScrollView>
@@ -17,14 +18,158 @@
                     <Button Text="Wipe"
                             BackgroundColor="#B00020"
                             TextColor="White"
-                            Clicked="OnWipeDbClicked" />
+                            Command="{Binding WipeDatabaseCommand}" />
 
                     <Button Text="Export"
-                            Clicked="OnExportDBClicked" />
+                            Command="{Binding Source={x:Reference DatabaseSettings}, Path=ExportDatabaseCommand}" />
 
                     <Button Text="Import"
-                            Clicked="OnImportDBClicked" />
+                            Command="{Binding Source={x:Reference DatabaseSettings}, Path=ImportDatabaseCommand}" />
 
+                </VerticalStackLayout>
+            </Frame>
+
+            <Frame Padding="12"
+                   CornerRadius="12"
+                   HasShadow="False"
+                   BorderColor="#DDDDDD">
+
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Reports"
+                           FontAttributes="Bold"
+                           FontSize="18" />
+
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="12"
+                          VerticalOptions="Center">
+                        <Label Text="Query Timeout (ms)"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+
+                        <Entry Grid.Column="1"
+                               Text="{Binding ReportQueryTimeoutMillisecondsText}"
+                               Keyboard="Numeric"
+                               Placeholder="5000" />
+                    </Grid>
+
+                    <Label Text="Enter a positive whole number."
+                           TextColor="#B00020"
+                           FontSize="12"
+                           IsVisible="{Binding HasInvalidReportQueryTimeout}" />
+
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="12">
+                        <Label Text="{Binding ReportSettingsStatusText}"
+                               TextColor="Green"
+                               FontSize="12"
+                               VerticalOptions="Center" />
+
+                        <Button Grid.Column="1"
+                                Text="Save"
+                                Command="{Binding SaveReportSettingsCommand}"
+                                IsEnabled="{Binding HasInvalidReportQueryTimeout, Converter={StaticResource InverseBoolConverter}}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+
+            <Frame Padding="12"
+                   CornerRadius="12"
+                   HasShadow="False"
+                   BorderColor="#DDDDDD"
+                   IsVisible="{Binding AutomaticExportUiEnabled}">
+
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Automatic Export"
+                           FontAttributes="Bold"
+                           FontSize="18" />
+
+                    <Grid ColumnDefinitions="Auto,*"
+                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                          ColumnSpacing="12"
+                          RowSpacing="6">
+                        <Label Text="Status"
+                               FontAttributes="Bold" />
+                        <VerticalStackLayout Grid.Column="1"
+                                             Spacing="2">
+                            <Label Text="{Binding AutomaticExportStatus}" />
+                            <Label Text="{Binding AutomaticExportDetail}"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light=#666666, Dark=#BBBBBB}" />
+                        </VerticalStackLayout>
+
+                        <Label Grid.Row="1"
+                               Text="Resources"
+                               FontAttributes="Bold" />
+                        <Label Grid.Row="1"
+                               Grid.Column="1"
+                               Text="{Binding AutomaticExportResourcesText}"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light=#666666, Dark=#BBBBBB}" />
+
+                        <Label Grid.Row="2"
+                               Text="Schedule"
+                               FontAttributes="Bold" />
+                        <Label Grid.Row="2"
+                               Grid.Column="1"
+                               Text="{Binding AutomaticExportScheduleText}"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light=#666666, Dark=#BBBBBB}" />
+
+                        <Label Grid.Row="3"
+                               Text="Destination"
+                               FontAttributes="Bold" />
+                        <Label Grid.Row="3"
+                               Grid.Column="1"
+                               Text="{Binding AutomaticExportDestinationText}"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light=#666666, Dark=#BBBBBB}" />
+
+                        <Label Grid.Row="4"
+                               Text="Retention"
+                               FontAttributes="Bold" />
+                        <Label Grid.Row="4"
+                               Grid.Column="1"
+                               Text="{Binding AutomaticExportRetentionText}"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light=#666666, Dark=#BBBBBB}" />
+
+                        <Label Grid.Row="5"
+                               Text="Last run"
+                               FontAttributes="Bold" />
+                        <Label Grid.Row="5"
+                               Grid.Column="1"
+                               Text="{Binding AutomaticExportLastRunText}"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light=#666666, Dark=#BBBBBB}" />
+
+                        <Label Grid.Row="6"
+                               Grid.ColumnSpan="2"
+                               Text="{Binding AutomaticExportErrorText}"
+                               TextColor="OrangeRed"
+                               IsVisible="{Binding AutomaticExportHasError}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*"
+                          RowDefinitions="Auto,Auto"
+                          ColumnSpacing="12"
+                          RowSpacing="10">
+                        <Button Text="Configure"
+                                Command="{Binding Source={x:Reference DatabaseSettings}, Path=ConfigureAutomaticExportCommand}" />
+
+                        <Button Grid.Column="1"
+                                Text="{Binding AutomaticExportToggleText}"
+                                Command="{Binding Source={x:Reference DatabaseSettings}, Path=ToggleAutomaticExportCommand}" />
+
+                        <Button Grid.Row="1"
+                                Text="History"
+                                Command="{Binding Source={x:Reference DatabaseSettings}, Path=ViewAutomaticExportHistoryCommand}" />
+
+                        <Button Grid.Row="1"
+                                Grid.Column="1"
+                                Text="Reconnect"
+                                IsVisible="{Binding AutomaticExportCanReconnect}"
+                                Command="{Binding Source={x:Reference DatabaseSettings}, Path=ReconnectAutomaticExportCommand}" />
+                    </Grid>
                 </VerticalStackLayout>
             </Frame>
 

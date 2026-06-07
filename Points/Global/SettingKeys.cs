@@ -1,3 +1,4 @@
+using Points.Models;
 using Points.Models.DbModels;
 using System;
 using System.Collections.Generic;
@@ -35,11 +36,26 @@ namespace Points.Global
         public const string SchedulesActive = "SchedulesActive";
         public const string ValueRatesActive = "ValueRatesActive";
         public const string CashInActive = "CashInActive";
+        public const string WatchShortcutCardIds = "WatchShortcutCardIds";
 
         //Defaults
         public const string MissionType = "MissionType";
         public const string ValueRatesValuePerMinute = "ValueRatesValuePerMinute";
         public const string AchievementNameRegex = "AchievementNameRegex";
+        public const string Username = "Username";
+        public const string MissionDefaultTags = "MissionDefaultTags";
+        public const string MissionDefaultSubType = "MissionDefaultSubType";
+        public const string MissionDefaultValue = "MissionDefaultValue";
+        public const string MissionDefaultValuePerMinute = "MissionDefaultValuePerMinute";
+        public const string MissionDefaultEventDateOffsetDays = "MissionDefaultEventDateOffsetDays";
+        public const string MissionDefaultEventTime = "MissionDefaultEventTime";
+        public const string MissionDefaultEventIsChecked = "MissionDefaultEventIsChecked";
+        public const string MissionDefaultAvailableFromDateOffsetDays = "MissionDefaultAvailableFromDateOffsetDays";
+        public const string MissionDefaultAvailableFromTime = "MissionDefaultAvailableFromTime";
+        public const string MissionDefaultDueByDateOffsetDays = "MissionDefaultDueByDateOffsetDays";
+        public const string MissionDefaultDueByTime = "MissionDefaultDueByTime";
+        public const string MissionDefaultEstimatedTime = "MissionDefaultEstimatedTime";
+        public const string ReportQueryTimeoutMilliseconds = "ReportQueryTimeoutMilliseconds";
 
         public static List<SettingDefinition> GetBuiltInSettingDefinitions()
         {
@@ -59,7 +75,7 @@ namespace Points.Global
                 new SettingDefinition
                 {
                     SettingKey = SettingKeys.HardModeDamagePerMinuteValue,
-                    DefaultValue = "0",
+                    DefaultValue = "-0.2",
                     ValueType = SettingValueTypes.Double,
                     Category = "Multipliers",
                     DisplayName = "Idle Penalty Per Minute",
@@ -300,6 +316,17 @@ namespace Points.Global
                 },
                 new SettingDefinition
                 {
+                    SettingKey = SettingKeys.WatchShortcutCardIds,
+                    DefaultValue = "[]",
+                    ValueType = SettingValueTypes.String,
+                    Category = "Watch",
+                    DisplayName = "Watch Shortcut Card IDs",
+                    Description = "Ordered list of card IDs selected for the Wear OS companion app.",
+                    IsUserEditable = false,
+                    SortOrder = 10
+                },
+                new SettingDefinition
+                {
                     SettingKey = SettingKeys.MissionType,
                     DefaultValue = "true",
                     ValueType = SettingValueTypes.String,
@@ -330,6 +357,160 @@ namespace Points.Global
                     Description = "The regular expression used to parse achievement names and tags when importing from text. Must contain 'name' and 'tags' named capture groups.",
                     IsUserEditable = true,
                     SortOrder = 30
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.Username,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.String,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Username",
+                    Description = "The user's display name.",
+                    IsUserEditable = true,
+                    SortOrder = 10
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultTags,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.String,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Tags",
+                    Description = "Default tags assigned when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 20
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultSubType,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.String,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission SubType",
+                    Description = "Default subtype assigned when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 30
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultValue,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.String,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Value",
+                    Description = "Default value assigned when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 40
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultValuePerMinute,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.String,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Value Per Minute",
+                    Description = "Default value per minute assigned when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 50
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultEventDateOffsetDays,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.NullableInt,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Event Date Offset",
+                    Description = "Default event date offset in days from today when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 60
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultEventTime,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.String,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Event Time",
+                    Description = "Default event time assigned when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 70
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultEventIsChecked,
+                    DefaultValue = "false",
+                    ValueType = SettingValueTypes.Bool,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Event Is Checked",
+                    Description = "Whether the event date checkbox is enabled by default for new missions.",
+                    IsUserEditable = true,
+                    SortOrder = 80
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultAvailableFromDateOffsetDays,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.NullableInt,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Available From Date Offset",
+                    Description = "Default available-from date offset in days from today when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 90
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultAvailableFromTime,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.String,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Available From Time",
+                    Description = "Default available-from time assigned when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 100
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultDueByDateOffsetDays,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.NullableInt,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Due By Date Offset",
+                    Description = "Default due-by date offset in days from today when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 110
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultDueByTime,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.String,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Due By Time",
+                    Description = "Default due-by time assigned when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 120
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.MissionDefaultEstimatedTime,
+                    DefaultValue = "",
+                    ValueType = SettingValueTypes.String,
+                    Category = "DefaultsAndMisc",
+                    DisplayName = "Mission Estimated Time",
+                    Description = "Default estimated time assigned when creating a new mission.",
+                    IsUserEditable = true,
+                    SortOrder = 130
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.ReportQueryTimeoutMilliseconds,
+                    DefaultValue = "5000",
+                    ValueType = SettingValueTypes.Int,
+                    Category = "Database",
+                    DisplayName = "Report Query Timeout",
+                    Description = "Maximum time, in milliseconds, that a report query may run before it is interrupted.",
+                    IsUserEditable = true,
+                    SortOrder = 10
                 }
             };
         }
@@ -391,7 +572,7 @@ namespace Points.Global
         // -----------------------
 
         public static bool HardModeEnabled => GetBool(SettingKeys.HardModeEnabled, false);
-        public static double HardModeDamagePerMinuteValue => GetDouble(SettingKeys.HardModeDamagePerMinuteValue, 0d);
+        public static double HardModeDamagePerMinuteValue => GetDouble(SettingKeys.HardModeDamagePerMinuteValue, -0.2d);
         public static bool StatusConditionsEnabled => GetBool(SettingKeys.StatusConditionsEnabled, false);
         public static int? CurrentlyAppliedStatusConditionId => GetNullableInt(SettingKeys.CurrentlyAppliedStatusConditionId);
         public static int? SelectedThemeId => GetNullableInt(SettingKeys.SelectedThemeId);
@@ -436,6 +617,20 @@ namespace Points.Global
 
         public static string DefaultMissionType => GetString(SettingKeys.MissionType, "Stable");
         public static double DefaultValueRatesValuePerMinute => GetDouble(SettingKeys.ValueRatesValuePerMinute, 0.1);
+        public static string Username => GetString(SettingKeys.Username);
+        public static string DefaultMissionTags => GetString(SettingKeys.MissionDefaultTags);
+        public static string DefaultMissionSubType => GetString(SettingKeys.MissionDefaultSubType);
+        public static double? DefaultMissionValue => GetOptionalDouble(SettingKeys.MissionDefaultValue);
+        public static double? DefaultMissionValuePerMinute => GetOptionalDouble(SettingKeys.MissionDefaultValuePerMinute);
+        public static int? DefaultMissionEventDateOffsetDays => GetNullableInt(SettingKeys.MissionDefaultEventDateOffsetDays);
+        public static TimeSpan? DefaultMissionEventTime => GetOptionalTime(SettingKeys.MissionDefaultEventTime);
+        public static bool DefaultMissionEventIsChecked => GetBool(SettingKeys.MissionDefaultEventIsChecked, false);
+        public static int? DefaultMissionAvailableFromDateOffsetDays => GetNullableInt(SettingKeys.MissionDefaultAvailableFromDateOffsetDays);
+        public static TimeSpan? DefaultMissionAvailableFromTime => GetOptionalTime(SettingKeys.MissionDefaultAvailableFromTime);
+        public static int? DefaultMissionDueByDateOffsetDays => GetNullableInt(SettingKeys.MissionDefaultDueByDateOffsetDays);
+        public static TimeSpan? DefaultMissionDueByTime => GetOptionalTime(SettingKeys.MissionDefaultDueByTime);
+        public static TimeSpan? DefaultMissionEstimatedTime => GetOptionalDuration(SettingKeys.MissionDefaultEstimatedTime);
+        public static int ReportQueryTimeoutMilliseconds => GetInt(SettingKeys.ReportQueryTimeoutMilliseconds, 5000);
 
         // -----------------------
         // Public helpers
@@ -512,6 +707,86 @@ namespace Points.Global
             }
 
             return defaultValue;
+        }
+
+        public static double? GetOptionalDouble(string key)
+        {
+            var value = GetString(key);
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            if (double.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var parsed))
+                return parsed;
+
+            return null;
+        }
+
+        public static TimeSpan? GetOptionalTime(string key)
+        {
+            return TryParseTimeSettingValue(GetString(key), out var parsed)
+                ? parsed
+                : null;
+        }
+
+        public static TimeSpan? GetOptionalDuration(string key)
+        {
+            return TryParseDurationSettingValue(GetString(key), out var parsed)
+                ? parsed
+                : null;
+        }
+
+        public static void ApplyMissionDefaults(MissionCardModel model, DateTime localNow)
+        {
+            if (model == null)
+                throw new ArgumentNullException(nameof(model));
+
+            var tags = DefaultMissionTags;
+            if (!string.IsNullOrWhiteSpace(tags))
+                model.Tags = tags;
+
+            var subTypeText = DefaultMissionSubType;
+            if (!string.IsNullOrWhiteSpace(subTypeText) &&
+                Enum.TryParse<MissionSubType>(subTypeText, ignoreCase: true, out var subType))
+            {
+                model.SubType = subType;
+            }
+
+            var value = DefaultMissionValue;
+            if (value.HasValue)
+                model.Value = value.Value;
+
+            var valuePerMinute = DefaultMissionValuePerMinute;
+            if (valuePerMinute.HasValue)
+                model.ValuePerMinute = valuePerMinute.Value;
+
+            var available = model.AvailableFromDate;
+            if (DefaultMissionAvailableFromDateOffsetDays is int availableOffset)
+                available = localNow.Date.AddDays(availableOffset) + available.TimeOfDay;
+
+            if (DefaultMissionAvailableFromTime is TimeSpan availableTime)
+                available = available.Date + availableTime;
+
+            model.AvailableFromDate = available;
+
+            var due = model.DueDate;
+            if (DefaultMissionDueByDateOffsetDays is int dueOffset)
+                due = localNow.Date.AddDays(dueOffset) + due.TimeOfDay;
+
+            if (DefaultMissionDueByTime is TimeSpan dueTime)
+                due = due.Date + dueTime;
+
+            model.DueDate = due;
+
+            if (DefaultMissionEventIsChecked &&
+                DefaultMissionEventDateOffsetDays is int eventOffset)
+            {
+                var eventTime = DefaultMissionEventTime ?? TimeSpan.Zero;
+                model.EventDate = localNow.Date.AddDays(eventOffset) + eventTime;
+            }
+
+            var estimatedTime = DefaultMissionEstimatedTime;
+            if (estimatedTime.HasValue && estimatedTime.Value > TimeSpan.Zero)
+                model.EstCompletionTime = estimatedTime.Value;
         }
 
         public static void UpdateString(string key, string value)
@@ -593,6 +868,20 @@ namespace Points.Global
         public static void UpdateStatusConditionsEnabled(bool value) => UpdateBool(SettingKeys.StatusConditionsEnabled, value);
         public static void UpdateCurrentlyAppliedStatusConditionId(int? value) => UpdateNullableInt(SettingKeys.CurrentlyAppliedStatusConditionId, value);
         public static void UpdateSelectedThemeId(int? value) => UpdateNullableInt(SettingKeys.SelectedThemeId, value);
+        public static void UpdateUsername(string value) => UpdateString(SettingKeys.Username, value);
+        public static void UpdateMissionDefaultTags(string value) => UpdateString(SettingKeys.MissionDefaultTags, value);
+        public static void UpdateMissionDefaultSubType(string value) => UpdateString(SettingKeys.MissionDefaultSubType, value);
+        public static void UpdateMissionDefaultValue(string value) => UpdateString(SettingKeys.MissionDefaultValue, value);
+        public static void UpdateMissionDefaultValuePerMinute(string value) => UpdateString(SettingKeys.MissionDefaultValuePerMinute, value);
+        public static void UpdateMissionDefaultEventDateOffsetDays(int? value) => UpdateNullableInt(SettingKeys.MissionDefaultEventDateOffsetDays, value);
+        public static void UpdateMissionDefaultEventTime(string value) => UpdateString(SettingKeys.MissionDefaultEventTime, value);
+        public static void UpdateMissionDefaultEventIsChecked(bool value) => UpdateBool(SettingKeys.MissionDefaultEventIsChecked, value);
+        public static void UpdateMissionDefaultAvailableFromDateOffsetDays(int? value) => UpdateNullableInt(SettingKeys.MissionDefaultAvailableFromDateOffsetDays, value);
+        public static void UpdateMissionDefaultAvailableFromTime(string value) => UpdateString(SettingKeys.MissionDefaultAvailableFromTime, value);
+        public static void UpdateMissionDefaultDueByDateOffsetDays(int? value) => UpdateNullableInt(SettingKeys.MissionDefaultDueByDateOffsetDays, value);
+        public static void UpdateMissionDefaultDueByTime(string value) => UpdateString(SettingKeys.MissionDefaultDueByTime, value);
+        public static void UpdateMissionDefaultEstimatedTime(string value) => UpdateString(SettingKeys.MissionDefaultEstimatedTime, value);
+        public static void UpdateReportQueryTimeoutMilliseconds(int value) => UpdateInt(SettingKeys.ReportQueryTimeoutMilliseconds, value);
 
         // -----------------------
         // Internals
@@ -625,6 +914,75 @@ namespace Points.Global
 
             _settingsByKey[key] = created;
             return created;
+        }
+
+        private static bool TryParseTimeSettingValue(string? value, out TimeSpan parsed)
+        {
+            parsed = TimeSpan.Zero;
+
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            var parts = value.Trim().Split(':');
+            if (parts.Length is 2 or 3 &&
+                int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var hours) &&
+                int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var minutes))
+            {
+                var seconds = 0;
+                if (parts.Length == 3 &&
+                    !int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out seconds))
+                {
+                    return false;
+                }
+
+                if (hours is >= 0 and <= 23 &&
+                    minutes is >= 0 and <= 59 &&
+                    seconds is >= 0 and <= 59)
+                {
+                    parsed = new TimeSpan(hours, minutes, seconds);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryParseDurationSettingValue(string? value, out TimeSpan parsed)
+        {
+            parsed = TimeSpan.Zero;
+
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            var parts = value.Trim().Split(':');
+            if (parts.Length is 2 or 3 &&
+                int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var hours) &&
+                int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var minutes))
+            {
+                var seconds = 0;
+                if (parts.Length == 3 &&
+                    !int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out seconds))
+                {
+                    return false;
+                }
+
+                if (hours >= 0 &&
+                    minutes is >= 0 and <= 59 &&
+                    seconds is >= 0 and <= 59)
+                {
+                    parsed = new TimeSpan(hours, minutes, seconds);
+                    return true;
+                }
+            }
+
+            if (TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out parsed) &&
+                parsed >= TimeSpan.Zero)
+            {
+                return true;
+            }
+
+            parsed = TimeSpan.Zero;
+            return false;
         }
     }
 

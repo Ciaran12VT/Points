@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     x:Class="Points.Views.Shared.TaskDependencyEditPage"
+    x:Name="TaskDependencyEditor"
     Title="TaskDependencySelectionPage">
 
     <Grid Padding="12"
@@ -12,7 +13,14 @@
           ColumnSpacing="18">
 
         <Label Grid.Row="0" Grid.Column="0" Text="Task:" VerticalTextAlignment="Center"/>
-        <Picker Grid.Row="0" Grid.Column="1" x:Name="TaskPicker" Title="Select task"/>
+        <VerticalStackLayout Grid.Row="0" Grid.Column="1" Spacing="4">
+            <Picker x:Name="TaskPicker" Title="Select task"/>
+            <Label x:Name="NoTasksLabel"
+                   Text="Create/save a task card before adding a dependency."
+                   TextColor="Gray"
+                   FontSize="12"
+                   IsVisible="False" />
+        </VerticalStackLayout>
 
         <Label Grid.Row="1" Grid.Column="0" Text="Metric:" VerticalTextAlignment="Center"/>
         <Picker Grid.Row="1" Grid.Column="1" x:Name="MetricPicker"/>
@@ -35,6 +43,6 @@
 
         <Button Grid.Row="5" Grid.ColumnSpan="2"
                 Text="Done"
-                Clicked="OnDoneClicked"/>
+                Command="{Binding Source={x:Reference TaskDependencyEditor}, Path=DoneCommand}"/>
     </Grid>
 </ContentPage>

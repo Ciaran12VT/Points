@@ -1,13 +1,24 @@
-using Points.ViewModels;
+using Points.Services.Navigation;
+using Points.ViewModels.Goals;
 
 namespace Points.Views.Goals;
 
 public partial class EditGoalPage : ContentPage
 {
-    private readonly GoalProgressRowVm _row;
+    private readonly IAppNavigationService _navigation;
+    private readonly IAppDialogService _dialogs;
 
-    public EditGoalPage(GoalProgressRowVm row)
+    public Command DoneCommand { get; }
+
+    public EditGoalPage(
+        GoalProgressRowVm row,
+        IAppNavigationService navigation,
+        IAppDialogService dialogs)
 	{
+        DoneCommand = new Command(async () => await SaveAsync());
+        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
+
         try
         {
             InitializeComponent();
@@ -16,17 +27,16 @@ public partial class EditGoalPage : ContentPage
         {
             System.Diagnostics.Debug.WriteLine(ex);
             MainThread.BeginInvokeOnMainThread(async () =>
-                await Application.Current!.MainPage!.DisplayAlert("XAML load failed", ex.ToString(), "OK"));
+                await _dialogs.DisplayAlertAsync("XAML load failed", ex.ToString(), "OK"));
             throw;
         }
-        _row = row;
         BindingContext = row; // edits the row directly
     }
 
-    private async void Save_Clicked(object sender, EventArgs e)
+    private async Task SaveAsync()
     {
         // If you bound Entry to double directly and it worked, you're done.
         // Otherwise parse/validate here.
-        await Navigation.PopModalAsync();
+        await _navigation.PopModalAsync();
     }
 }

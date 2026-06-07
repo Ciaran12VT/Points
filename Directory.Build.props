@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <MauiVersion Condition="'$(MauiVersion)' == ''">8.0.100</MauiVersion>
+    <CheckEolTargetFramework Condition="'$(CheckEolTargetFramework)' == ''">false</CheckEolTargetFramework>
+    <CheckEolWorkloads Condition="'$(CheckEolWorkloads)' == ''">false</CheckEolWorkloads>
+  </PropertyGroup>
+</Project>

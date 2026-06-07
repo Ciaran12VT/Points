@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Points.Views.Shortcuts.ShortcutDetailsPage"
+             Title="Shortcut Details">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <!-- Scrollable content -->
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="14">
+
+                <!-- IconChar + Cancel (single row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Icon"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <Entry Grid.Column="1"
+                           Text="{Binding IconChar}"
+                           Placeholder="e.g. ★"
+                           MaxLength="4"
+                           VerticalOptions="Center"/>
+
+                    <Button Grid.Column="2"
+                            Text="✕"
+                            BackgroundColor="DarkRed"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding CancelCommand}"/>
+                </Grid>
+
+                <!-- Target type -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Target Type"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Picker Grid.Column="1"
+                            Title="Select..."
+                            ItemsSource="{Binding TargetCardTypeOptions}"
+                            SelectedItem="{Binding SelectedTargetCardType}"
+                            VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Target card -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Target Card"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <Picker Title="Select..."
+                                ItemsSource="{Binding TargetCardOptions}"
+                                ItemDisplayBinding="{Binding Title}"
+                                SelectedItem="{Binding SelectedTargetCard}"
+                                VerticalOptions="Center"/>
+                        <Label Text="{Binding TargetCardEmptyStateText}"
+                               TextColor="Gray"
+                               FontSize="12"
+                               IsVisible="{Binding HasNoTargetCardOptions}" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <!-- Shortcut Order -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Shortcut Order"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
+                           Keyboard="Numeric"
+                           Text="{Binding ShortcutOrderText}"
+                           Placeholder="e.g. 10"
+                           VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Group (single tag) using MultiSelectPickerPage -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Group"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <Entry Grid.Column="1"
+                           Text="{Binding GroupName}"
+                           IsReadOnly="True"
+                           Placeholder="e.g. Work"
+                           VerticalOptions="Center"/>
+
+                    <!-- Edit -->
+                    <Button Grid.Column="2"
+                            Text="✎"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="Black"
+                            Command="{Binding EditGroupCommand}"
+                            VerticalOptions="Center"/>
+
+                    <!-- Clear -->
+                    <Button Grid.Column="3"
+                            Text="⌫"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            Margin="0"
+                            TextColor="White"
+                            BackgroundColor="DarkRed"
+                            Command="{Binding ClearGroupCommand}"
+                            VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Group Order -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Group Order"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
+                           Keyboard="Numeric"
+                           Text="{Binding GroupOrderText}"
+                           Placeholder="e.g. 1"
+                           VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Group Color (palette) -->
+                <Label Text="Group Color" FontAttributes="Bold" FontSize="14" />
+
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="12"
+                      VerticalOptions="Center">
+                    <Frame Grid.Column="0"
+                           WidthRequest="34"
+                           HeightRequest="34"
+                           CornerRadius="8"
+                           Padding="0"
+                           HasShadow="True"
+                           BackgroundColor="{Binding GroupColor}">
+                        <Label Text=""
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"/>
+                    </Frame>
+
+                    <Label Grid.Column="1"
+                           Text="{Binding GroupColorHex}"
+                           Opacity="0.75"
+                           VerticalTextAlignment="Center"/>
+                </Grid>
+
+                <!-- Simple palette (4 columns) -->
+                <Grid ColumnDefinitions="*,*,*,*"
+                      RowDefinitions="Auto,Auto"
+                      ColumnSpacing="10"
+                      RowSpacing="10">
+
+                    <!-- row 1 -->
+                    <Button Grid.Row="0" Grid.Column="0" Text=""
+                            BackgroundColor="#FF000000"
+                            CornerRadius="12"
+                            HeightRequest="32"
+                            Command="{Binding SelectColorCommand}"
+                            CommandParameter="#FF000000"/>
+
+                    <Button Grid.Row="0" Grid.Column="1" Text=""
+                            BackgroundColor="#FF1E90FF"
+                            CornerRadius="12"
+                            HeightRequest="32"
+                            Command="{Binding SelectColorCommand}"
+                            CommandParameter="#FF1E90FF"/>
+
+                    <Button Grid.Row="0" Grid.Column="2" Text=""
+                            BackgroundColor="#FF2ECC71"
+                            CornerRadius="12"
+                            HeightRequest="32"
+                            Command="{Binding SelectColorCommand}"
+                            CommandParameter="#FF2ECC71"/>
+
+                    <Button Grid.Row="0" Grid.Column="3" Text=""
+                            BackgroundColor="#FFF39C12"
+                            CornerRadius="12"
+                            HeightRequest="32"
+                            Command="{Binding SelectColorCommand}"
+                            CommandParameter="#FFF39C12"/>
+
+                    <!-- row 2 -->
+                    <Button Grid.Row="1" Grid.Column="0" Text=""
+                            BackgroundColor="#FFE74C3C"
+                            CornerRadius="12"
+                            HeightRequest="32"
+                            Command="{Binding SelectColorCommand}"
+                            CommandParameter="#FFE74C3C"/>
+
+                    <Button Grid.Row="1" Grid.Column="1" Text=""
+                            BackgroundColor="#FF9B59B6"
+                            CornerRadius="12"
+                            HeightRequest="32"
+                            Command="{Binding SelectColorCommand}"
+                            CommandParameter="#FF9B59B6"/>
+
+                    <Button Grid.Row="1" Grid.Column="2" Text=""
+                            BackgroundColor="#FF16A085"
+                            CornerRadius="12"
+                            HeightRequest="32"
+                            Command="{Binding SelectColorCommand}"
+                            CommandParameter="#FF16A085"/>
+
+                    <Button Grid.Row="1" Grid.Column="3" Text=""
+                            BackgroundColor="#FF7F8C8D"
+                            CornerRadius="12"
+                            HeightRequest="32"
+                            Command="{Binding SelectColorCommand}"
+                            CommandParameter="#FF7F8C8D"/>
+                </Grid>
+
+                <!-- Error -->
+                <Label Text="{Binding ErrorText}"
+                       TextColor="OrangeRed"
+                       IsVisible="{Binding HasError}"
+                       />
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Done / Save button pinned to bottom -->
+        <Button Grid.Row="1"
+                Text="Done"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48"/>
+
+    </Grid>
+
+</ContentPage>

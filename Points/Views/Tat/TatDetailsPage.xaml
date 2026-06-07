@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="Points.Views.Tat.TatDetailsPage"
+             Title="TAT Details">
+
+    <Grid RowDefinitions="*,Auto" Padding="12">
+
+        <!-- Scrollable content -->
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Spacing="14">
+
+                <!-- Title + Entry + Cancel (single row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Title"
+                           
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <Entry Grid.Column="1"
+                           Text="{Binding Title}"
+                           x:Name="TitleEntry"
+                           Placeholder="Enter title"
+                           VerticalOptions="Center"/>
+
+                    <Button Grid.Column="2"
+                            Text="✕"
+                            BackgroundColor="DarkRed"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding CancelCommand}"/>
+                </Grid>
+
+                <!-- Status (single row, read-only) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Status"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Label Grid.Column="1"
+                           Text="{Binding Status}"
+                           TextColor="Gray"
+                           VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Tags (single row) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Tags"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1" x:Name="TagsEntry"
+                           Text="{Binding Tags}"
+                           IsReadOnly="True"
+                           Placeholder="e.g. PRO TAT Other"
+                           VerticalOptions="Center"/>
+                     <!--Edit--> 
+                    <Button Grid.Column="2"
+                        Text="✎"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="Black"
+                        Command="{Binding EditTagsCommand}"
+                        VerticalOptions="Center"/>
+
+                    <!-- Clear -->
+                    <Button Grid.Column="3"
+                        Text="⌫"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        Margin="0"
+                        TextColor="White"
+                        BackgroundColor="DarkRed"
+                        Command="{Binding ClearTagsCommand}"
+                        VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Value per minute (single row, with inline button) -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Value Per Minute"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
+                           Keyboard="Numeric"
+                           Text="{Binding ValuePerMinuteText}"
+                           TextColor="{Binding SignToggleColor}"
+                           Placeholder="e.g. 1.25"
+                           VerticalOptions="Center"/>
+                    <Button Grid.Column="2"
+                            Text="{Binding SignToggleText}"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            FontAttributes="Bold"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            TextColor="White"
+                            BackgroundColor="{Binding SignToggleColor}"
+                            Command="{Binding ToggleSignCommand}"
+                            VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Current accrued value (single row, read-only) -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Current Accrued Value"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+                    <Label Grid.Column="1"
+                           Text="{Binding CurrentAccruedValueText}"
+                           TextColor="{Binding SignToggleColor}"
+                           VerticalOptions="Center"/>
+                </Grid>
+
+                <!-- Active Time (single row, with inline buttons) -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Active Time"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <Label Grid.Column="1"
+                           Text="{Binding ActiveTimeText}"
+                           TextColor="Orange"
+                           VerticalOptions="Center"/>
+
+                    <!-- Clock -->
+                    <Button Grid.Column="2"
+                            Text="⏱"
+                            BackgroundColor="Black"
+                            TextColor="{Binding ActiveTimeTargetLabelColor}"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding SetActiveTimeTargetCommand}"/>
+
+                    <!-- Edit -->
+                    <Button Grid.Column="3"
+                            Text="✎"
+                            BackgroundColor="Black"
+                            TextColor="White"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            Command="{Binding EditActiveTimeCommand}"/>
+                </Grid>
+
+                <!-- ValueRates header + add button -->
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      VerticalOptions="Center"
+                      ColumnSpacing="12"
+                      Margin="0,0,0,4"
+                      IsVisible="{Binding IsValueRatesEnabled}">
+
+                    <Label Grid.Column="0"
+                           Text="Value Rates"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"/>
+
+                    <BoxView Grid.Column="1" Opacity="0" />
+
+                    <Button Grid.Column="2"
+                            Text="+"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            FontAttributes="Bold"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            TextColor="White"
+                            BackgroundColor="Green"
+                            Command="{Binding AddValueRateCommand}"
+                            VerticalOptions="Center"/>
+                </Grid>
+
+                <CollectionView ItemsSource="{Binding ValueRates}"
+                                SelectionMode="None"
+                                Margin="0,4,0,0"
+                                IsVisible="{Binding IsValueRatesEnabled}">
+                    <CollectionView.EmptyView>
+                        <Grid Padding="16">
+                            <Label Text="Add a value rate for variable scoring."
+                                   TextColor="Gray"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center" />
+                        </Grid>
+                    </CollectionView.EmptyView>
+
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Padding="10"
+                                   Margin="0,6"
+                                   CornerRadius="10"
+                                   HasShadow="True">
+                                <Grid ColumnDefinitions="*,50,40"
+                                      RowDefinitions="Auto"
+                                      ColumnSpacing="10">
+
+                                    <Entry Grid.Row="0" Grid.Column="0"
+                                           Text="{Binding RateName}"
+                                           Placeholder="Step title"/>
+
+                                    <Entry Grid.Row="0" Grid.Column="1"
+                                           Keyboard="Numeric"
+                                           Text="{Binding ValuePerMinute}"
+                                           Placeholder="Value"
+                                           HorizontalTextAlignment="End"/>
+
+                                    <Button Grid.Row="0" Grid.Column="2"
+                                            Text="✕"
+                                            Command="{Binding DeleteValueRateCommand}"
+                                            BackgroundColor="DarkRed"
+                                            TextColor="White"
+                                            WidthRequest="36"
+                                            HeightRequest="36"
+                                            CornerRadius="8"
+                            Padding="0"/>
+
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <!-- Schedule -->
+                <Label Text="Schedule"
+                       FontAttributes="Bold"
+                       FontSize="14"
+                       IsVisible="{Binding IsSchedulesEnabled}" />
+
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="12"
+                      VerticalOptions="Center"
+                      IsVisible="{Binding IsSchedulesEnabled}">
+
+                    <Label Text="{Binding ScheduleSummaryText}"
+                           Opacity="0.75"
+                           VerticalTextAlignment="Center" />
+
+                    <Button Grid.Column="1"
+                            Text="📅"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="0"
+                            HorizontalOptions="End"
+                            VerticalOptions="Center"
+                            BackgroundColor="Green"
+                            Command="{Binding EditSchedulesCommand}" />
+                </Grid>
+
+                <!-- Locks -->
+                <Label Text="Locks" FontAttributes="Bold" FontSize="14" IsVisible="{Binding IsLocksEnabled}"/>
+
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="12"
+                      VerticalOptions="Center"
+                      IsVisible="{Binding IsLocksEnabled}">
+
+                    <Label Text="{Binding LocksSummaryText}"
+                       Opacity="0.75"
+                       VerticalTextAlignment="Center" />
+
+                    <Button Grid.Column="1"
+                        Text="🔒"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"
+                        BackgroundColor="Green"
+                        Command="{Binding EditLocksCommand}" />
+                </Grid>
+
+                <Button Text="Metadata Fields"
+                        TextColor="White"
+                        BackgroundColor="DodgerBlue"
+                        CornerRadius="12"
+                        Command="{Binding EditUdmdCommand}" />
+
+                <!-- Error -->
+                <Label Text="{Binding ErrorText}"
+                   TextColor="OrangeRed"
+                   IsVisible="{Binding HasError}" />
+
+                <!-- Description (EXCEPTION: label + editor remain stacked) -->
+                <Label Text="Description" FontAttributes="Bold"/>
+                <Editor AutoSize="TextChanges"
+                        Text="{Binding Description}"
+                        Placeholder="Optional notes..."
+                        HeightRequest="400"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Save button pinned to bottom -->
+        <Button Grid.Row="1"
+                Text="Save"
+                BackgroundColor="Green"
+                TextColor="White"
+                FontAttributes="Bold"
+                FontSize="21"
+                Command="{Binding SaveCommand}"
+                HeightRequest="48"/>
+
+    </Grid>
+</ContentPage>

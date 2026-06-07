@@ -1,17 +1,32 @@
 using Points.Models;
-using Points.Services.Sqlite.Interfaces;
+using Points.Services.Navigation;
+using Points.Services.Persistence;
 using Points.Services.Time;
-using Points.ViewModels;
+using Points.ViewModels.Goals;
 
 namespace Points.Views.Goals;
 
 public partial class GoalCreationPage : ContentPage
 {
-	public GoalCreationPage(IDbService db, IClock? clock = null)
+    private readonly IAppNavigationService _navigation;
+    private readonly IAppDialogService _dialogs;
+
+	public GoalCreationPage(
+        ICardReadService cardReader,
+        IGoalService goals,
+        IClock clock,
+        IAppNavigationService navigation,
+        IAppDialogService dialogs)
 	{
 		InitializeComponent();
+        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
 
-		BindingContext = new GoalCreationViewModel(db, clock);
+		BindingContext = new GoalCreationViewModel(
+            cardReader,
+            goals,
+            _navigation,
+            clock);
 
     }
 
@@ -26,14 +41,14 @@ public partial class GoalCreationPage : ContentPage
         {
             await MainThread.InvokeOnMainThreadAsync(async () =>
             {
-                var page = new EditGoalPage(selected);
-                await Navigation.PushModalAsync(new NavigationPage(page));
+                var page = new EditGoalPage(selected, _navigation, _dialogs);
+                await _navigation.PushModalAsync(new NavigationPage(page));
             });
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine(ex);
-            await DisplayAlert("Crash during navigation", ex.ToString(), "OK");
+            await _dialogs.DisplayAlertAsync("Crash during navigation", ex.ToString(), "OK");
         }
     }
 

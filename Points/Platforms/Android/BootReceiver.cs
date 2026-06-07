@@ -2,6 +2,7 @@
 using Android.App;
 using Android.Content;
 using Points.Helpers;
+using Points.Services.Backup;
 using Points.Services.Scheduling;
 
 namespace Points.Platforms.Android
@@ -42,6 +43,9 @@ namespace Points.Platforms.Android
             {
                 var coordinator = ServiceHelper.GetService<INotificationScheduleCoordinator>();
                 await coordinator.SyncEnabledSchedulesAsync();
+
+                var scheduledBackupWorkScheduler = ServiceHelper.GetService<IScheduledBackupWorkScheduler>();
+                await scheduledBackupWorkScheduler.SyncAsync();
             }
             catch (Exception ex)
             {

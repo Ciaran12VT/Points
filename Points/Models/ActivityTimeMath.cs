@@ -1,7 +1,11 @@
+using Points.Services.Time;
+
 namespace Points.Models
 {
     internal static class ActivityTimeMath
     {
+        private static readonly IClock Clock = new SystemClock();
+
         public static DateTime ToUtcAssumingLocal(DateTime value)
         {
             if (value == DateTime.MinValue || value == DateTime.MaxValue)
@@ -20,8 +24,8 @@ namespace Points.Models
             return value.HasValue ? ToUtcAssumingLocal(value.Value) : null;
         }
 
-        public static DateTime UtcNow => DateTime.UtcNow;
+        public static DateTime UtcNow => Clock.UtcNow;
 
-        public static DateTime LocalNow => DateTime.Now;
+        public static DateTime LocalNow => Clock.LocalNow;
     }
 }

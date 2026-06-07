@@ -1,5 +1,6 @@
 ﻿
 using Points.Evaluators;
+using Points.Services.Activity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +15,8 @@ namespace Points.Models
     {
         public int Id { get; set; }
         public long CardID { get; set; }
+        public Guid MissionGuid { get; set; } = Guid.NewGuid();
+        public int DisplayOrder { get; set; }
 
         private string _title = "Mission";
         public string Title
@@ -29,7 +32,7 @@ namespace Points.Models
             LongPressRequested?.Invoke(card);
         }
 
-        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
+        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; } = new();
 
         public List<LockModel> Locks { get; set; } = new();
 
@@ -52,6 +55,13 @@ namespace Points.Models
         {
             get => _description;
             set => SetProperty(ref _description, value);
+        }
+
+        private string? _sharedWith;
+        public string? SharedWith
+        {
+            get => _sharedWith;
+            set => SetProperty(ref _sharedWith, value);
         }
 
         private MissionSubType _subType = MissionSubType.Stable;
@@ -261,6 +271,21 @@ namespace Points.Models
             CompletedDate = failedAt ?? ActivityTimeMath.UtcNow;
 
             CompleteCommand.ChangeCanExecute();
+            NotifyCompletionStateChanged();
+        }
+
+        public void Restore()
+        {
+            if (!IsComplete && !IsFailed && !CompletedDate.HasValue)
+                return;
+
+            IsFailed = false;
+            Status = "In-Progress";
+            IsComplete = false;
+            CompletedDate = null;
+
+            CompleteCommand.ChangeCanExecute();
+            NotifyCompletionStateChanged();
         }
 
 
@@ -278,30 +303,7 @@ namespace Points.Models
 
         public TimeSpan GetActiveTime(DateTime start, DateTime end)
         {
-            start = ActivityTimeMath.ToUtcAssumingLocal(start);
-            end = ActivityTimeMath.ToUtcAssumingLocal(end);
-
-            if (end <= start) return TimeSpan.Zero;
-
-            double totalMinutes = 0;
-
-            foreach (var period in Activity)
-            {
-                var aStart = ActivityTimeMath.ToUtcAssumingLocal(period.StartDate);
-                var aEnd = !period.EndDate.HasValue
-                    ? Min(end, ActivityTimeMath.UtcNow)
-                    : ActivityTimeMath.ToUtcAssumingLocal(period.EndDate.Value);
-
-                //var overlapStart = aStart > start ? aStart : start;
-                //var overlapEnd = aEnd < end ? aEnd : end;
-
-                //if (overlapEnd > overlapStart)
-                //    totalMinutes += (overlapEnd - overlapStart).TotalMinutes;
-
-                totalMinutes += (aEnd - aStart).TotalMinutes;
-            }
-
-            return TimeSpan.FromMinutes(totalMinutes);
+            return ActivityIntervalCalculator.GetActiveTimeInRange(Activity, start, end, ActivityTimeMath.UtcNow);
         }
 
         private double GetCompletionValueAt(DateTime t)
@@ -438,6 +440,32 @@ namespace Points.Models
             CompletedDate = completedAt ?? ActivityTimeMath.UtcNow;
 
             CompleteCommand.ChangeCanExecute();
+            NotifyCompletionStateChanged();
+        }
+
+        public void ApplyCompletionState(string? status, bool isFailed, DateTime? completedDate)
+        {
+            IsFailed = isFailed;
+            CompletedDate = completedDate;
+            IsComplete = completedDate.HasValue ||
+                isFailed ||
+                string.Equals(status, "Complete", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "Failed", StringComparison.OrdinalIgnoreCase);
+
+            if (string.IsNullOrWhiteSpace(status))
+                Status = isFailed ? "Failed" : IsComplete ? "Complete" : "In-Progress";
+            else
+                Status = status;
+
+            CompleteCommand.ChangeCanExecute();
+            NotifyCompletionStateChanged();
+        }
+
+        private void NotifyCompletionStateChanged()
+        {
+            RaisePropertyChanged(nameof(StatusDisplay));
+            RaisePropertyChanged(nameof(IsPending));
+            RaisePropertyChanged(nameof(PendingWindowText));
         }
 
         public DateTime GetLastActiveTime()

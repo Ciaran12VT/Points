@@ -16,6 +16,7 @@ namespace Points.Models
     {
         public int Id { get; set; }
         public long CardID { get; set; }
+        public int DisplayOrder { get; set; }
 
         private string _title = "TAT Card";
         public string Title
@@ -33,7 +34,7 @@ namespace Points.Models
 
         public ICommand LongPressCommand { get; }
 
-        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; }
+        public List<TimeValueAchievementEvaluator> TimeValueAchievementEvaluators { get; set; } = new();
 
         private bool _isLocksEnabled;
         public bool IsLocksEnabled
@@ -65,20 +66,13 @@ namespace Points.Models
 
         public List<LockModel> Locks
         {
-            get
-            {
-                if (!IsLocksEnabled)
-                    return EmptyLocks;
-
-                return _locks;
-            }
+            get => _locks;
             set
             {
                 _locks = value ?? new List<LockModel>();
+                RaisePropertyChanged();
             }
         }
-
-        private static readonly List<LockModel> EmptyLocks = new();
 
         public ObservableCollection<CardSchedule> Schedules { get; set; } = new();
 
