@@ -30,7 +30,7 @@ jobs:
         run: dotnet workload install maui-android
 
       - name: Restore dependencies
-        run: dotnet restore Points/Points.csproj -f net8.0-android
+        run: dotnet restore Points/Points.csproj -p:TargetFramework=net8.0-android
 
       - name: Build Android debug APK
         run: dotnet build Points/Points.csproj -f net8.0-android -c Debug --no-restore -p:AndroidPackageFormat=apk
