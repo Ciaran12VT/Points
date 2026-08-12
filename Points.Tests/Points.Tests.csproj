@@ -105,6 +105,7 @@
     <Compile Include="..\Points\Services\Time\*.cs" Link="App\Time\%(Filename)%(Extension)" />
     <Compile Include="..\Points\Services\Scheduling\CardScheduleOccurrenceCalculator.cs" Link="App\Scheduling\CardScheduleOccurrenceCalculator.cs" />
     <Compile Include="..\Points\Services\Scheduling\WallClockScheduleTime.cs" Link="App\Scheduling\WallClockScheduleTime.cs" />
+    <Compile Include="..\Points\ViewModels\Home\HomeCardSaveRouter.cs" Link="App\ViewModels\Home\HomeCardSaveRouter.cs" />
   </ItemGroup>
 
 </Project>

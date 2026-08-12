@@ -150,18 +150,12 @@ namespace Points.ViewModels.Home
 
         private void CommitCardToDb(ICardModel card)
         {
-            _ = card switch
-            {
-                TatCardModel tat when tat.CardID > 0 =>
-                    _tats.SaveTatModelDataAsync(tat, tat.CardID),
-                BudgetCardModel budget when budget.CardID > 0 =>
-                    _budgets.SaveBudgetCardModelDataAsync(budget, budget.CardID),
-                ValueTrackerCardModel valueTracker when valueTracker.CardID > 0 =>
-                    _trackers.SaveValueTrackerCardModelDataAsync(valueTracker, valueTracker.CardID),
-                EventTrackerCardModel eventTracker when eventTracker.CardID > 0 =>
-                    _trackers.SaveEventTrackerCardModelDataAsync(eventTracker, eventTracker.CardID),
-                _ => _cardWriter.SaveCardModelAsync(card)
-            };
+            _ = HomeCardSaveRouter.SaveAsync(
+                card,
+                _cardWriter,
+                _budgets,
+                _trackers,
+                _tats);
         }
 
         private void AfterCardCommitted(HomePageModel page, ICardModel card)
