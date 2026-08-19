@@ -85,6 +85,11 @@ namespace Points.ViewModels.Home
             return RunTickCoreAsync(_clock.LocalNow, _clock.UtcNow);
         }
 
+        public Task RunImmediateWithoutCompletionNotificationAsync()
+        {
+            return RunTickCoreAsync(_clock.LocalNow, _clock.UtcNow, notifyTickHappened: false);
+        }
+
         public void RefreshBudgetCards(DateTime now)
         {
             foreach (var page in _pages)
@@ -122,7 +127,7 @@ namespace Points.ViewModels.Home
             return new InteractionSuppressionHandle(this);
         }
 
-        private async Task RunTickCoreAsync(DateTime now, DateTime utcNow)
+        private async Task RunTickCoreAsync(DateTime now, DateTime utcNow, bool notifyTickHappened = true)
         {
             if (!await _runtimeTickGate.WaitAsync(0))
                 return;
@@ -156,7 +161,8 @@ namespace Points.ViewModels.Home
                 _notifyPropertyChanged(nameof(HomeViewModel.ActiveMultiplierCode));
                 _notifyPropertyChanged(nameof(HomeViewModel.HasActiveMultiplier));
 
-                _notifyTickHappened();
+                if (notifyTickHappened)
+                    _notifyTickHappened();
             }
             finally
             {

@@ -246,9 +246,11 @@
         <!-- Carousel -->
         <CarouselView Grid.Row="2" x:Name="MainCarousel"
                       ItemsSource="{Binding Pages}"
-                      Position="{Binding Position, Mode=TwoWay}"
+                      CurrentItem="{Binding SelectedPage, Mode=TwoWay}"
                       ItemTemplate="{StaticResource HomePaneTemplateSelector}"
                       IsSwipeEnabled="True"
+                      Loop="False"
+                      ItemsUpdatingScrollMode="KeepScrollOffset"
                       Scrolled="Carousel_Scrolled"
                       PositionChanged="Carousel_PositionChanged">
 

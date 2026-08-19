@@ -24,6 +24,8 @@ public partial class HomePage : ContentPage
     private IDisposable? _cardsScrollSuppressionHandle;
     private CancellationTokenSource? _carouselScrollSettleCts;
     private IDisposable? _carouselScrollSuppressionHandle;
+    private bool _wasParented;
+    private int _disposeStarted;
 
 
     public HomePage(HomeViewModel vm, IAudioFeedback audio, IScheduledBackupRunner scheduledBackupRunner)
@@ -36,7 +38,6 @@ public partial class HomePage : ContentPage
         vm.ScrollToCardRequested = ScrollToCard;
         vm.ScrollToCardModelRequested = ScrollToCardModel;
         vm.ScrollToAnyCardByIdRequested = ScrollToCardById;
-        vm.JumpToPageRequested = JumpToPage;
         vm.ProcessPendingActiveCardNotificationNavigation();
     }
 
@@ -93,11 +94,7 @@ public partial class HomePage : ContentPage
         if (targetPage == null)
             return;
 
-        var targetPos = vm.Pages.IndexOf(targetPage);
-        if (targetPos == -1)
-            return;
-
-        MaterializeCarouselPosition(vm, targetPos);
+        vm.SelectedPage = targetPage;
         await Task.Yield();
 
         var collectionView = await WaitForCardsListAsync(targetPage);
@@ -109,32 +106,6 @@ public partial class HomePage : ContentPage
             return;
 
         collectionView.ScrollTo(targetCard, position: ScrollToPosition.Center, animate: false);
-    }
-
-    private void JumpToPage(int position)
-    {
-        if (BindingContext is not HomeViewModel vm)
-            return;
-
-        using var suppression = vm.BeginInteractionSuppression();
-        MaterializeCarouselPosition(vm, position);
-    }
-
-    private void MaterializeCarouselPosition(HomeViewModel vm, int targetPosition)
-    {
-        if (vm.Pages.Count == 0 || targetPosition < 0 || targetPosition >= vm.Pages.Count)
-            return;
-
-        var targetPage = vm.Pages[targetPosition];
-
-        if (vm.Position != targetPosition)
-            vm.Position = targetPosition;
-
-        if (MainCarousel.Position != targetPosition)
-            MainCarousel.Position = targetPosition;
-
-        if (!ReferenceEquals(MainCarousel.CurrentItem, targetPage))
-            MainCarousel.CurrentItem = targetPage;
     }
 
     private async Task<CollectionView?> WaitForCardsListAsync(HomePageModel page)
@@ -337,7 +308,14 @@ public partial class HomePage : ContentPage
         {
             if (!_hasAppearedOnce && homeViewModel.Initialization != null)
             {
-                await homeViewModel.Initialization;
+                try
+                {
+                    await homeViewModel.Initialization;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Home initialization failed: {ex}");
+                }
             }
 
             homeViewModel.ProcessPendingActiveCardNotificationNavigation();
@@ -361,6 +339,28 @@ public partial class HomePage : ContentPage
         ReleaseCardsScrollInteraction();
         ReleaseCarouselInteraction();
         base.OnDisappearing();
+    }
+
+    protected override void OnParentSet()
+    {
+        base.OnParentSet();
+
+        if (Parent != null)
+        {
+            _wasParented = true;
+            return;
+        }
+
+        if (!_wasParented || Interlocked.Exchange(ref _disposeStarted, 1) == 1)
+            return;
+
+        StopTicker();
+        StopScheduledBackupChecks();
+        ReleaseCardsScrollInteraction();
+        ReleaseCarouselInteraction();
+
+        if (BindingContext is HomeViewModel vm)
+            TaskSupervisor.Forget(vm.DisposeAsync().AsTask(), "Dispose removed Home page");
     }
 
     private void StartTicker()

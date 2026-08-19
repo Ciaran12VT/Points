@@ -10,11 +10,20 @@ public partial class ModulesAndFeaturesSettingsPage : ContentPage
 
     public ModulesAndFeaturesSettingsPage(
         ISettingsService settings,
-        IAppNavigationService navigation)
+        IAppNavigationService navigation,
+        Func<Task>? refreshHomeAsync = null)
     {
         InitializeComponent();
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
-        BindingContext = new ModulesAndFeaturesSettingsViewModel(settings, ReturnToSettingsPageAsync);
+        BindingContext = new ModulesAndFeaturesSettingsViewModel(
+            settings,
+            async () =>
+            {
+                if (refreshHomeAsync != null)
+                    await refreshHomeAsync();
+
+                await ReturnToSettingsPageAsync();
+            });
     }
 
     private async Task ReturnToSettingsPageAsync()

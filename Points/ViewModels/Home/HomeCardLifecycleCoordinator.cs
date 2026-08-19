@@ -69,6 +69,25 @@ namespace Points.ViewModels.Home
             AfterCardCommitted(page, card);
         }
 
+        public void ReplaceCardsForLoad(HomePageModel? page, IEnumerable<ICardModel> cards)
+        {
+            if (page == null)
+                return;
+
+            ArgumentNullException.ThrowIfNull(cards);
+
+            var replacement = cards.ToList();
+            page.ReplaceCards(replacement);
+
+            foreach (var card in replacement)
+                _wireLongPress(card);
+
+            if (page.Name == "Mission")
+                RefreshMissionState();
+
+            _notifyPropertyChanged(nameof(HomeViewModel.GlobalValueColor));
+        }
+
         public void RemoveCardFromPage(HomePageModel? page, ICardModel? card)
         {
             if (page == null || card == null)

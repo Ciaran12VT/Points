@@ -42,10 +42,10 @@ namespace Points.ViewModels.Home
         private readonly HomePageStateCoordinator _pageState;
         private readonly HomeCardWorkflowCoordinator _cardWorkflow;
         private readonly HomeDashboardShortcutWorkflowCoordinator _dashboardShortcuts;
-        private readonly HomeRuntimeTickCoordinator _runtimeTicks;
         private readonly Func<Task?> _getInitialization;
-        private readonly Action<Task> _setInitialization;
-        private readonly Func<Task> _loadAsync;
+        private readonly Func<DateTime, DateTime, Task> _refreshHomeAsync;
+        private readonly Func<DateTime> _getRangeStart;
+        private readonly Func<DateTime> _getRangeEnd;
         private readonly Action<DateTime> _setRangeStart;
         private readonly Action<DateTime> _setRangeEnd;
         private readonly Action<string> _notifyPropertyChanged;
@@ -80,10 +80,10 @@ namespace Points.ViewModels.Home
             HomePageStateCoordinator pageState,
             HomeCardWorkflowCoordinator cardWorkflow,
             HomeDashboardShortcutWorkflowCoordinator dashboardShortcuts,
-            HomeRuntimeTickCoordinator runtimeTicks,
             Func<Task?> getInitialization,
-            Action<Task> setInitialization,
-            Func<Task> loadAsync,
+            Func<DateTime, DateTime, Task> refreshHomeAsync,
+            Func<DateTime> getRangeStart,
+            Func<DateTime> getRangeEnd,
             Action<DateTime> setRangeStart,
             Action<DateTime> setRangeEnd,
             Action<string> notifyPropertyChanged)
@@ -117,10 +117,10 @@ namespace Points.ViewModels.Home
             _pageState = pageState;
             _cardWorkflow = cardWorkflow;
             _dashboardShortcuts = dashboardShortcuts;
-            _runtimeTicks = runtimeTicks;
             _getInitialization = getInitialization;
-            _setInitialization = setInitialization;
-            _loadAsync = loadAsync;
+            _refreshHomeAsync = refreshHomeAsync;
+            _getRangeStart = getRangeStart;
+            _getRangeEnd = getRangeEnd;
             _setRangeStart = setRangeStart;
             _setRangeEnd = setRangeEnd;
             _notifyPropertyChanged = notifyPropertyChanged;
@@ -176,9 +176,6 @@ namespace Points.ViewModels.Home
 
         public async Task OpenGoalViewAsync()
         {
-            var mainQuest = _pages.First(p => p.Name == "Main Quest");
-            _ = mainQuest.AllCards.OfType<IActiveCardModel>().ToList();
-
             await _navigation.PushAsync(
                 new Points.Views.Goals.GoalCreationPage(_cardReader, _goals, _clock, _navigation, _dialogs));
         }
@@ -204,7 +201,8 @@ namespace Points.ViewModels.Home
                     _scheduledBackupWorkScheduler,
                     _premiumSubscriptions,
                     _watchShortcuts,
-                    _watchSnapshots));
+                    _watchSnapshots,
+                    () => _refreshHomeAsync(_getRangeStart(), _getRangeEnd())));
         }
 
         public Task ReturnHomeAsync()
@@ -273,11 +271,7 @@ namespace Points.ViewModels.Home
             _notifyPropertyChanged(nameof(HomeViewModel.GlobalValueColor));
             _notifyPropertyChanged(nameof(HomeViewModel.HasNegativeAvailableMission));
 
-            var initialization = _loadAsync();
-            _setInitialization(initialization);
-            await initialization;
-
-            await _runtimeTicks.RunImmediateAsync();
+            await _refreshHomeAsync(rangeStart, rangeEnd);
         }
     }
 }

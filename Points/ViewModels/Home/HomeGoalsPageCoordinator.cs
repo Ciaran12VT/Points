@@ -18,6 +18,7 @@ namespace Points.ViewModels.Home
         private readonly IGoalService _goals;
         private readonly IClock _clock;
         private readonly IReadOnlyList<HomePageModel> _pages;
+        private long _reloadVersion;
 
         public HomeGoalsPageCoordinator(
             ICardReadService cardReader,
@@ -38,15 +39,15 @@ namespace Points.ViewModels.Home
             return BuildGoalProgressCards(allCards, allGoalModels);
         }
 
-        public void AppendGoalProgressCards(
+        public void ReplaceGoalProgressCards(
             HomePageModel? goalsPage,
             IEnumerable<ICardModel> goalProgressCards)
         {
             if (goalsPage == null)
                 return;
 
-            foreach (var card in goalProgressCards)
-                goalsPage.AddCard(card);
+            Interlocked.Increment(ref _reloadVersion);
+            goalsPage.ReplaceCards(goalProgressCards);
         }
 
         public async Task ReloadGoalsAsync()
@@ -54,6 +55,8 @@ namespace Points.ViewModels.Home
             var goalsPage = _pages.FirstOrDefault(p => p.Name == "Goals");
             if (goalsPage == null)
                 return;
+
+            var reloadVersion = Interlocked.Increment(ref _reloadVersion);
 
             var now = _clock.LocalNow;
             var ranges = GoalScopes
@@ -68,12 +71,8 @@ namespace Points.ViewModels.Home
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                goalsPage.AllCards.Clear();
-
-                foreach (var card in goalProgressCards)
-                    goalsPage.AllCards.Add(card);
-
-                goalsPage.ResetVisible();
+                if (reloadVersion == Volatile.Read(ref _reloadVersion))
+                    goalsPage.ReplaceCards(goalProgressCards);
             });
         }
 

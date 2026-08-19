@@ -70,6 +70,22 @@ namespace Points.ViewModels.Home
             VisibleCards.Add(card);
         }
 
+        public void ReplaceCards(IEnumerable<ICardModel> cards)
+        {
+            ArgumentNullException.ThrowIfNull(cards);
+
+            var replacement = cards.ToList();
+
+            AllCards.Clear();
+            VisibleCards.Clear();
+
+            foreach (var card in replacement)
+            {
+                AllCards.Add(card);
+                VisibleCards.Add(card);
+            }
+        }
+
         public void SortCardsByLastActive()
         {
             var sorted = VisibleCards

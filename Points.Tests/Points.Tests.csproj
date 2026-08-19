@@ -25,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Planner\PlannerCardModelStubs.cs" />
     <Compile Include="..\Points\Global\SettingKeys.cs" Link="App\Global\SettingKeys.cs" />
     <Compile Include="..\Points\Evaluators\TimeValueAchievementEvaluator.cs" Link="App\Evaluators\TimeValueAchievementEvaluator.cs" />
     <Compile Include="..\Points\Models\ActivityModel.cs" Link="App\Models\ActivityModel.cs" />
@@ -37,10 +38,12 @@
     <Compile Include="..\Points\Models\BudgetCardModel.cs" Link="App\Models\BudgetCardModel.cs" />
     <Compile Include="..\Points\Models\BudgetTransaction.cs" Link="App\Models\BudgetTransaction.cs" />
     <Compile Include="..\Points\Models\CardSchedule.cs" Link="App\Models\CardSchedule.cs" />
+    <Compile Include="..\Points\Models\DateHeaderCardModel.cs" Link="App\Models\DateHeaderCardModel.cs" />
     <Compile Include="..\Points\Models\EventTrackerCardModel.cs" Link="App\Models\EventTrackerCardModel.cs" />
     <Compile Include="..\Points\Models\GoalDetailsModel.cs" Link="App\Models\GoalDetailsModel.cs" />
     <Compile Include="..\Points\Models\HardModePenaltyIntervalModel.cs" Link="App\Models\HardModePenaltyIntervalModel.cs" />
     <Compile Include="..\Points\Models\ICardModel.cs" Link="App\Models\ICardModel.cs" />
+    <Compile Include="..\Points\Models\IActiveCardModel.cs" Link="App\Models\IActiveCardModel.cs" />
     <Compile Include="..\Points\Models\IScheduleable.cs" Link="App\Models\IScheduleable.cs" />
     <Compile Include="..\Points\Models\IScheduleModel.cs" Link="App\Models\IScheduleModel.cs" />
     <Compile Include="..\Points\Models\LockModel.cs" Link="App\Models\LockModel.cs" />
@@ -106,6 +109,10 @@
     <Compile Include="..\Points\Services\Scheduling\CardScheduleOccurrenceCalculator.cs" Link="App\Scheduling\CardScheduleOccurrenceCalculator.cs" />
     <Compile Include="..\Points\Services\Scheduling\WallClockScheduleTime.cs" Link="App\Scheduling\WallClockScheduleTime.cs" />
     <Compile Include="..\Points\ViewModels\Home\HomeCardSaveRouter.cs" Link="App\ViewModels\Home\HomeCardSaveRouter.cs" />
+    <Compile Include="..\Points\ViewModels\Home\DashboardCellModel.cs" Link="App\ViewModels\Home\DashboardCellModel.cs" />
+    <Compile Include="..\Points\ViewModels\Home\HomePageModel.cs" Link="App\ViewModels\Home\HomePageModel.cs" />
+    <Compile Include="..\Points\ViewModels\Home\HomePageStateCoordinator.cs" Link="App\ViewModels\Home\HomePageStateCoordinator.cs" />
+    <Compile Include="..\Points\ViewModels\Home\HomeRefreshCoordinator.cs" Link="App\ViewModels\Home\HomeRefreshCoordinator.cs" />
   </ItemGroup>
 
 </Project>

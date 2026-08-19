@@ -27,6 +27,7 @@ public partial class SettingsPage : ContentPage
     private readonly IPremiumSubscriptionService _premiumSubscriptions;
     private readonly IWatchShortcutSettingsService _watchShortcuts;
     private readonly IWatchSnapshotPublishService _watchSnapshots;
+    private readonly Func<Task>? _refreshHomeAsync;
 
     public Command OpenDatabaseSettingsCommand { get; }
     public Command OpenMultipliersSettingsCommand { get; }
@@ -54,7 +55,8 @@ public partial class SettingsPage : ContentPage
         IScheduledBackupWorkScheduler scheduledBackupWorkScheduler,
         IPremiumSubscriptionService premiumSubscriptions,
         IWatchShortcutSettingsService watchShortcuts,
-        IWatchSnapshotPublishService watchSnapshots)
+        IWatchSnapshotPublishService watchSnapshots,
+        Func<Task>? refreshHomeAsync = null)
     {
         OpenDatabaseSettingsCommand = new Command(async () => await OpenDatabaseSettingsAsync());
         OpenMultipliersSettingsCommand = new Command(async () => await OpenMultipliersSettingsAsync());
@@ -83,6 +85,7 @@ public partial class SettingsPage : ContentPage
         _premiumSubscriptions = premiumSubscriptions ?? throw new ArgumentNullException(nameof(premiumSubscriptions));
         _watchShortcuts = watchShortcuts ?? throw new ArgumentNullException(nameof(watchShortcuts));
         _watchSnapshots = watchSnapshots ?? throw new ArgumentNullException(nameof(watchSnapshots));
+        _refreshHomeAsync = refreshHomeAsync;
     }
 
     private async Task OpenDatabaseSettingsAsync()
@@ -109,7 +112,10 @@ public partial class SettingsPage : ContentPage
 
     private async Task OpenModulesAndFeaturesSettingsAsync()
     {
-        await _navigation.PushAsync(new ModulesAndFeaturesSettingsPage(_settings, _navigation));
+        await _navigation.PushAsync(new ModulesAndFeaturesSettingsPage(
+            _settings,
+            _navigation,
+            _refreshHomeAsync));
     }
 
     private async Task OpenWatchAppConfigAsync()

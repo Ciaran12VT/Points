@@ -7,81 +7,85 @@ namespace Points.ViewModels.Home
 {
     internal sealed class HomePageStateCoordinator
     {
+        private static readonly IReadOnlyList<PageDefinition> PageDefinitions =
+        [
+            new(
+                title: "Dashboard",
+                icon: "𓃑",
+                defaultOrder: 1,
+                activeSettingKey: SettingKeys.DashboardActive,
+                orderSettingKey: SettingKeys.DashboardScreenOrder),
+
+            new(
+                title: "Main Quest",
+                icon: "♻",
+                defaultOrder: 2,
+                activeSettingKey: SettingKeys.MainQuestActive,
+                orderSettingKey: SettingKeys.MainQuestScreenOrder),
+
+            new(
+                title: "Mission",
+                icon: "⚑",
+                defaultOrder: 3,
+                activeSettingKey: SettingKeys.MissionActive,
+                orderSettingKey: SettingKeys.MissionScreenOrder),
+
+            new(
+                title: "Budgets",
+                icon: "◷",
+                defaultOrder: 4,
+                activeSettingKey: SettingKeys.BudgetsActive,
+                orderSettingKey: SettingKeys.BudgetsScreenOrder),
+
+            new(
+                title: "Challenges & Pinned Achievements",
+                icon: "★",
+                defaultOrder: 5,
+                activeSettingKey: SettingKeys.AchievementsActive,
+                orderSettingKey: SettingKeys.AchievementsScreenOrder),
+
+            new(
+                title: "Arcs",
+                icon: "∿",
+                defaultOrder: 6,
+                activeSettingKey: SettingKeys.ArcsActive,
+                orderSettingKey: SettingKeys.ArcsScreenOrder),
+
+            new(
+                title: "Goals",
+                icon: "☰",
+                defaultOrder: 7,
+                activeSettingKey: SettingKeys.GoalsActive,
+                orderSettingKey: SettingKeys.GoalsScreenOrder)
+        ];
+
         private readonly ObservableCollection<HomePageModel> _pages;
         private readonly IClock _clock;
+        private readonly IReadOnlyDictionary<string, HomePageModel> _canonicalPages;
         private MainQuestFilterMode _mainQuestFilterMode = MainQuestFilterMode.None;
 
         public HomePageStateCoordinator(ObservableCollection<HomePageModel> pages, IClock clock)
         {
             _pages = pages;
             _clock = clock;
+            _canonicalPages = PageDefinitions.ToDictionary(
+                definition => definition.Title,
+                definition =>
+                    _pages.FirstOrDefault(page => page.Name == definition.Title)
+                    ?? CreatePage(definition),
+                StringComparer.Ordinal);
         }
 
-        public void InitializePages(List<AcquiredSetting> settings)
+        public HomePageReconciliationResult ReconcilePages(
+            List<AcquiredSetting> settings,
+            HomePageModel? previouslySelectedPage,
+            int previousPosition)
         {
-            _pages.Clear();
+            ArgumentNullException.ThrowIfNull(settings);
+
             _mainQuestFilterMode = MainQuestFilterMode.None;
 
-            var pageDefinitions = new List<PageDefinition>
-            {
-                new(
-                    title: "Dashboard",
-                    icon: "𓃑",
-                    defaultOrder: 1,
-                    activeSettingKey: SettingKeys.DashboardActive,
-                    orderSettingKey: SettingKeys.DashboardScreenOrder,
-                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
-
-                new(
-                    title: "Main Quest",
-                    icon: "♻",
-                    defaultOrder: 2,
-                    activeSettingKey: SettingKeys.MainQuestActive,
-                    orderSettingKey: SettingKeys.MainQuestScreenOrder,
-                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
-
-                new(
-                    title: "Mission",
-                    icon: "⚑",
-                    defaultOrder: 3,
-                    activeSettingKey: SettingKeys.MissionActive,
-                    orderSettingKey: SettingKeys.MissionScreenOrder,
-                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
-
-                new(
-                    title: "Budgets",
-                    icon: "◷",
-                    defaultOrder: 4,
-                    activeSettingKey: SettingKeys.BudgetsActive,
-                    orderSettingKey: SettingKeys.BudgetsScreenOrder,
-                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
-
-                new(
-                    title: "Challenges & Pinned Achievements",
-                    icon: "★",
-                    defaultOrder: 5,
-                    activeSettingKey: SettingKeys.AchievementsActive,
-                    orderSettingKey: SettingKeys.AchievementsScreenOrder,
-                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
-
-                new(
-                    title: "Arcs",
-                    icon: "∿",
-                    defaultOrder: 6,
-                    activeSettingKey: SettingKeys.ArcsActive,
-                    orderSettingKey: SettingKeys.ArcsScreenOrder,
-                    cardsFactory: () => Enumerable.Empty<ICardModel>()),
-
-                new(
-                    title: "Goals",
-                    icon: "☰",
-                    defaultOrder: 7,
-                    activeSettingKey: SettingKeys.GoalsActive,
-                    orderSettingKey: SettingKeys.GoalsScreenOrder,
-                    cardsFactory: () => Enumerable.Empty<ICardModel>())
-            };
-
-            var activePagesInOrder = pageDefinitions
+            var desiredPages = PageDefinitions
                 .Select(def => new
                 {
                     Definition = def,
@@ -91,16 +95,57 @@ namespace Points.ViewModels.Home
                 .Where(x => x.IsActive)
                 .OrderBy(x => x.ScreenOrder)
                 .ThenBy(x => x.Definition.DefaultOrder)
+                .Select(x => _canonicalPages[x.Definition.Title])
                 .ToList();
 
-            foreach (var page in activePagesInOrder)
+            var layoutChanged = false;
+
+            for (var desiredIndex = 0; desiredIndex < desiredPages.Count; desiredIndex++)
             {
-                _pages.Add(new HomePageModel(
-                    page.Definition.Title,
-                    page.Definition.CardsFactory(),
-                    page.Definition.Icon,
-                    page.Definition.Title == "Dashboard" ? 8 : 12)); // The dashboard icon is slightly too big, so we use a smaller font size for it
+                var desiredPage = desiredPages[desiredIndex];
+                if (desiredIndex < _pages.Count && ReferenceEquals(_pages[desiredIndex], desiredPage))
+                    continue;
+
+                var existingIndex = IndexOfReference(_pages, desiredPage);
+                if (existingIndex >= 0)
+                    _pages.Move(existingIndex, desiredIndex);
+                else
+                    _pages.Insert(desiredIndex, desiredPage);
+
+                layoutChanged = true;
             }
+
+            while (_pages.Count > desiredPages.Count)
+            {
+                var removedPage = _pages[^1];
+                _pages.RemoveAt(_pages.Count - 1);
+                removedPage.ReplaceCards(Array.Empty<ICardModel>());
+                removedPage.DashboardCells.Clear();
+                layoutChanged = true;
+            }
+
+            var selectedPage = ResolveSelectedPage(previouslySelectedPage, previousPosition);
+            var selectedIndex = selectedPage == null ? -1 : IndexOfReference(_pages, selectedPage);
+
+            return new HomePageReconciliationResult(layoutChanged, selectedPage, selectedIndex);
+        }
+
+        public HomePageModel? ResolveSelectedPage(
+            HomePageModel? previouslySelectedPage,
+            int previousPosition)
+        {
+            if (previouslySelectedPage != null && IndexOfReference(_pages, previouslySelectedPage) >= 0)
+                return previouslySelectedPage;
+
+            if (_pages.Count == 0)
+                return null;
+
+            if (previouslySelectedPage != null)
+                return _pages[Math.Clamp(previousPosition, 0, _pages.Count - 1)];
+
+            return _pages.FirstOrDefault(page => page.Name == "Dashboard")
+                ?? _pages.FirstOrDefault(page => page.Name == "Main Quest")
+                ?? _pages[0];
         }
 
         public List<IActiveCardModel> GetActiveCardModels()
@@ -364,6 +409,28 @@ namespace Points.ViewModels.Home
             return settings.FirstOrDefault(x => x.SettingKey == key)?.IntValue ?? defaultValue;
         }
 
+        private static HomePageModel CreatePage(PageDefinition definition)
+        {
+            return new HomePageModel(
+                definition.Title,
+                Enumerable.Empty<ICardModel>(),
+                definition.Icon,
+                definition.Title == "Dashboard" ? 8 : 12);
+        }
+
+        private static int IndexOfReference(
+            IReadOnlyList<HomePageModel> pages,
+            HomePageModel target)
+        {
+            for (var i = 0; i < pages.Count; i++)
+            {
+                if (ReferenceEquals(pages[i], target))
+                    return i;
+            }
+
+            return -1;
+        }
+
         private enum MainQuestFilterMode
         {
             None,
@@ -378,23 +445,25 @@ namespace Points.ViewModels.Home
             public int DefaultOrder { get; }
             public string ActiveSettingKey { get; }
             public string OrderSettingKey { get; }
-            public Func<IEnumerable<ICardModel>> CardsFactory { get; }
 
             public PageDefinition(
                 string title,
                 string icon,
                 int defaultOrder,
                 string activeSettingKey,
-                string orderSettingKey,
-                Func<IEnumerable<ICardModel>> cardsFactory)
+                string orderSettingKey)
             {
                 Title = title;
                 Icon = icon;
                 DefaultOrder = defaultOrder;
                 ActiveSettingKey = activeSettingKey;
                 OrderSettingKey = orderSettingKey;
-                CardsFactory = cardsFactory;
             }
         }
     }
+
+    internal readonly record struct HomePageReconciliationResult(
+        bool LayoutChanged,
+        HomePageModel? SelectedPage,
+        int SelectedIndex);
 }

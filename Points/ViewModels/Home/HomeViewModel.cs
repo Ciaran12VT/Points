@@ -24,7 +24,7 @@ using Points.Views.Premium;
 
 namespace Points.ViewModels.Home
 {
-    public class HomeViewModel : INotifyPropertyChanged
+    public class HomeViewModel : INotifyPropertyChanged, IAsyncDisposable
     {
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -42,6 +42,7 @@ namespace Points.ViewModels.Home
         private readonly IAppDialogService _dialogs;
         private readonly IPopupService _popups;
         private readonly IPremiumSubscriptionService _premiumSubscriptions;
+        private readonly IHardModePenaltyService _hardModePenalties;
         private readonly HomePageStateCoordinator _pageState;
         private readonly HomeActivityInteractionCoordinator _activityInteraction;
         private readonly HomeCardLifecycleCoordinator _cardLifecycle;
@@ -51,6 +52,7 @@ namespace Points.ViewModels.Home
         private readonly HomeValueEntryCoordinator _valueEntries;
         private readonly HomeRuntimeTickCoordinator _runtimeTicks;
         private readonly HomeLoadCoordinator _homeLoader;
+        private readonly HomeRefreshCoordinator _refreshes;
         private readonly HomeNavigationCoordinator _navigation;
 
         #region Commands
@@ -93,7 +95,6 @@ namespace Points.ViewModels.Home
         public Action<ICardModel>? ScrollToCardModelRequested;
 
         public Action<long>? ScrollToAnyCardByIdRequested;
-        public Action<int>? JumpToPageRequested;
         public Command FilterPositiveCommand { get; }
         public Command FilterNegativeCommand { get; }
         public Command ClearFiltersCommand { get; }
@@ -129,9 +130,8 @@ namespace Points.ViewModels.Home
         private bool _hasRecordedPremiumPromptLaunch;
         private bool _isPremiumPromptShowing;
         private int _missedNotificationCount;
-        private int _externalActiveCardRefreshInProgress;
-        private int _externalCardDataRefreshInProgress;
         private int _activeCardNotificationNavigationInProgress;
+        private int _disposeStarted;
 
         public int MissedNotificationCount
         {
@@ -201,8 +201,8 @@ namespace Points.ViewModels.Home
         //Used to check if there is an card currenty active
         public bool HasActiveCard => _activeCard is not null;
 
-        //Returns the Carousel page that is currently displayed
-        private HomePageModel CurrentPage => Pages[Math.Clamp(Position, 0, Pages.Count - 1)];
+        // Returns the carousel page that is currently displayed.
+        private HomePageModel? CurrentPage => SelectedPage;
 
         //Returns the current time. Used for live updateding bound fields every second
         public DateTime _now = DateTime.MinValue;
@@ -309,25 +309,112 @@ namespace Points.ViewModels.Home
 
         public bool HasActiveMultiplier => MultiplierRuntimeState.HasActiveMultiplier;
 
-        //The index of the currently displayed carousel page. Setting this here changes the page displayed.
-        private int _position;
-        public int Position
+        private HomePageModel? _selectedPage;
+        private bool _isReconcilingPages;
+        private bool _selectionRestoreNeeded;
+        private int _selectionRestoreQueued;
+
+        public HomePageModel? SelectedPage
         {
-            get => _position;
+            get => _selectedPage;
             set
             {
-                if (_position == value) return;
-                if (Pages.Count == 0 || value < 0 || value >= Pages.Count) return;
-                _position = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(CurrentPage));
+                if (_isReconcilingPages)
+                {
+                    _selectionRestoreNeeded = true;
+                    return;
+                }
 
-                SetSelectedPageIcon();
+                // CarouselView can transiently write null/stale items while its source is changing.
+                if (value == null && Pages.Count > 0)
+                {
+                    QueueSelectedPageRestore();
+                    return;
+                }
 
-                if (Pages[value].Name == "Goals") _ = ReloadGoalsAsync();
+                if (value != null && !Pages.Contains(value))
+                {
+                    QueueSelectedPageRestore();
+                    return;
+                }
 
-                if (Pages[value].IsDashboard) _ = ReloadDashboardAsync();
+                SetSelectedPageCore(value, refreshPage: true, forceNotify: false);
             }
+        }
+
+        private void QueueSelectedPageRestore()
+        {
+            if (Interlocked.Exchange(ref _selectionRestoreQueued, 1) == 1)
+                return;
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                Interlocked.Exchange(ref _selectionRestoreQueued, 0);
+
+                if (_isReconcilingPages)
+                    return;
+
+                OnPropertyChanged(nameof(SelectedPage));
+                OnPropertyChanged(nameof(Position));
+            });
+        }
+
+        // Compatibility bridge for code that still consumes the selected pane as an index.
+        public int Position
+        {
+            get
+            {
+                var index = SelectedPage == null ? -1 : Pages.IndexOf(SelectedPage);
+                return index >= 0 ? index : 0;
+            }
+            set
+            {
+                if (value < 0 || value >= Pages.Count)
+                    return;
+
+                SelectedPage = Pages[value];
+            }
+        }
+
+        private void BeginPageReconciliation()
+        {
+            _isReconcilingPages = true;
+            _selectionRestoreNeeded = false;
+        }
+
+        private void CompletePageReconciliation(
+            HomePageModel? selectedPage,
+            bool layoutChanged)
+        {
+            var forceNotify = layoutChanged || _selectionRestoreNeeded;
+            _isReconcilingPages = false;
+            _selectionRestoreNeeded = false;
+            SetSelectedPageCore(selectedPage, refreshPage: false, forceNotify: forceNotify);
+        }
+
+        private void SetSelectedPageCore(
+            HomePageModel? page,
+            bool refreshPage,
+            bool forceNotify)
+        {
+            var changed = !ReferenceEquals(_selectedPage, page);
+            if (!changed && !forceNotify)
+                return;
+
+            _selectedPage = page;
+            OnPropertyChanged(nameof(SelectedPage));
+            OnPropertyChanged(nameof(Position));
+            OnPropertyChanged(nameof(CurrentPage));
+            SetSelectedPageIcon();
+
+            if (!changed || !refreshPage || page == null)
+                return;
+
+            if (page.Name == "Goals")
+                TaskSupervisor.Forget(ReloadGoalsAsync(), "Reload Goals after pane selection");
+
+            if (page.IsDashboard)
+                TaskSupervisor.Forget(ReloadDashboardAsync(), "Reload Dashboard after pane selection");
         }
 
         private void SetSelectedPageIcon()
@@ -337,15 +424,12 @@ namespace Points.ViewModels.Home
 
             foreach (var page in Pages)
             {
-                if(page == Pages[Position])
-                {
-                    page.BackColor = Colors.Green;
-                }
-                else
-                {
-                    page.BackColor = Colors.Black;
-                }
-                page.RaisePropertyChanged("BackColor");
+                var color = ReferenceEquals(page, SelectedPage) ? Colors.Green : Colors.Black;
+                if (page.BackColor == color)
+                    continue;
+
+                page.BackColor = color;
+                page.RaisePropertyChanged(nameof(HomePageModel.BackColor));
             }
         }
 
@@ -476,6 +560,7 @@ namespace Points.ViewModels.Home
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
             _popups = popups ?? throw new ArgumentNullException(nameof(popups));
             _premiumSubscriptions = premiumSubscriptions ?? throw new ArgumentNullException(nameof(premiumSubscriptions));
+            _hardModePenalties = hardModePenalties ?? throw new ArgumentNullException(nameof(hardModePenalties));
             _pageState = new HomePageStateCoordinator(Pages, clock);
             _dashboardShortcuts = new HomeDashboardShortcutWorkflowCoordinator(
                 shortcuts,
@@ -567,13 +652,15 @@ namespace Points.ViewModels.Home
                 _dashboardShortcuts,
                 _goalsPage,
                 _runtimeTicks,
-                hardModePenalties,
                 userMultipliers,
+                () => SelectedPage,
                 () => Position,
-                value => Position = value,
-                SetSelectedPageIcon,
-                SortMissionCards,
+                BeginPageReconciliation,
+                CompletePageReconciliation,
                 propertyName => OnPropertyChanged(propertyName));
+            _refreshes = new HomeRefreshCoordinator(
+                ExecuteFullRefreshAsync,
+                ExecuteActiveRefreshAsync);
             _navigation = new HomeNavigationCoordinator(
                 cardReader,
                 cardWriter,
@@ -604,10 +691,10 @@ namespace Points.ViewModels.Home
                 _pageState,
                 _cardWorkflow,
                 _dashboardShortcuts,
-                _runtimeTicks,
                 () => Initialization,
-                task => Initialization = task,
-                LoadAsync,
+                RefreshForDateRangeAsync,
+                () => RangeStart,
+                () => RangeEnd,
                 value => RangeStart = value,
                 value => RangeEnd = value,
                 propertyName => OnPropertyChanged(propertyName));
@@ -669,11 +756,12 @@ namespace Points.ViewModels.Home
             SpendCommand = new Command<BudgetCardModel>(async budget => await PromptAndRecordBudgetTransactionAsync(budget, BudgetTransactionType.Spend));
             CashInCommand = new Command<BudgetCardModel>(async budget => await PromptAndRecordBudgetTransactionAsync(budget, BudgetTransactionType.CashIn));
 
-            // kick off async load without awaiting
-            Initialization = LoadAsync();
             _activeCardChanges.ActiveCardChanged += OnExternalActiveCardChanged;
             _activeCardChanges.CardDataChanged += OnExternalCardDataChanged;
             _activeCardNotificationNavigation.NavigationRequested += OnActiveCardNotificationNavigationRequested;
+
+            // Subscribe before starting the load so startup notifications are coalesced, not lost.
+            Initialization = RequestFullRefreshAsync(HomeFullRefreshReason.Initial, RangeStart, RangeEnd);
         }
 
         public void ProcessPendingActiveCardNotificationNavigation()
@@ -687,6 +775,9 @@ namespace Points.ViewModels.Home
             object? sender,
             ActiveCardNotificationNavigationRequestedEventArgs e)
         {
+            if (Volatile.Read(ref _disposeStarted) != 0)
+                return;
+
             QueueActiveCardNotificationNavigation(e.CardId);
         }
 
@@ -713,6 +804,8 @@ namespace Points.ViewModels.Home
                 var initialization = Initialization;
                 if (initialization != null)
                     await initialization;
+
+                await _refreshes.WaitThroughCurrentVersionAsync();
 
                 if (ScrollToCardModelRequested == null && ScrollToAnyCardByIdRequested == null)
                     return;
@@ -752,66 +845,56 @@ namespace Points.ViewModels.Home
 
         private void OnExternalActiveCardChanged(object? sender, ActiveCardChangedEventArgs e)
         {
-            if (Interlocked.Exchange(ref _externalActiveCardRefreshInProgress, 1) == 1)
+            if (Volatile.Read(ref _disposeStarted) != 0)
                 return;
 
-            MainThread.BeginInvokeOnMainThread(async () =>
-            {
-                try
-                {
-                    await RefreshExternalActiveCardStateAsync(e);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(ex);
-                }
-                finally
-                {
-                    Interlocked.Exchange(ref _externalActiveCardRefreshInProgress, 0);
-                }
-            });
+            TaskSupervisor.Forget(
+                _refreshes.RequestActiveRefreshAsync(e.ToggleResult),
+                "Refresh Home after external active-card change");
         }
 
-        private async Task RefreshExternalActiveCardStateAsync(ActiveCardChangedEventArgs change)
+        private async Task ExecuteActiveRefreshAsync(
+            HomeActiveRefreshContext context,
+            IReadOnlyList<ToggleActivityModelResult> toggleResults,
+            bool requiresDatabaseRead,
+            CancellationToken cancellationToken)
         {
-            if (change.ToggleResult != null)
-            {
-                _activityInteraction.ApplyExternalToggleResult(change.ToggleResult);
-            }
-            else
-            {
-                var openActivity = await _activity.GetCurrentActiveActivityAsync();
-                _activityInteraction.RestoreActiveCardFromOpenActivity(openActivity);
-            }
+            var openActivity = requiresDatabaseRead || toggleResults.Count == 0
+                ? await _activity.GetCurrentActiveActivityAsync()
+                : null;
+            cancellationToken.ThrowIfCancellationRequested();
 
-            await _runtimeTicks.RunImmediateAsync();
+            if (!context.IsCurrent)
+                return;
+
+            var applied = false;
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                applied = context.TryCommit(() =>
+                {
+                    foreach (var toggleResult in toggleResults)
+                        _activityInteraction.ApplyExternalToggleResult(toggleResult);
+
+                    if (requiresDatabaseRead || toggleResults.Count == 0)
+                        _activityInteraction.RestoreActiveCardFromOpenActivity(openActivity);
+                });
+            });
+
+            if (!applied || !context.IsCurrent)
+                return;
+
+            await MainThread.InvokeOnMainThreadAsync(
+                _runtimeTicks.RunImmediateWithoutCompletionNotificationAsync);
         }
 
         private void OnExternalCardDataChanged(object? sender, CardDataChangedEventArgs e)
         {
-            if (Interlocked.Exchange(ref _externalCardDataRefreshInProgress, 1) == 1)
+            if (Volatile.Read(ref _disposeStarted) != 0)
                 return;
 
-            MainThread.BeginInvokeOnMainThread(async () =>
-            {
-                try
-                {
-                    var initialization = Initialization;
-                    if (initialization != null)
-                        await initialization;
-
-                    await LoadAsync();
-                    await _runtimeTicks.RunImmediateAsync();
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(ex);
-                }
-                finally
-                {
-                    Interlocked.Exchange(ref _externalCardDataRefreshInProgress, 0);
-                }
-            });
+            TaskSupervisor.Forget(
+                RequestFullRefreshAsync(HomeFullRefreshReason.ExternalCardData, RangeStart, RangeEnd),
+                "Refresh Home after external card-data change");
         }
 
         private async Task AddTrackerValueWithMetadataAsync(TrackerCardModel? card)
@@ -832,9 +915,79 @@ namespace Points.ViewModels.Home
 
         public async Task LoadAsync()
         {
-            await _homeLoader.LoadAsync();
-            await RefreshPremiumStateAsync();
-            await _watchSnapshots.RequestPublishAsync(force: true);
+            await RequestFullRefreshAsync(HomeFullRefreshReason.Explicit, RangeStart, RangeEnd);
+        }
+
+        private Task RequestFullRefreshAsync(
+            HomeFullRefreshReason reason,
+            DateTime rangeStart,
+            DateTime rangeEnd)
+        {
+            return _refreshes.RequestFullRefreshAsync(reason, rangeStart, rangeEnd);
+        }
+
+        private Task RefreshForDateRangeAsync(DateTime rangeStart, DateTime rangeEnd)
+        {
+            return RequestFullRefreshAsync(HomeFullRefreshReason.DateRangeChanged, rangeStart, rangeEnd);
+        }
+
+        private async Task ExecuteFullRefreshAsync(
+            HomeFullRefreshContext context,
+            CancellationToken cancellationToken)
+        {
+            var committed = await _homeLoader.LoadAsync(
+                context.RangeStart,
+                context.RangeEnd,
+                context.TryCommit,
+                cancellationToken);
+
+            if (!committed || !context.IsCurrent)
+                return;
+
+            try
+            {
+                await _hardModePenalties.ReconcileAsync(_clock.UtcNow);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Hard-mode reconciliation after Home refresh failed: {ex}");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                if (!context.IsCurrent)
+                    return;
+
+                try
+                {
+                    await RefreshPremiumStateAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Premium refresh after Home load failed: {ex}");
+                }
+
+                try
+                {
+                    await _runtimeTicks.RunImmediateWithoutCompletionNotificationAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Immediate tick after Home load failed: {ex}");
+                }
+            });
+
+            if (!context.IsCurrent)
+                return;
+
+            var nonWatchReasons = context.Reasons & ~HomeFullRefreshReason.ExternalCardData;
+            if (nonWatchReasons != HomeFullRefreshReason.None)
+            {
+                TaskSupervisor.Forget(
+                    _watchSnapshots.RequestPublishAsync(force: true),
+                    "Publish watch snapshot after Home refresh");
+            }
         }
 
         public async Task RefreshMissedNotificationBadgeAsync()
@@ -912,6 +1065,9 @@ namespace Points.ViewModels.Home
         {
             var page = CurrentPage;
 
+            if (page == null)
+                return;
+
             if (page.Name == "Dashboard")
             {
                 await AddDashboardShortcutAsync();
@@ -950,22 +1106,26 @@ namespace Points.ViewModels.Home
 
         private void ApplyPositiveFilter()
         {
-            _pageState.ApplyPositiveFilter(CurrentPage);
+            if (CurrentPage != null)
+                _pageState.ApplyPositiveFilter(CurrentPage);
         }
 
         private void ApplyNegativeFilter()
         {
-            _pageState.ApplyNegativeFilter(CurrentPage);
+            if (CurrentPage != null)
+                _pageState.ApplyNegativeFilter(CurrentPage);
         }
 
         private void ClearFilters()
         {
-            _pageState.ClearFilters(CurrentPage);
+            if (CurrentPage != null)
+                _pageState.ClearFilters(CurrentPage);
         }
 
         private void SortCardsByLastActive()
         {
-            _pageState.SortCardsByLastActive(CurrentPage);
+            if (CurrentPage != null)
+                _pageState.SortCardsByLastActive(CurrentPage);
         }
 
         private void RequestScrollToActiveCard()
@@ -1005,14 +1165,7 @@ namespace Points.ViewModels.Home
                 return;
 
             SuppressTicksForPageNavigation();
-
-            if (JumpToPageRequested != null)
-            {
-                JumpToPageRequested(position);
-                return;
-            }
-
-            Position = position;
+            SelectedPage = Pages[position];
         }
 
         public int GetCardPageIndex(ICardModel card)
@@ -1095,6 +1248,22 @@ namespace Points.ViewModels.Home
         public void Tick()
         {
             _runtimeTicks.Tick();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _disposeStarted, 1) == 1)
+                return;
+
+            _activeCardChanges.ActiveCardChanged -= OnExternalActiveCardChanged;
+            _activeCardChanges.CardDataChanged -= OnExternalCardDataChanged;
+            _activeCardNotificationNavigation.NavigationRequested -= OnActiveCardNotificationNavigationRequested;
+
+            ScrollToCardRequested = null;
+            ScrollToCardModelRequested = null;
+            ScrollToAnyCardByIdRequested = null;
+
+            await _refreshes.DisposeAsync();
         }
 
         private void SuppressTicksForPageNavigation()

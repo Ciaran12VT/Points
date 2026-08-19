@@ -12,6 +12,7 @@ namespace Points.ViewModels.Home
         private readonly IAppNavigationService _navigation;
         private readonly IAppDialogService _dialogs;
         private readonly IReadOnlyList<HomePageModel> _pages;
+        private long _reloadVersion;
 
         public HomeDashboardShortcutWorkflowCoordinator(
             IShortcutService shortcuts,
@@ -37,16 +38,24 @@ namespace Points.ViewModels.Home
             if (dashboard == null)
                 return;
 
+            Interlocked.Increment(ref _reloadVersion);
             HomeDashboardShortcutCoordinator.RebuildDashboardCells(dashboard, shortcuts);
         }
 
         public async Task ReloadDashboardAsync()
         {
+            var reloadVersion = Interlocked.Increment(ref _reloadVersion);
             var shortcuts = await _shortcuts.GetDashboardShortcutsAsync();
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                RebuildDashboardCells(shortcuts);
+                if (reloadVersion != Volatile.Read(ref _reloadVersion))
+                    return;
+
+                var dashboard = _pages.FirstOrDefault(p => p.IsDashboard)
+                    ?? _pages.FirstOrDefault(p => p.Name == "Dashboard");
+                if (dashboard != null)
+                    HomeDashboardShortcutCoordinator.RebuildDashboardCells(dashboard, shortcuts);
             });
         }
 
