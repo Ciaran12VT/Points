@@ -1,25 +1,42 @@
+using CommunityToolkit.Mvvm.Input;
 using Points.Global;
+using Points.Services.Notifications;
 using Points.Services.Persistence;
 using System.ComponentModel;
-using System.Windows.Input;
 
 namespace Points.ViewModels.Settings
 {
     public class ModulesAndFeaturesSettingsViewModel : Models.ObservableObject, INotifyPropertyChanged
     {
         private readonly ISettingsService _settings;
+        private readonly IActiveCardNotificationAvailabilityService _notificationAvailability;
+        private readonly Func<Task>? _reconcileNotificationAsync;
         private readonly Func<Task>? _onSaved;
+        private readonly AsyncRelayCommand _saveCommand;
+        private readonly AsyncRelayCommand _openNotificationSettingsCommand;
 
-        public ModulesAndFeaturesSettingsViewModel(ISettingsService settings, Func<Task>? onSaved = null)
+        public ModulesAndFeaturesSettingsViewModel(
+            ISettingsService settings,
+            IActiveCardNotificationAvailabilityService notificationAvailability,
+            Func<Task>? reconcileNotificationAsync = null,
+            Func<Task>? onSaved = null)
         {
-            _settings = settings;
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _notificationAvailability = notificationAvailability
+                ?? throw new ArgumentNullException(nameof(notificationAvailability));
+            _reconcileNotificationAsync = reconcileNotificationAsync;
             _onSaved = onSaved;
-            SaveCommand = new Command(async () => await SaveAsync());
+            _saveCommand = new AsyncRelayCommand(SaveAsync, () => CanSave);
+            _openNotificationSettingsCommand = new AsyncRelayCommand(
+                OpenNotificationSettingsAsync,
+                () => CanOpenNotificationSettings);
 
-            _ = InitializeAsync();
+            Initialization = InitializeAsync();
         }
 
-        public ICommand SaveCommand { get; }
+        public IAsyncRelayCommand SaveCommand => _saveCommand;
+        public IAsyncRelayCommand OpenNotificationSettingsCommand => _openNotificationSettingsCommand;
+        public Task Initialization { get; }
 
         private bool _dashboardActive;
         public bool DashboardActive
@@ -35,7 +52,10 @@ namespace Points.ViewModels.Settings
             set
             {
                 if (SetProperty(ref _dashboardScreenOrderText, value))
+                {
                     RaisePropertyChanged(nameof(HasInvalidScreenOrder));
+                    NotifySaveStateChanged();
+                }
             }
         }
 
@@ -53,7 +73,10 @@ namespace Points.ViewModels.Settings
             set
             {
                 if (SetProperty(ref _mainQuestScreenOrderText, value))
+                {
                     RaisePropertyChanged(nameof(HasInvalidScreenOrder));
+                    NotifySaveStateChanged();
+                }
             }
         }
 
@@ -71,7 +94,10 @@ namespace Points.ViewModels.Settings
             set
             {
                 if (SetProperty(ref _missionScreenOrderText, value))
+                {
                     RaisePropertyChanged(nameof(HasInvalidScreenOrder));
+                    NotifySaveStateChanged();
+                }
             }
         }
 
@@ -89,7 +115,10 @@ namespace Points.ViewModels.Settings
             set
             {
                 if (SetProperty(ref _budgetsScreenOrderText, value))
+                {
                     RaisePropertyChanged(nameof(HasInvalidScreenOrder));
+                    NotifySaveStateChanged();
+                }
             }
         }
 
@@ -107,7 +136,10 @@ namespace Points.ViewModels.Settings
             set
             {
                 if (SetProperty(ref _achievementsScreenOrderText, value))
+                {
                     RaisePropertyChanged(nameof(HasInvalidScreenOrder));
+                    NotifySaveStateChanged();
+                }
             }
         }
 
@@ -125,7 +157,10 @@ namespace Points.ViewModels.Settings
             set
             {
                 if (SetProperty(ref _arcsScreenOrderText, value))
+                {
                     RaisePropertyChanged(nameof(HasInvalidScreenOrder));
+                    NotifySaveStateChanged();
+                }
             }
         }
 
@@ -143,7 +178,10 @@ namespace Points.ViewModels.Settings
             set
             {
                 if (SetProperty(ref _goalsScreenOrderText, value))
+                {
                     RaisePropertyChanged(nameof(HasInvalidScreenOrder));
+                    NotifySaveStateChanged();
+                }
             }
         }
 
@@ -175,6 +213,92 @@ namespace Points.ViewModels.Settings
             set => SetProperty(ref _cashInActive, value);
         }
 
+        private bool _deadAirNotificationEnabled;
+        public bool DeadAirNotificationEnabled
+        {
+            get => _deadAirNotificationEnabled;
+            set
+            {
+                if (!SetProperty(ref _deadAirNotificationEnabled, value))
+                    return;
+
+                if (!value)
+                    SetDeadAirAlertNoiseEnabled(false, allowUnavailableEnable: false);
+
+                NotifyDeadAirAlertStateChanged();
+            }
+        }
+
+        private bool _deadAirAlertNoiseEnabled;
+        public bool DeadAirAlertNoiseEnabled
+        {
+            get => _deadAirAlertNoiseEnabled;
+            set => SetDeadAirAlertNoiseEnabled(value, allowUnavailableEnable: false);
+        }
+
+        private ActiveCardNotificationAvailability _activeCardNotificationAvailability =
+            ActiveCardNotificationAvailability.Unknown;
+
+        public bool IsActiveCardNotificationAvailable =>
+            _activeCardNotificationAvailability.IsAvailable;
+
+        public bool CanChangeDeadAirAlertNoise =>
+            DeadAirNotificationEnabled &&
+            (IsActiveCardNotificationAvailable || DeadAirAlertNoiseEnabled);
+
+        public bool IsDeadAirAlertAvailabilityWarningVisible =>
+            DeadAirNotificationEnabled && !IsActiveCardNotificationAvailable;
+
+        public bool CanOpenNotificationSettings =>
+            IsDeadAirAlertAvailabilityWarningVisible &&
+            _activeCardNotificationAvailability.CanOpenSettings;
+
+        public string DeadAirAlertAvailabilityMessage
+        {
+            get
+            {
+                var prefix = DeadAirAlertNoiseEnabled ? "Paused: " : "Unavailable: ";
+                var detail = _activeCardNotificationAvailability.Status switch
+                {
+                    ActiveCardNotificationAvailabilityStatus.PermissionDenied =>
+                        "allow notification permission for Points to use Dead Air alert noise.",
+                    ActiveCardNotificationAvailabilityStatus.AppNotificationsDisabled =>
+                        "enable notifications for Points to use Dead Air alert noise.",
+                    ActiveCardNotificationAvailabilityStatus.ChannelDisabled =>
+                        "enable the Active card notification channel to use Dead Air alert noise.",
+                    ActiveCardNotificationAvailabilityStatus.UnsupportedPlatform =>
+                        "Dead Air alert noise is available on Android only.",
+                    _ => "notification access could not be verified."
+                };
+
+                return prefix + detail;
+            }
+        }
+
+        private bool _isInitialized;
+        public bool IsInitialized
+        {
+            get => _isInitialized;
+            private set
+            {
+                if (SetProperty(ref _isInitialized, value))
+                    NotifySaveStateChanged();
+            }
+        }
+
+        private bool _isSaving;
+        public bool IsSaving
+        {
+            get => _isSaving;
+            private set
+            {
+                if (SetProperty(ref _isSaving, value))
+                    NotifySaveStateChanged();
+            }
+        }
+
+        public bool CanSave => IsInitialized && !IsSaving && !HasInvalidScreenOrder;
+
         public bool HasInvalidScreenOrder =>
             !IsValidInt(DashboardScreenOrderText) ||
             !IsValidInt(MainQuestScreenOrderText) ||
@@ -187,6 +311,8 @@ namespace Points.ViewModels.Settings
         private async Task InitializeAsync()
         {
             await LoadAsync();
+            await RefreshNotificationAvailabilityAsync();
+            IsInitialized = true;
         }
 
         private async Task LoadAsync()
@@ -218,66 +344,173 @@ namespace Points.ViewModels.Settings
             SchedulesActive = GetBool(settings, SettingKeys.SchedulesActive, true);
             ValueRatesActive = GetBool(settings, SettingKeys.ValueRatesActive, true);
             CashInActive = GetBool(settings, SettingKeys.CashInActive, true);
+            DeadAirNotificationEnabled = GetBool(settings, SettingKeys.DeadAirNotificationEnabled, false);
+            SetDeadAirAlertNoiseEnabled(
+                GetBool(settings, SettingKeys.DeadAirAlertNoiseEnabled, false),
+                allowUnavailableEnable: true);
         }
 
         private async Task SaveAsync()
         {
-            if (HasInvalidScreenOrder) return;
+            if (!CanSave)
+                return;
 
-            await _settings.SetBoolSettingAsync(SettingKeys.DashboardActive, DashboardActive);
-            await _settings.SetIntSettingAsync(SettingKeys.DashboardScreenOrder, ParseInt(DashboardScreenOrderText, 1));
+            IsSaving = true;
 
-            await _settings.SetBoolSettingAsync(SettingKeys.MainQuestActive, MainQuestActive);
-            await _settings.SetIntSettingAsync(SettingKeys.MainQuestScreenOrder, ParseInt(MainQuestScreenOrderText, 2));
+            try
+            {
+                var normalizedDeadAirAlertNoise =
+                    DeadAirNotificationEnabled && DeadAirAlertNoiseEnabled;
 
-            await _settings.SetBoolSettingAsync(SettingKeys.MissionActive, MissionActive);
-            await _settings.SetIntSettingAsync(SettingKeys.MissionScreenOrder, ParseInt(MissionScreenOrderText, 3));
+                await _settings.SetBoolSettingAsync(SettingKeys.DashboardActive, DashboardActive);
+                await _settings.SetIntSettingAsync(SettingKeys.DashboardScreenOrder, ParseInt(DashboardScreenOrderText, 1));
 
-            await _settings.SetBoolSettingAsync(SettingKeys.BudgetsActive, BudgetsActive);
-            await _settings.SetIntSettingAsync(SettingKeys.BudgetsScreenOrder, ParseInt(BudgetsScreenOrderText, 4));
+                await _settings.SetBoolSettingAsync(SettingKeys.MainQuestActive, MainQuestActive);
+                await _settings.SetIntSettingAsync(SettingKeys.MainQuestScreenOrder, ParseInt(MainQuestScreenOrderText, 2));
 
-            await _settings.SetBoolSettingAsync(SettingKeys.AchievementsActive, AchievementsActive);
-            await _settings.SetIntSettingAsync(SettingKeys.AchievementsScreenOrder, ParseInt(AchievementsScreenOrderText, 5));
+                await _settings.SetBoolSettingAsync(SettingKeys.MissionActive, MissionActive);
+                await _settings.SetIntSettingAsync(SettingKeys.MissionScreenOrder, ParseInt(MissionScreenOrderText, 3));
 
-            await _settings.SetBoolSettingAsync(SettingKeys.ArcsActive, ArcsActive);
-            await _settings.SetIntSettingAsync(SettingKeys.ArcsScreenOrder, ParseInt(ArcsScreenOrderText, 6));
+                await _settings.SetBoolSettingAsync(SettingKeys.BudgetsActive, BudgetsActive);
+                await _settings.SetIntSettingAsync(SettingKeys.BudgetsScreenOrder, ParseInt(BudgetsScreenOrderText, 4));
 
-            await _settings.SetBoolSettingAsync(SettingKeys.GoalsActive, GoalsActive);
-            await _settings.SetIntSettingAsync(SettingKeys.GoalsScreenOrder, ParseInt(GoalsScreenOrderText, 7));
+                await _settings.SetBoolSettingAsync(SettingKeys.AchievementsActive, AchievementsActive);
+                await _settings.SetIntSettingAsync(SettingKeys.AchievementsScreenOrder, ParseInt(AchievementsScreenOrderText, 5));
 
-            await _settings.SetBoolSettingAsync(SettingKeys.LocksActive, LocksActive);
-            await _settings.SetBoolSettingAsync(SettingKeys.SchedulesActive, SchedulesActive);
-            await _settings.SetBoolSettingAsync(SettingKeys.ValueRatesActive, ValueRatesActive);
-            await _settings.SetBoolSettingAsync(SettingKeys.CashInActive, CashInActive);
+                await _settings.SetBoolSettingAsync(SettingKeys.ArcsActive, ArcsActive);
+                await _settings.SetIntSettingAsync(SettingKeys.ArcsScreenOrder, ParseInt(ArcsScreenOrderText, 6));
 
-            SettingsProvider.UpdateDashboardActive(DashboardActive);
-            SettingsProvider.UpdateDashboardScreenOrder(ParseInt(DashboardScreenOrderText, 1));
+                await _settings.SetBoolSettingAsync(SettingKeys.GoalsActive, GoalsActive);
+                await _settings.SetIntSettingAsync(SettingKeys.GoalsScreenOrder, ParseInt(GoalsScreenOrderText, 7));
 
-            SettingsProvider.UpdateMainQuestActive(MainQuestActive);
-            SettingsProvider.UpdateMainQuestScreenOrder(ParseInt(MainQuestScreenOrderText, 2));
+                await _settings.SetBoolSettingAsync(SettingKeys.LocksActive, LocksActive);
+                await _settings.SetBoolSettingAsync(SettingKeys.SchedulesActive, SchedulesActive);
+                await _settings.SetBoolSettingAsync(SettingKeys.ValueRatesActive, ValueRatesActive);
+                await _settings.SetBoolSettingAsync(SettingKeys.CashInActive, CashInActive);
 
-            SettingsProvider.UpdateMissionActive(MissionActive);
-            SettingsProvider.UpdateMissionScreenOrder(ParseInt(MissionScreenOrderText, 3));
+                // Fail closed between scalar writes: the child is off before either
+                // disabling the parent or committing an enabled parent/child pair.
+                await _settings.SetBoolSettingAsync(SettingKeys.DeadAirAlertNoiseEnabled, false);
+                await _settings.SetBoolSettingAsync(
+                    SettingKeys.DeadAirNotificationEnabled,
+                    DeadAirNotificationEnabled);
 
-            SettingsProvider.UpdateBudgetsActive(BudgetsActive);
-            SettingsProvider.UpdateBudgetsScreenOrder(ParseInt(BudgetsScreenOrderText, 4));
+                if (normalizedDeadAirAlertNoise)
+                {
+                    await _settings.SetBoolSettingAsync(
+                        SettingKeys.DeadAirAlertNoiseEnabled,
+                        true);
+                }
 
-            SettingsProvider.UpdateAchievementsActive(AchievementsActive);
-            SettingsProvider.UpdateAchievementsScreenOrder(ParseInt(AchievementsScreenOrderText, 5));
+                SettingsProvider.UpdateDashboardActive(DashboardActive);
+                SettingsProvider.UpdateDashboardScreenOrder(ParseInt(DashboardScreenOrderText, 1));
 
-            SettingsProvider.UpdateArcsActive(ArcsActive);
-            SettingsProvider.UpdateArcsScreenOrder(ParseInt(ArcsScreenOrderText, 6));
+                SettingsProvider.UpdateMainQuestActive(MainQuestActive);
+                SettingsProvider.UpdateMainQuestScreenOrder(ParseInt(MainQuestScreenOrderText, 2));
 
-            SettingsProvider.UpdateGoalsActive(GoalsActive);
-            SettingsProvider.UpdateGoalsScreenOrder(ParseInt(GoalsScreenOrderText, 7));
+                SettingsProvider.UpdateMissionActive(MissionActive);
+                SettingsProvider.UpdateMissionScreenOrder(ParseInt(MissionScreenOrderText, 3));
 
-            SettingsProvider.UpdateLocksEnabled(LocksActive);
-            SettingsProvider.UpdateSchedulesEnabled(SchedulesActive);
-            SettingsProvider.UpdateValueRatesEnabled(ValueRatesActive);
-            SettingsProvider.UpdateCashInEnabled(CashInActive);
+                SettingsProvider.UpdateBudgetsActive(BudgetsActive);
+                SettingsProvider.UpdateBudgetsScreenOrder(ParseInt(BudgetsScreenOrderText, 4));
 
+                SettingsProvider.UpdateAchievementsActive(AchievementsActive);
+                SettingsProvider.UpdateAchievementsScreenOrder(ParseInt(AchievementsScreenOrderText, 5));
 
-            if (_onSaved != null) await _onSaved();
+                SettingsProvider.UpdateArcsActive(ArcsActive);
+                SettingsProvider.UpdateArcsScreenOrder(ParseInt(ArcsScreenOrderText, 6));
+
+                SettingsProvider.UpdateGoalsActive(GoalsActive);
+                SettingsProvider.UpdateGoalsScreenOrder(ParseInt(GoalsScreenOrderText, 7));
+
+                SettingsProvider.UpdateLocksEnabled(LocksActive);
+                SettingsProvider.UpdateSchedulesEnabled(SchedulesActive);
+                SettingsProvider.UpdateValueRatesEnabled(ValueRatesActive);
+                SettingsProvider.UpdateCashInEnabled(CashInActive);
+                SettingsProvider.UpdateDeadAirAlertNoiseEnabled(false);
+                SettingsProvider.UpdateDeadAirNotificationEnabled(DeadAirNotificationEnabled);
+
+                if (normalizedDeadAirAlertNoise)
+                    SettingsProvider.UpdateDeadAirAlertNoiseEnabled(true);
+
+                if (_reconcileNotificationAsync != null)
+                    await _reconcileNotificationAsync();
+
+                if (_onSaved != null)
+                    await _onSaved();
+            }
+            finally
+            {
+                IsSaving = false;
+            }
+        }
+
+        public async Task RefreshNotificationAvailabilityAsync(
+            CancellationToken cancellationToken = default)
+        {
+            ActiveCardNotificationAvailability availability;
+
+            try
+            {
+                availability = await _notificationAvailability.GetAvailabilityAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Could not check active-card notification availability: {ex}");
+                availability = ActiveCardNotificationAvailability.Unknown;
+            }
+
+            if (_activeCardNotificationAvailability == availability)
+                return;
+
+            _activeCardNotificationAvailability = availability;
+            NotifyDeadAirAlertStateChanged();
+        }
+
+        private async Task OpenNotificationSettingsAsync()
+        {
+            if (!CanOpenNotificationSettings)
+                return;
+
+            await _notificationAvailability.OpenNotificationSettingsAsync();
+        }
+
+        private void SetDeadAirAlertNoiseEnabled(
+            bool value,
+            bool allowUnavailableEnable)
+        {
+            if (value && !DeadAirNotificationEnabled)
+                return;
+
+            if (value &&
+                !_deadAirAlertNoiseEnabled &&
+                !allowUnavailableEnable &&
+                !IsActiveCardNotificationAvailable)
+            {
+                return;
+            }
+
+            if (!SetProperty(ref _deadAirAlertNoiseEnabled, value, nameof(DeadAirAlertNoiseEnabled)))
+                return;
+
+            NotifyDeadAirAlertStateChanged();
+        }
+
+        private void NotifyDeadAirAlertStateChanged()
+        {
+            RaisePropertyChanged(nameof(IsActiveCardNotificationAvailable));
+            RaisePropertyChanged(nameof(CanChangeDeadAirAlertNoise));
+            RaisePropertyChanged(nameof(IsDeadAirAlertAvailabilityWarningVisible));
+            RaisePropertyChanged(nameof(CanOpenNotificationSettings));
+            RaisePropertyChanged(nameof(DeadAirAlertAvailabilityMessage));
+            _openNotificationSettingsCommand.NotifyCanExecuteChanged();
+        }
+
+        private void NotifySaveStateChanged()
+        {
+            RaisePropertyChanged(nameof(CanSave));
+            _saveCommand.NotifyCanExecuteChanged();
         }
 
         private static bool GetBool(List<AcquiredSetting> settings, string key, bool defaultValue)

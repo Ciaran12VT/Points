@@ -9,6 +9,7 @@ using Points.Platforms.Android;
 using Points.Services;
 using Points.Services.Diagnostics;
 using Points.Services.MissionSharing;
+using Points.Services.Navigation;
 using Points.Services.Watch;
 
 namespace Points
@@ -42,9 +43,10 @@ namespace Points
             RequestNotificationPermissionIfNeeded();
 
             new ActiveCardForegroundService().ForceCreateChannels(this);
-            ServiceHelper.GetService<IWatchBridge>().StartAsync().Forget("Watch bridge startup");
+            ResolveService<IWatchBridge>().StartAsync().Forget("Watch bridge startup");
 
             HandleMissionShareIntent(Intent);
+            HandleHomeNotificationIntent(Intent);
             HandleActiveCardNotificationIntent(Intent);
         }
 
@@ -56,7 +58,39 @@ namespace Points
                 Intent = intent;
 
             HandleMissionShareIntent(intent);
+            HandleHomeNotificationIntent(intent);
             HandleActiveCardNotificationIntent(intent);
+        }
+
+        private static void HandleHomeNotificationIntent(Intent? intent)
+        {
+            if (!string.Equals(
+                    intent?.Action,
+                    ActiveCardForegroundService.ActionOpenHome,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                TaskSupervisor.Forget(
+                    ReturnHomeFromNotificationAsync(),
+                    "Open Home from Dead Air notification");
+            });
+        }
+
+        private static async Task ReturnHomeFromNotificationAsync()
+        {
+            try
+            {
+                await ResolveService<IAppNavigationService>().PopToRootAsync();
+            }
+            catch (InvalidOperationException ex)
+            {
+                // A cold launch is already headed to Home; Shell may not be mounted yet.
+                System.Diagnostics.Debug.WriteLine(ex);
+            }
         }
 
         private void HandleActiveCardNotificationIntent(Intent? intent)
@@ -78,9 +112,13 @@ namespace Points
             if (cardId <= 0)
                 return;
 
-            ServiceHelper
-                .GetService<IActiveCardNotificationNavigationService>()
+            ResolveService<IActiveCardNotificationNavigationService>()
                 .RequestNavigation(cardId);
+        }
+
+        private static T ResolveService<T>() where T : notnull
+        {
+            return ServiceHelper.GetService<T>();
         }
 
         private void HandleMissionShareIntent(Intent? intent)

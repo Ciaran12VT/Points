@@ -7,10 +7,10 @@ using Android.Graphics;
 using Android.Content.PM;
 using System.Text.Json;
 using Points.Models;
-using Java.Sql;
 using am = Android.Media;
 using System.Threading;
 using Points.Helpers;
+using Points.Services;
 using Points.Services.Diagnostics;
 using Points.Services.Persistence;
 using Points.Services.Time;
@@ -18,22 +18,27 @@ using Points.Services.Time;
 // Namespace: use your actual root namespace
 namespace Points.Platforms.Android
 {
-    // The ForegroundServiceType = TypeDataSync is a reasonable generic type
-    // for “app internal ongoing work” under Android 14’s rules.
-    [Service(ForegroundServiceType = ForegroundService.TypeDataSync, Exported = false)]
+    [Service(
+        Name = "com.companyname.points.ActiveCardForegroundService",
+        ForegroundServiceType = ForegroundService.TypeSpecialUse | ForegroundService.TypeMediaPlayback,
+        Exported = false)]
     public class ActiveCardForegroundService : Service
     {
         //Intent Extras
         public const string ExtraCardJson = "EXTRA_ACTIVE_CARD_JSON";
         public const string ExtraSessionId = "EXTRA_SERVICE_SESSION_ID";
+        public const string ExtraNotificationMode = "EXTRA_ACTIVE_CARD_NOTIFICATION_MODE";
+        public const string ExtraDeadAirStartedAtUtc = "EXTRA_DEAD_AIR_STARTED_AT_UTC";
+        public const string ExtraDeadAirAlertNoiseRequested = "EXTRA_DEAD_AIR_ALERT_NOISE_REQUESTED";
         public const string ActionOpenActiveCard = "com.companyname.points.OPEN_ACTIVE_CARD";
+        public const string ActionOpenHome = "com.companyname.points.OPEN_HOME";
         public const string ExtraOpenActiveCard = "EXTRA_OPEN_ACTIVE_CARD";
         public const string ExtraTargetCardId = "EXTRA_TARGET_CARD_ID";
 
         //Channel meta-data
-        const string NotificationChannelId = "points_active_card_channel";
+        public const string NotificationChannelId = "points_active_card_channel";
         const string NotificationChannelName = "Active card";
-        const int NotificationId = 1001;
+        public const int NotificationId = 1001;
 
         // ?? New: alert channel for noisy/vibrating notifications
         const string AlertChannelId = "points_active_card_alert_channel_v2";
@@ -46,8 +51,22 @@ namespace Points.Platforms.Android
         const int AchievementNotificationBaseId = 3000;
 
         //Active Card
+        private volatile ActiveCardNotificationMode _notificationMode = ActiveCardNotificationMode.None;
         private IActiveCardModel? _activeCard;
-        private DateTime _startDate;
+        private DateTime _activeDayStartLocal;
+        private DateTime? _deadAirStartedAtUtc;
+        private bool _deadAirAlertNoiseRequested;
+        private DeadAirAlertState _deadAirAlertState = DeadAirAlertState.Initial();
+        private volatile int _deadAirAlertGeneration;
+        private TimeSpan _deadAirAlertElapsedAtAnchor;
+        private long _deadAirAlertAnchorElapsedRealtimeMilliseconds;
+        private int _deadAirAlertEvaluationPosted;
+        private Handler? _mainHandler;
+        private DeadAirAlertSoundController? _deadAirAlertSoundController;
+        private DeadAirAlertStateStore? _deadAirAlertStateStore;
+        private DeadAirCountdownWakeLock? _deadAirCountdownWakeLock;
+        private Notification? _currentForegroundNotification;
+        private bool _foregroundIncludesMediaPlayback;
         private System.Threading.CancellationTokenSource? _cts;
         private Task? _timerTask;
 
@@ -70,14 +89,21 @@ namespace Points.Platforms.Android
             var prefs = GetSharedPreferences(PrefsName, FileCreationMode.Private);
             _sessionId = Guid.NewGuid().ToString("N");
             prefs.Edit()!.PutString(KeySessionId, _sessionId).Apply();
+
+            _mainHandler = new Handler(Looper.MainLooper!);
+            _deadAirAlertStateStore = new DeadAirAlertStateStore(this, PrefsName);
+            _deadAirCountdownWakeLock = new DeadAirCountdownWakeLock(this);
         }
 
         public override void OnDestroy()
         {
-            _cts?.Cancel();
-            _timerTask?.Forget("Active card foreground timer shutdown");
-            _timerTask = null;
-            _cts = null;
+            ClearNotificationState(cancelTimer: true);
+            _deadAirAlertSoundController?.Dispose();
+            _deadAirAlertSoundController = null;
+            _deadAirCountdownWakeLock?.Dispose();
+            _deadAirCountdownWakeLock = null;
+            _mainHandler?.Dispose();
+            _mainHandler = null;
             base.OnDestroy();
         }
 
@@ -85,81 +111,466 @@ namespace Points.Platforms.Android
 
         #endregion
 
-        //Forground Service entry-point for extracting intents and kicking off timer
+        // Foreground service entry point for applying an explicit notification mode.
         public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
         {
-            // Read the active card title from the Intent extras
-            var cardTitle = "No active card";
-
-            var cardModelWrapperJson = intent?.GetStringExtra(ExtraCardJson);
-            if(!string.IsNullOrEmpty(cardModelWrapperJson))
+            try
             {
-                var cardModelWrapper = JsonSerializer.Deserialize<ActiveCardModelWrapper>(cardModelWrapperJson);
-                if(cardModelWrapper != null)
+                if (!TryReadMode(intent, out var mode))
+                    return StopForInvalidRequest(startId, "Missing or invalid notification mode.");
+
+                var clock = ServiceHelper.GetService<IClock>();
+                var applied = mode switch
                 {
-                    var concreteType = Type.GetType(cardModelWrapper.Type);
-                    var instance = cardModelWrapper.Data.Deserialize(concreteType);
+                    ActiveCardNotificationMode.ActiveCard => TryApplyActiveCard(intent!, clock),
+                    ActiveCardNotificationMode.DeadAir => TryApplyDeadAir(
+                        intent!,
+                        (flags & StartCommandFlags.Redelivery) != 0,
+                        clock),
+                    _ => false
+                };
 
-                    if(instance != null)
-                    {
-                        if(instance is IActiveCardModel acm)
-                        {
-                            if(_activeCard is null || (_activeCard is not null && _activeCard.Id != acm.Id))
-                            {
-                                _timerToTriggerExecuted = false;
-                                _earnedThisSession.Clear();
-                                //Interlocked.Exchange(ref _achievementRefreshInProgress, 0);
-                            }
+                if (!applied)
+                    return StopForInvalidRequest(startId, $"Invalid payload for notification mode '{mode}'.");
 
-                            cardTitle = acm.Title;
-                            _activeCard = acm;
-                            var clock = ServiceHelper.GetService<IClock>();
-                            _startDate = clock.LocalNow.Date;
+                CreateNotificationChannel();
+                _currentForegroundNotification = BuildCurrentNotification(clock);
+                StartOrUpdateForeground(_foregroundIncludesMediaPlayback);
 
-                            if (_cts == null)
-                            {
-                                _cts = new CancellationTokenSource();
-                                _timerTask = RunTimerAsync(_cts.Token);
-                                _timerTask.Forget("Active card foreground timer");
-                            }
+                if (_notificationMode == ActiveCardNotificationMode.DeadAir)
+                    EvaluateDeadAirAlertOnMainThread(_deadAirAlertGeneration);
 
-                            var intentSessionId = intent?.GetStringExtra(ExtraSessionId);
+                EnsureTimerRunning();
+                return StartCommandResult.RedeliverIntent;
+            }
+            catch (Exception ex)
+            {
+                return StopForInvalidRequest(startId, "Could not apply notification request.", ex);
+            }
+        }
 
-                            var isRestoredAfterRestart = string.IsNullOrEmpty(intentSessionId) || intentSessionId != _sessionId;
+        private static bool TryReadMode(Intent? intent, out ActiveCardNotificationMode mode)
+        {
+            mode = ActiveCardNotificationMode.None;
+            if (intent == null || !intent.HasExtra(ExtraNotificationMode))
+                return false;
 
-                            if (isRestoredAfterRestart)
-                            {
-                                // ? do your one-time DB recrunch for the evaluations in this active card
-                                _achievementsSeededForCurrentCard = false;
-                                TriggerAchievementRefreshOnce(acm);
-                            }
-                            else
-                            {
-                                _achievementsSeededForCurrentCard = true;
-                            }
-                        }
-                    }
-                }
+            var rawMode = intent.GetIntExtra(ExtraNotificationMode, -1);
+            if (!Enum.IsDefined(typeof(ActiveCardNotificationMode), rawMode))
+                return false;
+
+            mode = (ActiveCardNotificationMode)rawMode;
+            return mode is ActiveCardNotificationMode.ActiveCard or ActiveCardNotificationMode.DeadAir;
+        }
+
+        private bool TryApplyActiveCard(Intent intent, IClock clock)
+        {
+            if (intent.HasExtra(ExtraDeadAirStartedAtUtc)
+                || intent.HasExtra(ExtraDeadAirAlertNoiseRequested))
+                return false;
+
+            var wrapperJson = intent.GetStringExtra(ExtraCardJson);
+            if (string.IsNullOrWhiteSpace(wrapperJson))
+                return false;
+
+            var wrapper = JsonSerializer.Deserialize<ActiveCardModelWrapper>(wrapperJson);
+            if (wrapper == null || string.IsNullOrWhiteSpace(wrapper.Type))
+                return false;
+
+            var concreteType = Type.GetType(wrapper.Type, throwOnError: false);
+            if (concreteType == null || !typeof(IActiveCardModel).IsAssignableFrom(concreteType))
+                return false;
+
+            if (wrapper.Data.Deserialize(concreteType) is not IActiveCardModel activeCard)
+                return false;
+
+            StopDeadAirAlertRuntime();
+            _notificationMode = ActiveCardNotificationMode.None;
+            _deadAirStartedAtUtc = null;
+            _deadAirAlertNoiseRequested = false;
+
+            if (_activeCard == null || _activeCard.Id != activeCard.Id)
+            {
+                _timerToTriggerExecuted = false;
+                _earnedThisSession.Clear();
             }
 
-            // Ensure notification channel exists (Android 8+)
-            CreateNotificationChannel();
+            _activeCard = activeCard;
+            _activeDayStartLocal = clock.LocalNow.Date;
 
-            // Build the ongoing notification
-            var notification = BuildNotification(cardTitle);
+            var intentSessionId = intent.GetStringExtra(ExtraSessionId);
+            var isRestoredAfterRestart = string.IsNullOrEmpty(intentSessionId)
+                || intentSessionId != _sessionId;
 
-            // On Android 10+ there is an overload that also takes the foreground service type.
-            if (Build.VERSION.SdkInt >= BuildVersionCodes.Q)
+            if (isRestoredAfterRestart)
             {
-                StartForeground(NotificationId, notification, ForegroundService.TypeDataSync);
+                _achievementsSeededForCurrentCard = false;
+                TriggerAchievementRefreshOnce(activeCard);
             }
             else
             {
-                StartForeground(NotificationId, notification);
+                _achievementsSeededForCurrentCard = true;
             }
 
-            return StartCommandResult.RedeliverIntent;
+            _notificationMode = ActiveCardNotificationMode.ActiveCard;
+            return true;
+        }
 
+        private bool TryApplyDeadAir(Intent intent, bool isRedelivery, IClock clock)
+        {
+            if (intent.HasExtra(ExtraCardJson)
+                || intent.HasExtra(ExtraSessionId))
+                return false;
+
+            var serializedStart = intent.GetStringExtra(ExtraDeadAirStartedAtUtc);
+            if (!StrictTimeSerializer.TryParseUtcInstant(serializedStart, out var startedAtUtc))
+                return false;
+
+            if (!TryReadOptionalBooleanExtra(
+                    intent,
+                    ExtraDeadAirAlertNoiseRequested,
+                    out var alertNoiseRequested))
+            {
+                return false;
+            }
+
+            var sameConfiguration =
+                _notificationMode == ActiveCardNotificationMode.DeadAir
+                && _deadAirStartedAtUtc == startedAtUtc
+                && _deadAirAlertNoiseRequested == alertNoiseRequested;
+
+            if (!sameConfiguration)
+            {
+                StopDeadAirAlertRuntime();
+
+                _deadAirAlertElapsedAtAnchor =
+                    ActiveCardNotificationElapsedFormatter.CalculateElapsed(
+                        startedAtUtc,
+                        clock.UtcNow);
+                _deadAirAlertAnchorElapsedRealtimeMilliseconds =
+                    global::Android.OS.SystemClock.ElapsedRealtime();
+
+                if (_deadAirAlertStateStore?.TryRead(
+                        startedAtUtc,
+                        out var restoredMilestones,
+                        out var wasEligible) == true)
+                {
+                    // Only Android's START_REDELIVER_INTENT recovery may retain
+                    // eligibility across process death. A normal request can be
+                    // a deliberate stop/re-enable in the same Dead Air interval,
+                    // so it must re-arm without backfilling expired one-shots.
+                    _deadAirAlertState = isRedelivery
+                        ? DeadAirAlertState.Restore(restoredMilestones, wasEligible)
+                        : DeadAirAlertState.Initial(restoredMilestones);
+                }
+                else
+                {
+                    _deadAirAlertState = DeadAirAlertState.Initial();
+                }
+
+            }
+
+            _notificationMode = ActiveCardNotificationMode.None;
+            _activeCard = null;
+            _activeDayStartLocal = default;
+            _deadAirStartedAtUtc = startedAtUtc;
+            _deadAirAlertNoiseRequested = alertNoiseRequested;
+            _timerToTriggerExecuted = false;
+            _achievementsSeededForCurrentCard = true;
+            _earnedThisSession.Clear();
+            _notificationMode = ActiveCardNotificationMode.DeadAir;
+            return true;
+        }
+
+        private static bool TryReadOptionalBooleanExtra(
+            Intent intent,
+            string key,
+            out bool value)
+        {
+            value = false;
+            if (!intent.HasExtra(key))
+                return true;
+
+#pragma warning disable CA1422
+            if (intent.Extras?.Get(key) is not Java.Lang.Boolean boxed)
+#pragma warning restore CA1422
+                return false;
+
+            value = boxed.BooleanValue();
+            return true;
+        }
+
+        private void EnsureTimerRunning()
+        {
+            if (_cts is { IsCancellationRequested: false })
+                return;
+
+            _cts = new CancellationTokenSource();
+            _timerTask = RunTimerAsync(_cts.Token);
+            _timerTask.Forget("Active card foreground timer");
+        }
+
+        private StartCommandResult StopForInvalidRequest(
+            int startId,
+            string message,
+            Exception? exception = null)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                exception == null
+                    ? $"Active card foreground service stopped: {message}"
+                    : $"Active card foreground service stopped: {message} {exception}");
+
+            ClearNotificationState(cancelTimer: true);
+
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.N)
+                StopForeground(StopForegroundFlags.Remove);
+            else
+#pragma warning disable CA1422
+                StopForeground(true);
+#pragma warning restore CA1422
+
+            StopSelf(startId);
+            return StartCommandResult.NotSticky;
+        }
+
+        private void ClearNotificationState(bool cancelTimer)
+        {
+            StopDeadAirAlertRuntime();
+            _notificationMode = ActiveCardNotificationMode.None;
+            _activeCard = null;
+            _activeDayStartLocal = default;
+            _deadAirStartedAtUtc = null;
+            _deadAirAlertNoiseRequested = false;
+            _deadAirAlertState = DeadAirAlertState.Initial();
+            _deadAirAlertElapsedAtAnchor = TimeSpan.Zero;
+            _deadAirAlertAnchorElapsedRealtimeMilliseconds = 0;
+            Interlocked.Exchange(ref _deadAirAlertEvaluationPosted, 0);
+            _currentForegroundNotification = null;
+            _timerToTriggerExecuted = false;
+            _achievementsSeededForCurrentCard = true;
+            _earnedThisSession.Clear();
+
+            if (!cancelTimer)
+                return;
+
+            var cts = _cts;
+            var timerTask = _timerTask;
+            _cts = null;
+            _timerTask = null;
+            cts?.Cancel();
+            timerTask?.Forget("Active card foreground timer shutdown");
+        }
+
+        private void QueueDeadAirAlertEvaluation(int generation)
+        {
+            var handler = _mainHandler;
+            if (handler == null
+                || Interlocked.Exchange(ref _deadAirAlertEvaluationPosted, 1) != 0)
+            {
+                return;
+            }
+
+            handler.Post(() =>
+            {
+                Interlocked.Exchange(ref _deadAirAlertEvaluationPosted, 0);
+                EvaluateDeadAirAlertOnMainThread(generation);
+            });
+        }
+
+        private void EvaluateDeadAirAlertOnMainThread(int generation)
+        {
+            if (generation != _deadAirAlertGeneration
+                || _notificationMode != ActiveCardNotificationMode.DeadAir
+                || _deadAirStartedAtUtc is not { } startedAtUtc)
+            {
+                return;
+            }
+
+            var elapsed = CalculateDeadAirAlertElapsed();
+            var notificationVisible = ActiveCardNotificationVisibility.IsVisible(
+                this,
+                NotificationChannelId,
+                NotificationId);
+            var previousState = _deadAirAlertState;
+            var decision = DeadAirAlertPolicy.Evaluate(
+                previousState,
+                elapsed,
+                _deadAirAlertNoiseRequested,
+                notificationVisible);
+
+            _deadAirAlertState = decision.State;
+            var statePersisted = true;
+            if (decision.MilestonesChanged
+                || previousState.WasEligible != decision.State.WasEligible)
+            {
+                statePersisted = _deadAirAlertStateStore?.Write(
+                                     startedAtUtc,
+                                     decision.State.Milestones,
+                                     decision.State.WasEligible) == true;
+
+                if (!statePersisted)
+                    _deadAirAlertState = previousState;
+            }
+
+            if (decision.State.WasEligible && elapsed < DeadAirAlertPolicy.LoopThreshold)
+            {
+                _deadAirCountdownWakeLock?.AcquireUntilContinuousThreshold(elapsed);
+                TryEnsureDeadAirAlertSoundController();
+            }
+            else
+            {
+                _deadAirCountdownWakeLock?.Release();
+            }
+
+            if (!statePersisted
+                && decision.AudioCommand is not DeadAirAlertAudioCommand.StopAudio)
+            {
+                return;
+            }
+
+            switch (decision.AudioCommand)
+            {
+                case DeadAirAlertAudioCommand.PlayShortCue:
+                    TryPlayDeadAirCue(DeadAirAlertCue.Short, generation);
+                    break;
+
+                case DeadAirAlertAudioCommand.PlayLongCue:
+                    TryPlayDeadAirCue(DeadAirAlertCue.Long, generation);
+                    break;
+
+                case DeadAirAlertAudioCommand.StartLoop:
+                    EnsureDeadAirAlertLoop(generation);
+                    break;
+
+                case DeadAirAlertAudioCommand.StopAudio:
+                    StopDeadAirAudioForCurrentGeneration();
+                    break;
+
+                case DeadAirAlertAudioCommand.None:
+                    if (decision.State.IsLoopRequested)
+                        EnsureDeadAirAlertLoop(generation);
+                    break;
+            }
+        }
+
+        private TimeSpan CalculateDeadAirAlertElapsed()
+        {
+            var nowElapsedRealtimeMilliseconds = global::Android.OS.SystemClock.ElapsedRealtime();
+            var elapsedSinceAnchorMilliseconds = Math.Max(
+                0L,
+                nowElapsedRealtimeMilliseconds
+                    - _deadAirAlertAnchorElapsedRealtimeMilliseconds);
+
+            try
+            {
+                return _deadAirAlertElapsedAtAnchor
+                    + TimeSpan.FromMilliseconds(elapsedSinceAnchorMilliseconds);
+            }
+            catch (OverflowException)
+            {
+                return TimeSpan.MaxValue;
+            }
+        }
+
+        private bool TryEnsureDeadAirAlertSoundController()
+        {
+            if (_deadAirAlertSoundController != null)
+                return true;
+
+            if (_mainHandler == null)
+                return false;
+
+            try
+            {
+                _deadAirAlertSoundController = new DeadAirAlertSoundController(
+                    this,
+                    _mainHandler,
+                    OnDeadAirOneShotCompleted,
+                    OnDeadAirContinuousPlaybackChanged);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Could not initialize Dead Air alert audio: {ex}");
+                return false;
+            }
+        }
+
+        private void TryPlayDeadAirCue(DeadAirAlertCue cue, int generation)
+        {
+            if (!TryEnsureDeadAirAlertSoundController())
+                return;
+
+            try
+            {
+                _deadAirAlertSoundController?.TryPlayOneShot(cue, generation);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Could not play Dead Air alert cue: {ex}");
+                StopDeadAirAudioForCurrentGeneration();
+            }
+        }
+
+        private void EnsureDeadAirAlertLoop(int generation)
+        {
+            if (!TryEnsureDeadAirAlertSoundController())
+                return;
+
+            try
+            {
+                _deadAirAlertSoundController?.EnsureLoop(generation);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Could not start Dead Air alert loop: {ex}");
+                StopDeadAirAudioForCurrentGeneration();
+            }
+        }
+
+        private void OnDeadAirOneShotCompleted(int generation)
+        {
+            if (generation != _deadAirAlertGeneration
+                || _deadAirAlertState.IsLoopRequested)
+            {
+                return;
+            }
+
+            SetForegroundAudioMode(enabled: false);
+        }
+
+        private void OnDeadAirContinuousPlaybackChanged(int generation, bool isPlaying)
+        {
+            if (generation != _deadAirAlertGeneration)
+                return;
+
+            if (isPlaying
+                && (_notificationMode != ActiveCardNotificationMode.DeadAir
+                    || !_deadAirAlertState.IsLoopRequested))
+            {
+                _deadAirAlertSoundController?.StopAll(_deadAirAlertGeneration);
+                return;
+            }
+
+            SetForegroundAudioMode(isPlaying);
+        }
+
+        private void StopDeadAirAudioForCurrentGeneration()
+        {
+            _deadAirAlertSoundController?.StopAll(_deadAirAlertGeneration);
+            SetForegroundAudioMode(enabled: false);
+        }
+
+        private void StopDeadAirAlertRuntime()
+        {
+            unchecked
+            {
+                _deadAirAlertGeneration++;
+            }
+
+            _deadAirAlertSoundController?.StopAll(_deadAirAlertGeneration);
+            _deadAirCountdownWakeLock?.Release();
+            SetForegroundAudioMode(enabled: false);
         }
 
         #region Achevement Seeding logic
@@ -208,55 +619,32 @@ namespace Points.Platforms.Android
 
         #endregion
 
-        //Timer tick logic is in here
+        // Timer tick logic for both active-card and Dead Air modes.
         private async Task RunTimerAsync(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
                 try
                 {
-                    if (_activeCard is not null)
+                    var clock = ServiceHelper.GetService<IClock>();
+
+                    if (_notificationMode == ActiveCardNotificationMode.ActiveCard
+                        && _activeCard is { } activeCard)
                     {
-                        //Update notification time
-                        var clock = ServiceHelper.GetService<IClock>();
-                        var nowLocal = clock.LocalNow;
-                        var elapsed = _activeCard.GetActiveTime(_startDate, nowLocal);
-                        string formatted = $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
-                        UpdateNotification(formatted);
-
-                        //Check if there is a timer associated with the card and check if it should be triggered
-                        if (_activeCard is TatCardModel tat && tat.TargetActiveTime.HasValue)
-                        {
-                            var targetSeconds = tat.TargetActiveTime.Value.TotalSeconds;
-                            var elapsedSeconds = elapsed.TotalSeconds;
-
-                            bool timerToTrigger =
-                                elapsedSeconds >= targetSeconds - 1 &&
-                                elapsedSeconds <= targetSeconds + 1;
-
-                            if (!_timerToTriggerExecuted && timerToTrigger)
-                            {
-                                _timerToTriggerExecuted = true;
-                                ShowTargetTimeReachedNotification(tat, elapsed);
-                            }
-                        }
-
-                        // Check achevements
-                        if(_achievementsSeededForCurrentCard && _activeCard.TimeValueAchievementEvaluators.Count > 0)
-                        {
-                            foreach (var evaluator in _activeCard.TimeValueAchievementEvaluators)
-                            {
-                                var earnedAchievements = evaluator.CheckForEarnedAchievements(1, _activeCard.ValuePerMinute / 60, nowLocal);
-
-                                if(earnedAchievements != null && earnedAchievements.Count > 0)
-                                {
-                                    PersistEarnedAchievementsAsync(earnedAchievements)
-                                        .Forget("Persist earned achievements");
-
-                                    ShowAchievementEarnedNotification(earnedAchievements);
-                                }
-                            }
-                        }                      
+                        TickActiveCard(clock, activeCard);
+                    }
+                    else if (_notificationMode == ActiveCardNotificationMode.DeadAir
+                             && _deadAirStartedAtUtc is { } deadAirStartedAtUtc)
+                    {
+                        var nowUtc = clock.UtcNow;
+                        var elapsed = ActiveCardNotificationElapsedFormatter.CalculateElapsed(
+                            deadAirStartedAtUtc,
+                            nowUtc);
+                        UpdateNotification(
+                            "Dead Air",
+                            ActiveCardNotificationElapsedFormatter.Format(elapsed),
+                            openActiveCard: false);
+                        QueueDeadAirAlertEvaluation(_deadAirAlertGeneration);
                     }
                 }
                 catch (Exception ex) when (!token.IsCancellationRequested)
@@ -270,9 +658,54 @@ namespace Points.Platforms.Android
                 }
                 catch (TaskCanceledException)
                 {
-                    // Expected when the service/app is shutting down – safe to ignore.
+                    // Expected when the service/app is shutting down - safe to ignore.
                 }
 
+            }
+        }
+
+        private void TickActiveCard(IClock clock, IActiveCardModel activeCard)
+        {
+            var nowLocal = clock.LocalNow;
+            var elapsed = activeCard.GetActiveTime(_activeDayStartLocal, nowLocal);
+            UpdateNotification(
+                activeCard.Title,
+                ActiveCardNotificationElapsedFormatter.Format(elapsed),
+                openActiveCard: true);
+
+            if (activeCard is TatCardModel tat && tat.TargetActiveTime.HasValue)
+            {
+                var targetSeconds = tat.TargetActiveTime.Value.TotalSeconds;
+                var elapsedSeconds = elapsed.TotalSeconds;
+                var targetReached = elapsedSeconds >= targetSeconds - 1
+                    && elapsedSeconds <= targetSeconds + 1;
+
+                if (!_timerToTriggerExecuted && targetReached)
+                {
+                    _timerToTriggerExecuted = true;
+                    ShowTargetTimeReachedNotification(tat, elapsed);
+                }
+            }
+
+            if (!_achievementsSeededForCurrentCard
+                || activeCard.TimeValueAchievementEvaluators.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var evaluator in activeCard.TimeValueAchievementEvaluators)
+            {
+                var earnedAchievements = evaluator.CheckForEarnedAchievements(
+                    1,
+                    activeCard.ValuePerMinute / 60,
+                    nowLocal);
+
+                if (earnedAchievements == null || earnedAchievements.Count == 0)
+                    continue;
+
+                PersistEarnedAchievementsAsync(earnedAchievements)
+                    .Forget("Persist earned achievements");
+                ShowAchievementEarnedNotification(earnedAchievements);
             }
         }
 
@@ -366,7 +799,7 @@ namespace Points.Platforms.Android
             var channel = new NotificationChannel(
                 NotificationChannelId,
                 NotificationChannelName,
-                NotificationImportance.Low // Low so it doesn’t ping constantly
+                NotificationImportance.Low // Low so it does not ping constantly
             )
             {
                 Description = "Shows the currently active card."
@@ -378,34 +811,70 @@ namespace Points.Platforms.Android
             manager.CreateNotificationChannel(channel);
         }
 
-        Notification BuildNotification(string cardTitle)
+        private Notification BuildCurrentNotification(IClock clock)
+        {
+            return _notificationMode switch
+            {
+                ActiveCardNotificationMode.ActiveCard when _activeCard is { } activeCard =>
+                    BuildNotification(
+                        activeCard.Title,
+                        ActiveCardNotificationElapsedFormatter.Format(
+                            activeCard.GetActiveTime(_activeDayStartLocal, clock.LocalNow)),
+                        openActiveCard: true),
+
+                ActiveCardNotificationMode.DeadAir when _deadAirStartedAtUtc is { } startedAtUtc =>
+                    BuildNotification(
+                        "Dead Air",
+                        ActiveCardNotificationElapsedFormatter.Format(
+                            ActiveCardNotificationElapsedFormatter.CalculateElapsed(
+                                startedAtUtc,
+                                clock.UtcNow)),
+                        openActiveCard: false),
+
+                _ => throw new InvalidOperationException(
+                    "Cannot build an ongoing notification without a valid notification state.")
+            };
+        }
+
+        private Notification BuildNotification(
+            string title,
+            string contentText,
+            bool openActiveCard)
         {
             var builder = new NotificationCompat.Builder(this, NotificationChannelId)
-                .SetContentTitle(cardTitle)
-                .SetContentText("Current Activity")
-                .SetSmallIcon(Resource.Drawable.ic_m3_chip_close) // we'll talk about this below
-                .SetOngoing(true) // makes it "persistent"
+                .SetContentTitle(title)
+                .SetContentText(contentText)
+                .SetSmallIcon(Resource.Drawable.ic_m3_chip_close)
+                .SetOngoing(true)
                 .SetAutoCancel(false)
-                .SetContentIntent(BuildActiveCardContentPendingIntent())
-                // Visible on lock screen; you can tweak if you want it hidden
+                .SetContentIntent(BuildContentPendingIntent(openActiveCard))
                 .SetVisibility((int)NotificationVisibility.Public)
-                .SetOnlyAlertOnce(true); // don't re-sound each update
+                .SetForegroundServiceBehavior(NotificationCompat.ForegroundServiceImmediate)
+                .SetOnlyAlertOnce(true);
 
             return builder.Build();
         }
 
-        private PendingIntent? BuildActiveCardContentPendingIntent()
+        private PendingIntent? BuildContentPendingIntent(bool openActiveCard)
         {
             var launchIntent = PackageManager?.GetLaunchIntentForPackage(PackageName);
             if (launchIntent == null)
                 return null;
 
-            launchIntent.SetAction(ActionOpenActiveCard);
             launchIntent.AddFlags(ActivityFlags.SingleTop | ActivityFlags.ClearTop);
-            launchIntent.PutExtra(ExtraOpenActiveCard, true);
 
-            if (_activeCard?.CardID > 0)
+            if (openActiveCard && _activeCard?.CardID > 0)
+            {
+                launchIntent.SetAction(ActionOpenActiveCard);
+                launchIntent.PutExtra(ExtraOpenActiveCard, true);
                 launchIntent.PutExtra(ExtraTargetCardId, _activeCard.CardID);
+            }
+            else
+            {
+                launchIntent.SetAction(ActionOpenHome);
+                launchIntent.RemoveExtra(ExtraOpenActiveCard);
+                launchIntent.RemoveExtra(ExtraTargetCardId);
+            }
 
             return PendingIntent.GetActivity(
                 this,
@@ -414,20 +883,60 @@ namespace Points.Platforms.Android
                 PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
         }
 
-        private void UpdateNotification(string contentText)
+        private void UpdateNotification(string title, string contentText, bool openActiveCard)
         {
             var builder = new NotificationCompat.Builder(this, NotificationChannelId)
-                .SetContentTitle(_activeCard?.Title ?? "Active card")
+                .SetContentTitle(title)
                 .SetContentText(contentText)
                 .SetSmallIcon(Resource.Drawable.ic_m3_chip_close)
                 .SetOngoing(true)
                 .SetAutoCancel(false)
-                .SetContentIntent(BuildActiveCardContentPendingIntent())
+                .SetContentIntent(BuildContentPendingIntent(openActiveCard))
                 .SetVisibility((int)NotificationVisibility.Public)
+                .SetForegroundServiceBehavior(NotificationCompat.ForegroundServiceImmediate)
                 .SetOnlyAlertOnce(true);
 
+            _currentForegroundNotification = builder.Build();
             var nm = NotificationManagerCompat.From(this);
-            nm.Notify(NotificationId, builder.Build());
+            nm.Notify(NotificationId, _currentForegroundNotification);
+        }
+
+        private void SetForegroundAudioMode(bool enabled)
+        {
+            if (_foregroundIncludesMediaPlayback == enabled)
+                return;
+
+            _foregroundIncludesMediaPlayback = enabled;
+            if (_currentForegroundNotification != null)
+                StartOrUpdateForeground(enabled);
+        }
+
+        private void StartOrUpdateForeground(bool includeMediaPlayback)
+        {
+            var notification = _currentForegroundNotification
+                ?? throw new InvalidOperationException("A foreground notification must be built before promoting the service.");
+
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.UpsideDownCake)
+            {
+                var type = ForegroundService.TypeSpecialUse;
+                if (includeMediaPlayback)
+                    type |= ForegroundService.TypeMediaPlayback;
+
+                StartForeground(NotificationId, notification, type);
+            }
+            else if (Build.VERSION.SdkInt >= BuildVersionCodes.Q)
+            {
+                var type = includeMediaPlayback
+                    ? ForegroundService.TypeMediaPlayback
+                    : ForegroundService.TypeNone;
+                StartForeground(NotificationId, notification, type);
+            }
+            else
+            {
+                StartForeground(NotificationId, notification);
+            }
+
+            _foregroundIncludesMediaPlayback = includeMediaPlayback;
         }
         #endregion
 

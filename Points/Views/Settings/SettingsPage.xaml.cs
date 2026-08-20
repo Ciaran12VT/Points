@@ -1,5 +1,6 @@
 using Points.Services.Backup;
 using Points.Services.Navigation;
+using Points.Services.Notifications;
 using Points.Services.Persistence;
 using Points.Services.Premium;
 using Points.Services.Time;
@@ -27,6 +28,8 @@ public partial class SettingsPage : ContentPage
     private readonly IPremiumSubscriptionService _premiumSubscriptions;
     private readonly IWatchShortcutSettingsService _watchShortcuts;
     private readonly IWatchSnapshotPublishService _watchSnapshots;
+    private readonly IActiveCardNotificationAvailabilityService _activeCardNotificationAvailability;
+    private readonly Func<Task>? _reconcileNotificationAsync;
     private readonly Func<Task>? _refreshHomeAsync;
 
     public Command OpenDatabaseSettingsCommand { get; }
@@ -56,6 +59,8 @@ public partial class SettingsPage : ContentPage
         IPremiumSubscriptionService premiumSubscriptions,
         IWatchShortcutSettingsService watchShortcuts,
         IWatchSnapshotPublishService watchSnapshots,
+        IActiveCardNotificationAvailabilityService activeCardNotificationAvailability,
+        Func<Task>? reconcileNotificationAsync = null,
         Func<Task>? refreshHomeAsync = null)
     {
         OpenDatabaseSettingsCommand = new Command(async () => await OpenDatabaseSettingsAsync());
@@ -85,6 +90,9 @@ public partial class SettingsPage : ContentPage
         _premiumSubscriptions = premiumSubscriptions ?? throw new ArgumentNullException(nameof(premiumSubscriptions));
         _watchShortcuts = watchShortcuts ?? throw new ArgumentNullException(nameof(watchShortcuts));
         _watchSnapshots = watchSnapshots ?? throw new ArgumentNullException(nameof(watchSnapshots));
+        _activeCardNotificationAvailability = activeCardNotificationAvailability
+            ?? throw new ArgumentNullException(nameof(activeCardNotificationAvailability));
+        _reconcileNotificationAsync = reconcileNotificationAsync;
         _refreshHomeAsync = refreshHomeAsync;
     }
 
@@ -114,7 +122,9 @@ public partial class SettingsPage : ContentPage
     {
         await _navigation.PushAsync(new ModulesAndFeaturesSettingsPage(
             _settings,
+            _activeCardNotificationAvailability,
             _navigation,
+            _reconcileNotificationAsync,
             _refreshHomeAsync));
     }
 

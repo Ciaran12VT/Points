@@ -91,7 +91,6 @@ namespace Points.ViewModels.Home
             cancellationToken.ThrowIfCancellationRequested();
 
             var committed = false;
-
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 committed = tryCommit(() =>
@@ -126,6 +125,8 @@ namespace Points.ViewModels.Home
 
             if (!committed)
                 return false;
+
+            await _activityInteraction.ReconcileNotificationAsync(cancellationToken);
 
             TaskSupervisor.Forget(
                 _scheduleCoordinator.SyncEnabledSchedulesAsync(),

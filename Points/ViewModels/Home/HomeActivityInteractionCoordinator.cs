@@ -24,6 +24,7 @@ namespace Points.ViewModels.Home
         private readonly IClock _clock;
         private readonly IReadOnlyList<HomePageModel> _pages;
         private readonly Func<List<IActiveCardModel>> _getActiveCardModels;
+        private readonly Func<IActiveCardModel?> _getActiveCard;
         private readonly Action<IActiveCardModel?> _setActiveCard;
         private readonly Action _notifyActiveCardChanged;
         private readonly IHardModePenaltyService _hardModePenalties;
@@ -40,6 +41,7 @@ namespace Points.ViewModels.Home
             IClock clock,
             IReadOnlyList<HomePageModel> pages,
             Func<List<IActiveCardModel>> getActiveCardModels,
+            Func<IActiveCardModel?> getActiveCard,
             Action<IActiveCardModel?> setActiveCard,
             Action notifyActiveCardChanged,
             IHardModePenaltyService hardModePenalties)
@@ -55,6 +57,7 @@ namespace Points.ViewModels.Home
             _clock = clock;
             _pages = pages;
             _getActiveCardModels = getActiveCardModels;
+            _getActiveCard = getActiveCard;
             _setActiveCard = setActiveCard;
             _notifyActiveCardChanged = notifyActiveCardChanged;
             _hardModePenalties = hardModePenalties ?? throw new ArgumentNullException(nameof(hardModePenalties));
@@ -128,7 +131,7 @@ namespace Points.ViewModels.Home
                     _notifyActiveCardChanged();
                 });
 
-                _activeCardNotificationService.UpdateActiveCardNotification(activeCard);
+                await ReconcileNotificationAsync();
             }
             catch (Exception ex)
             {
@@ -185,7 +188,6 @@ namespace Points.ViewModels.Home
 
             _setActiveCard(activeCard);
             _notifyActiveCardChanged();
-            _activeCardNotificationService.UpdateActiveCardNotification(activeCard);
         }
 
         public void ApplyExternalToggleResult(ToggleActivityModelResult result)
@@ -232,7 +234,14 @@ namespace Points.ViewModels.Home
 
             _setActiveCard(activeCard);
             _notifyActiveCardChanged();
-            _activeCardNotificationService.UpdateActiveCardNotification(activeCard);
+        }
+
+        public Task ReconcileNotificationAsync(
+            CancellationToken cancellationToken = default)
+        {
+            return _activeCardNotificationService.ReconcileAsync(
+                _getActiveCard(),
+                cancellationToken);
         }
 
         public async Task AddScFirstStepAsync(ScCardModel? model)

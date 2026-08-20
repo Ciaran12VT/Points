@@ -57,28 +57,32 @@ namespace Points
 
 #if ANDROID
             builder.Services.AddSingleton<IAudioFeedback, AndroidAudioFeedback>();
-            builder.Services.AddSingleton<IActiveCardNotificationService, Points.Platforms.Android.ActiveCardNotificationService>();
+            builder.Services.AddSingleton<IActiveCardNotificationPresenter, Points.Platforms.Android.ActiveCardNotificationService>();
+            builder.Services.AddSingleton<IActiveCardNotificationAvailabilityService, Points.Platforms.Android.AndroidActiveCardNotificationAvailabilityService>();
             builder.Services.AddSingleton<IDeviceAlarmScheduler, Points.Platforms.Android.AndroidDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, Points.Platforms.Android.AndroidScheduleNotificationPresenter>();
             builder.Services.AddSingleton<IScheduledBackupWorkScheduler, Points.Platforms.Android.AndroidScheduledBackupWorkScheduler>();
             builder.Services.AddSingleton<IWatchBridge, Points.Platforms.Android.AndroidWearBridge>();
 #elif IOS
             builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
-            builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
+            builder.Services.AddSingleton<IActiveCardNotificationPresenter, NullActiveCardNotificationPresenter>();
+            builder.Services.AddSingleton<IActiveCardNotificationAvailabilityService, NullActiveCardNotificationAvailabilityService>();
             builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
             builder.Services.AddSingleton<IScheduledBackupWorkScheduler, Points.Platforms.iOS.IosScheduledBackupWorkScheduler>();
             builder.Services.AddSingleton<IWatchBridge, NoopWatchBridge>();
 #elif WINDOWS
             builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
-            builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
+            builder.Services.AddSingleton<IActiveCardNotificationPresenter, NullActiveCardNotificationPresenter>();
+            builder.Services.AddSingleton<IActiveCardNotificationAvailabilityService, NullActiveCardNotificationAvailabilityService>();
             builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
             builder.Services.AddSingleton<IScheduledBackupWorkScheduler, Points.Platforms.Windows.WindowsScheduledBackupWorkScheduler>();
             builder.Services.AddSingleton<IWatchBridge, NoopWatchBridge>();
 #else
             builder.Services.AddSingleton<IAudioFeedback, NoopAudioFeedback>();
-            builder.Services.AddSingleton<IActiveCardNotificationService, NullActiveCardNotificationService>();
+            builder.Services.AddSingleton<IActiveCardNotificationPresenter, NullActiveCardNotificationPresenter>();
+            builder.Services.AddSingleton<IActiveCardNotificationAvailabilityService, NullActiveCardNotificationAvailabilityService>();
             builder.Services.AddSingleton<IDeviceAlarmScheduler, NullDeviceAlarmScheduler>();
             builder.Services.AddSingleton<IScheduleNotificationPresenter, NullScheduleNotificationPresenter>();
             builder.Services.AddSingleton<IScheduledBackupWorkScheduler, NullScheduledBackupWorkScheduler>();
@@ -86,6 +90,7 @@ namespace Points
 #endif
             builder.Services.AddSingleton<IClock, SystemClock>();
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
+            builder.Services.AddSingleton<IActiveCardNotificationService, ActiveCardNotificationService>();
             builder.Services.AddSingleton<IAppNavigationService, MauiAppNavigationService>();
             builder.Services.AddSingleton<IAppDialogService, MauiDialogService>();
             builder.Services.AddSingleton<IAppPageService, MauiPageService>();

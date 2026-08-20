@@ -58,6 +58,9 @@
 
 	<ItemGroup>
 	  <None Remove="Platforms\Android\Resources\raw\clack.ogg" />
+	  <None Remove="Platforms\Android\Resources\raw\dead_air_alert_cycle.wav" />
+	  <None Remove="Platforms\Android\Resources\raw\dead_air_alert_long.wav" />
+	  <None Remove="Platforms\Android\Resources\raw\dead_air_alert_short.wav" />
 	  <None Remove="Platforms\Android\Resources\raw\thock.ogg" />
 	  <None Remove="Platforms\Android\Resources\raw\tick.ogg" />
 	  <None Remove="Resources\Splash\splash1.png" />
@@ -84,6 +87,15 @@
 
 	<ItemGroup>
 	  <AndroidResource Update="Platforms\Android\Resources\raw\clack.ogg">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </AndroidResource>
+	  <AndroidResource Update="Platforms\Android\Resources\raw\dead_air_alert_cycle.wav">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </AndroidResource>
+	  <AndroidResource Update="Platforms\Android\Resources\raw\dead_air_alert_long.wav">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </AndroidResource>
+	  <AndroidResource Update="Platforms\Android\Resources\raw\dead_air_alert_short.wav">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </AndroidResource>
 	  <AndroidResource Update="Platforms\Android\Resources\raw\thock.ogg">

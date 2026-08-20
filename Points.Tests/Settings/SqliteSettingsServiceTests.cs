@@ -26,6 +26,8 @@ namespace Points.Tests.Settings
             var username = Assert.Single(settings, x => x.SettingKey == SettingKeys.Username);
             var eventOffset = Assert.Single(settings, x => x.SettingKey == SettingKeys.MissionDefaultEventDateOffsetDays);
             var reportTimeout = Assert.Single(settings, x => x.SettingKey == SettingKeys.ReportQueryTimeoutMilliseconds);
+            var deadAirNotification = Assert.Single(settings, x => x.SettingKey == SettingKeys.DeadAirNotificationEnabled);
+            var deadAirAlertNoise = Assert.Single(settings, x => x.SettingKey == SettingKeys.DeadAirAlertNoiseEnabled);
 
             Assert.True(hardMode.BoolValue);
             Assert.Equal("Multipliers", hardMode.Category);
@@ -35,7 +37,68 @@ namespace Points.Tests.Settings
             Assert.Null(eventOffset.IntValue);
             Assert.Equal("Database", reportTimeout.Category);
             Assert.Equal(5000, reportTimeout.IntValue);
+            Assert.False(deadAirNotification.BoolValue);
+            Assert.Equal(SettingValueTypes.Bool, deadAirNotification.ValueType);
+            Assert.Equal("ModulesAndFeatures", deadAirNotification.Category);
+            Assert.Equal("Dead Air Notification", deadAirNotification.DisplayName);
+            Assert.False(deadAirAlertNoise.BoolValue);
+            Assert.Equal(SettingValueTypes.Bool, deadAirAlertNoise.ValueType);
+            Assert.Equal("ModulesAndFeatures", deadAirAlertNoise.Category);
+            Assert.Equal("Dead Air Alert Noise", deadAirAlertNoise.DisplayName);
             Assert.DoesNotContain(settings, x => x.SettingKey == "RemovedSetting");
+        }
+
+        [Fact]
+        public async Task SaveBuiltInSettingDefinitionsAsync_PreservesEnabledDeadAirPreferences()
+        {
+            await using var context = new TestSqliteConnectionContext();
+            var service = new SqliteSettingsService(context);
+            await context.InsertSettingAsync(
+                SettingKeys.DeadAirNotificationEnabled,
+                "true",
+                SettingValueTypes.Bool,
+                category: "Old",
+                displayName: "Old");
+            await context.InsertSettingAsync(
+                SettingKeys.DeadAirAlertNoiseEnabled,
+                "true",
+                SettingValueTypes.Bool,
+                category: "Old",
+                displayName: "Old");
+
+            await service.SaveBuiltInSettingDefinitionsAsync();
+
+            var setting = Assert.Single(
+                await service.GetSettingsAsync(),
+                x => x.SettingKey == SettingKeys.DeadAirNotificationEnabled);
+            var alertNoise = Assert.Single(
+                await service.GetSettingsAsync(),
+                x => x.SettingKey == SettingKeys.DeadAirAlertNoiseEnabled);
+
+            Assert.True(setting.BoolValue);
+            Assert.Equal(SettingValueTypes.Bool, setting.ValueType);
+            Assert.Equal("ModulesAndFeatures", setting.Category);
+            Assert.Equal("Dead Air Notification", setting.DisplayName);
+            Assert.True(alertNoise.BoolValue);
+            Assert.Equal(SettingValueTypes.Bool, alertNoise.ValueType);
+            Assert.Equal("ModulesAndFeatures", alertNoise.Category);
+            Assert.Equal("Dead Air Alert Noise", alertNoise.DisplayName);
+        }
+
+        [Fact]
+        public void BuiltInDeadAirDefinitions_AreBooleanAndDefaultOff()
+        {
+            var definition = Assert.Single(
+                SettingKeys.GetBuiltInSettingDefinitions(),
+                x => x.SettingKey == SettingKeys.DeadAirNotificationEnabled);
+            var alertNoiseDefinition = Assert.Single(
+                SettingKeys.GetBuiltInSettingDefinitions(),
+                x => x.SettingKey == SettingKeys.DeadAirAlertNoiseEnabled);
+
+            Assert.Equal(SettingValueTypes.Bool, definition.ValueType);
+            Assert.Equal("false", definition.DefaultValue);
+            Assert.Equal(SettingValueTypes.Bool, alertNoiseDefinition.ValueType);
+            Assert.Equal("false", alertNoiseDefinition.DefaultValue);
         }
 
         [Fact]

@@ -36,6 +36,8 @@ namespace Points.Global
         public const string SchedulesActive = "SchedulesActive";
         public const string ValueRatesActive = "ValueRatesActive";
         public const string CashInActive = "CashInActive";
+        public const string DeadAirNotificationEnabled = "DeadAirNotificationEnabled";
+        public const string DeadAirAlertNoiseEnabled = "DeadAirAlertNoiseEnabled";
         public const string WatchShortcutCardIds = "WatchShortcutCardIds";
 
         //Defaults
@@ -313,6 +315,28 @@ namespace Points.Global
                     Description = "Whether Cash In features are enabled.",
                     IsUserEditable = true,
                     SortOrder = 180
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.DeadAirNotificationEnabled,
+                    DefaultValue = "false",
+                    ValueType = SettingValueTypes.Bool,
+                    Category = "ModulesAndFeatures",
+                    DisplayName = "Dead Air Notification",
+                    Description = "Whether Android keeps the ongoing notification visible during Dead Air.",
+                    IsUserEditable = true,
+                    SortOrder = 190
+                },
+                new SettingDefinition
+                {
+                    SettingKey = SettingKeys.DeadAirAlertNoiseEnabled,
+                    DefaultValue = "false",
+                    ValueType = SettingValueTypes.Bool,
+                    Category = "ModulesAndFeatures",
+                    DisplayName = "Dead Air Alert Noise",
+                    Description = "Whether Android plays escalating alert audio while the Dead Air notification is active.",
+                    IsUserEditable = true,
+                    SortOrder = 200
                 },
                 new SettingDefinition
                 {
@@ -610,6 +634,8 @@ namespace Points.Global
         public static bool IsSchedulesEnabled => GetBool(SettingKeys.SchedulesActive, true);
         public static bool IsValueRatesEnabled => GetBool(SettingKeys.ValueRatesActive, true);
         public static bool IsCashInEnabled => GetBool(SettingKeys.CashInActive, true);
+        public static bool DeadAirNotificationEnabled => GetBool(SettingKeys.DeadAirNotificationEnabled, false);
+        public static bool DeadAirAlertNoiseEnabled => GetBool(SettingKeys.DeadAirAlertNoiseEnabled, false);
 
         // -----------------------
         // Defaults
@@ -862,6 +888,8 @@ namespace Points.Global
         public static void UpdateSchedulesEnabled(bool value) => UpdateBool(SettingKeys.SchedulesActive, value);
         public static void UpdateValueRatesEnabled(bool value) => UpdateBool(SettingKeys.ValueRatesActive, value);
         public static void UpdateCashInEnabled(bool value) => UpdateBool(SettingKeys.CashInActive, value);
+        public static void UpdateDeadAirNotificationEnabled(bool value) => UpdateBool(SettingKeys.DeadAirNotificationEnabled, value);
+        public static void UpdateDeadAirAlertNoiseEnabled(bool value) => UpdateBool(SettingKeys.DeadAirAlertNoiseEnabled, value);
 
         public static void UpdateHardModeEnabled(bool value) => UpdateBool(SettingKeys.HardModeEnabled, value);
         public static void UpdateHardModeDamagePerMinuteValue(double value) => UpdateDouble(SettingKeys.HardModeDamagePerMinuteValue, value);

@@ -82,6 +82,15 @@
     <Compile Include="..\Points\Services\Missions\SqliteMissionCardService.cs" Link="App\Missions\SqliteMissionCardService.cs" />
     <Compile Include="..\Points\Services\Multipliers\SqliteUserMultiplierService.cs" Link="App\Multipliers\SqliteUserMultiplierService.cs" />
     <Compile Include="..\Points\Services\Notifications\SqliteNotificationLogService.cs" Link="App\Notifications\SqliteNotificationLogService.cs" />
+    <Compile Include="..\Points\Services\Notifications\ActiveCardNotificationAvailability.cs" Link="App\Notifications\ActiveCardNotificationAvailability.cs" />
+    <Compile Include="..\Points\Services\Notifications\NullActiveCardNotificationAvailabilityService.cs" Link="App\Notifications\NullActiveCardNotificationAvailabilityService.cs" />
+    <Compile Include="..\Points\Services\ActiveCardNotificationElapsedFormatter.cs" Link="App\Notifications\ActiveCardNotificationElapsedFormatter.cs" />
+    <Compile Include="..\Points\Services\ActiveCardNotificationRequest.cs" Link="App\Notifications\ActiveCardNotificationRequest.cs" />
+    <Compile Include="..\Points\Services\ActiveCardNotificationService.cs" Link="App\Notifications\ActiveCardNotificationService.cs" />
+    <Compile Include="..\Points\Services\DeadAirAlertPolicy.cs" Link="App\Notifications\DeadAirAlertPolicy.cs" />
+    <Compile Include="..\Points\Services\IActiveCardNotificationPresenter.cs" Link="App\Notifications\IActiveCardNotificationPresenter.cs" />
+    <Compile Include="..\Points\Services\IActiveCardNotificationService.cs" Link="App\Notifications\IActiveCardNotificationService.cs" />
+    <Compile Include="..\Points\Services\NullActiveCardNotificationPresenter.cs" Link="App\Notifications\NullActiveCardNotificationPresenter.cs" />
     <Compile Include="..\Points\Services\Planner\IPlannerCardSource.cs" Link="App\Planner\IPlannerCardSource.cs" />
     <Compile Include="..\Points\Services\Planner\SqlitePlannerService.cs" Link="App\Planner\SqlitePlannerService.cs" />
     <Compile Include="..\Points\Services\Reports\ReportSqlGuard.cs" Link="App\Reports\ReportSqlGuard.cs" />
@@ -113,6 +122,7 @@
     <Compile Include="..\Points\ViewModels\Home\HomePageModel.cs" Link="App\ViewModels\Home\HomePageModel.cs" />
     <Compile Include="..\Points\ViewModels\Home\HomePageStateCoordinator.cs" Link="App\ViewModels\Home\HomePageStateCoordinator.cs" />
     <Compile Include="..\Points\ViewModels\Home\HomeRefreshCoordinator.cs" Link="App\ViewModels\Home\HomeRefreshCoordinator.cs" />
+    <Compile Include="..\Points\ViewModels\Settings\ModulesAndFeaturesSettingsViewModel.cs" Link="App\ViewModels\Settings\ModulesAndFeaturesSettingsViewModel.cs" />
   </ItemGroup>
 
 </Project>

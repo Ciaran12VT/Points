@@ -129,7 +129,7 @@ public sealed class WatchCommandProcessor : IWatchCommandProcessor
         {
             if (current == null)
             {
-                PublishActiveCardChanged(null);
+                await PublishActiveCardChangedAsync(null);
                 return WatchCommandResult.Success("No active card to stop.");
             }
 
@@ -137,7 +137,7 @@ public sealed class WatchCommandProcessor : IWatchCommandProcessor
                 return WatchCommandResult.Rejected("Cannot stop a card that is not currently active.");
 
             var stopResult = await _activity.ToggleActivityAsync(phoneCardId, nowUtc, "Base Rate", 0);
-            PublishActiveCardChanged(null, stopResult);
+            await PublishActiveCardChangedAsync(null, stopResult);
             return WatchCommandResult.Success("Active card stopped.");
         }
 
@@ -163,7 +163,7 @@ public sealed class WatchCommandProcessor : IWatchCommandProcessor
         if (startResult.Opened != null)
         {
             ApplyOpenedActivity(card, startResult.Opened);
-            PublishActiveCardChanged(card, startResult);
+            await PublishActiveCardChangedAsync(card, startResult);
         }
 
         return WatchCommandResult.Success("Card activated.");
@@ -325,11 +325,11 @@ public sealed class WatchCommandProcessor : IWatchCommandProcessor
             || double.TryParse(raw, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
     }
 
-    private void PublishActiveCardChanged(
+    private async Task PublishActiveCardChangedAsync(
         IActiveCardModel? activeCard,
         ToggleActivityModelResult? toggleResult = null)
     {
-        _activeCardNotifications.UpdateActiveCardNotification(activeCard);
+        await _activeCardNotifications.ReconcileAsync(activeCard);
         _activeCardChanges.NotifyActiveCardChanged(activeCard?.CardID, toggleResult);
     }
 

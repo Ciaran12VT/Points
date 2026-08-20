@@ -170,6 +170,44 @@
                                     IsToggled="{Binding CashInActive}" />
                         </Grid>
 
+                        <VerticalStackLayout Spacing="8"
+                                             IsVisible="{OnPlatform Android=True, Default=False}">
+                            <Grid ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="10">
+                                <Label Text="Dead Air Notification"
+                                       VerticalOptions="Center" />
+                                <Switch Grid.Column="1"
+                                        IsToggled="{Binding DeadAirNotificationEnabled}" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="10">
+                                <Label Text="Dead Air Alert Noise"
+                                       Margin="16,0,0,0"
+                                       VerticalOptions="Center" />
+                                <Switch Grid.Column="1"
+                                        IsToggled="{Binding DeadAirAlertNoiseEnabled}"
+                                        IsEnabled="{Binding CanChangeDeadAirAlertNoise}" />
+                            </Grid>
+
+                            <Label Text="Beeps at 00:30 and 00:45, then repeats from 01:00 until Dead Air ends."
+                                   Margin="16,0,0,0"
+                                   FontSize="12"
+                                   Opacity="0.65" />
+
+                            <Label Text="{Binding DeadAirAlertAvailabilityMessage}"
+                                   Margin="16,0,0,0"
+                                   FontSize="12"
+                                   Opacity="0.75"
+                                   IsVisible="{Binding IsDeadAirAlertAvailabilityWarningVisible}" />
+
+                            <Button Text="Open notification settings"
+                                    Margin="16,0,0,0"
+                                    HorizontalOptions="Start"
+                                    Command="{Binding OpenNotificationSettingsCommand}"
+                                    IsVisible="{Binding CanOpenNotificationSettings}" />
+                        </VerticalStackLayout>
+
                     </VerticalStackLayout>
                 </Frame>
 
@@ -188,6 +226,7 @@
                 FontAttributes="Bold"
                 FontSize="21"
                 Command="{Binding SaveCommand}"
+                IsEnabled="{Binding CanSave}"
                 HeightRequest="48" />
 
     </Grid>

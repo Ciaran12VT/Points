@@ -1,19 +1,14 @@
 ﻿using Points.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace Points.Services
 {
     public interface IActiveCardNotificationService
     {
         /// <summary>
-        /// Update the foreground notification with the active card title.
-        /// Pass null to clear/stop the notification.
+        /// Reconciles the ongoing activity notification with the current active card
+        /// and the persisted Dead Air notification preference.
         /// </summary>
-        void UpdateActiveCardNotification(IActiveCardModel? cardModel);
-
+        Task ReconcileAsync(
+            IActiveCardModel? activeCard,
+            CancellationToken cancellationToken = default);
     }
 }

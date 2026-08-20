@@ -13,6 +13,7 @@ using Points.Services;
 using Points.Services.Backup;
 using Points.Services.Navigation;
 using Points.Services.MissionSharing;
+using Points.Services.Notifications;
 using System.Windows.Input;
 using Points.Services.Scheduling;
 using Points.Services.Persistence;
@@ -531,6 +532,7 @@ namespace Points.ViewModels.Home
             IUdmdService udmd,
             IPlannerService planner,
             IActiveCardNotificationService activeCardNotificationService,
+            IActiveCardNotificationAvailabilityService activeCardNotificationAvailability,
             INotificationScheduleCoordinator scheduleCoordinator,
             IMissionShareService missionShares,
             ITimeZoneService timeZoneService,
@@ -609,6 +611,7 @@ namespace Points.ViewModels.Home
                 clock,
                 Pages,
                 _pageState.GetActiveCardModels,
+                () => _activeCard,
                 SetActiveCard,
                 NotifyActiveCardChanged,
                 hardModePenalties);
@@ -687,11 +690,13 @@ namespace Points.ViewModels.Home
                 premiumSubscriptions,
                 _watchSnapshots,
                 watchShortcuts,
+                activeCardNotificationAvailability,
                 Pages,
                 _pageState,
                 _cardWorkflow,
                 _dashboardShortcuts,
                 () => Initialization,
+                () => _activityInteraction.ReconcileNotificationAsync(),
                 RefreshForDateRangeAsync,
                 () => RangeStart,
                 () => RangeEnd,
@@ -881,6 +886,11 @@ namespace Points.ViewModels.Home
             });
 
             if (!applied || !context.IsCurrent)
+                return;
+
+            await _activityInteraction.ReconcileNotificationAsync(cancellationToken);
+
+            if (!context.IsCurrent)
                 return;
 
             await MainThread.InvokeOnMainThreadAsync(

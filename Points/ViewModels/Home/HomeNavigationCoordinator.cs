@@ -2,6 +2,7 @@ using Points.Global;
 using Points.Models;
 using Points.Services.Backup;
 using Points.Services.Navigation;
+using Points.Services.Notifications;
 using Points.Services.Persistence;
 using Points.Services.Premium;
 using Points.Services.Time;
@@ -38,11 +39,13 @@ namespace Points.ViewModels.Home
         private readonly IPremiumSubscriptionService _premiumSubscriptions;
         private readonly IWatchSnapshotPublishService _watchSnapshots;
         private readonly IWatchShortcutSettingsService _watchShortcuts;
+        private readonly IActiveCardNotificationAvailabilityService _activeCardNotificationAvailability;
         private readonly IReadOnlyList<HomePageModel> _pages;
         private readonly HomePageStateCoordinator _pageState;
         private readonly HomeCardWorkflowCoordinator _cardWorkflow;
         private readonly HomeDashboardShortcutWorkflowCoordinator _dashboardShortcuts;
         private readonly Func<Task?> _getInitialization;
+        private readonly Func<Task> _reconcileNotificationAsync;
         private readonly Func<DateTime, DateTime, Task> _refreshHomeAsync;
         private readonly Func<DateTime> _getRangeStart;
         private readonly Func<DateTime> _getRangeEnd;
@@ -76,11 +79,13 @@ namespace Points.ViewModels.Home
             IPremiumSubscriptionService premiumSubscriptions,
             IWatchSnapshotPublishService watchSnapshots,
             IWatchShortcutSettingsService watchShortcuts,
+            IActiveCardNotificationAvailabilityService activeCardNotificationAvailability,
             IReadOnlyList<HomePageModel> pages,
             HomePageStateCoordinator pageState,
             HomeCardWorkflowCoordinator cardWorkflow,
             HomeDashboardShortcutWorkflowCoordinator dashboardShortcuts,
             Func<Task?> getInitialization,
+            Func<Task> reconcileNotificationAsync,
             Func<DateTime, DateTime, Task> refreshHomeAsync,
             Func<DateTime> getRangeStart,
             Func<DateTime> getRangeEnd,
@@ -113,11 +118,15 @@ namespace Points.ViewModels.Home
             _premiumSubscriptions = premiumSubscriptions ?? throw new ArgumentNullException(nameof(premiumSubscriptions));
             _watchSnapshots = watchSnapshots ?? throw new ArgumentNullException(nameof(watchSnapshots));
             _watchShortcuts = watchShortcuts ?? throw new ArgumentNullException(nameof(watchShortcuts));
+            _activeCardNotificationAvailability = activeCardNotificationAvailability
+                ?? throw new ArgumentNullException(nameof(activeCardNotificationAvailability));
             _pages = pages;
             _pageState = pageState;
             _cardWorkflow = cardWorkflow;
             _dashboardShortcuts = dashboardShortcuts;
             _getInitialization = getInitialization;
+            _reconcileNotificationAsync = reconcileNotificationAsync
+                ?? throw new ArgumentNullException(nameof(reconcileNotificationAsync));
             _refreshHomeAsync = refreshHomeAsync;
             _getRangeStart = getRangeStart;
             _getRangeEnd = getRangeEnd;
@@ -202,6 +211,8 @@ namespace Points.ViewModels.Home
                     _premiumSubscriptions,
                     _watchShortcuts,
                     _watchSnapshots,
+                    _activeCardNotificationAvailability,
+                    _reconcileNotificationAsync,
                     () => _refreshHomeAsync(_getRangeStart(), _getRangeEnd())));
         }
 
