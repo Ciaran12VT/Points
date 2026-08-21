@@ -47,6 +47,8 @@ public partial class DateRangePickerView : ContentView
         set => SetValue(CurrentLocalNowProperty, value);
     }
 
+    public bool FollowsCurrentDay { get; private set; } = true;
+
     bool _suppress;
 
     public DateRangePickerView()
@@ -56,6 +58,23 @@ public partial class DateRangePickerView : ContentView
         RangeModePicker.SelectedIndex = 0; // Today
     }
 
+    public void InitializeRange(DateTime start, DateTime end, bool followsCurrentDay)
+    {
+        SetPickersFromRange(start, end);
+
+        _suppress = true;
+        try
+        {
+            FollowsCurrentDay = followsCurrentDay;
+            RangeModePicker.SelectedItem = followsCurrentDay ? "Today" : "Custom";
+            SingleDateContainer.IsVisible = false;
+        }
+        finally
+        {
+            _suppress = false;
+        }
+    }
+
     void OnRangeModeChanged(object sender, EventArgs e)
     {
         if (_suppress) return;
@@ -63,6 +82,7 @@ public partial class DateRangePickerView : ContentView
         var mode = RangeModePicker.SelectedItem as string;
         if (string.IsNullOrWhiteSpace(mode)) return;
 
+        FollowsCurrentDay = mode == "Today";
         SingleDateContainer.IsVisible = mode == "Date";
 
         // Only "Custom" should leave the user's manual selections alone.
@@ -83,6 +103,7 @@ public partial class DateRangePickerView : ContentView
     void OnSingleDateSelected(object sender, DateChangedEventArgs e)
     {
         if (_suppress) return;
+        FollowsCurrentDay = false;
         ApplySingleDate(e.NewDate);
     }
 
@@ -90,6 +111,7 @@ public partial class DateRangePickerView : ContentView
     {
         if (_suppress) return;
         RangeStart = Combine(e.NewDate, StartTimePicker.Time);
+        MarkAsCustomRange();
     }
 
     void OnStartTimeChanged(object sender, PropertyChangedEventArgs e)
@@ -97,12 +119,14 @@ public partial class DateRangePickerView : ContentView
         if (_suppress) return;
         if (e.PropertyName != nameof(TimePicker.Time)) return;
         RangeStart = Combine(StartDatePicker.Date, StartTimePicker.Time);
+        MarkAsCustomRange();
     }
 
     void OnEndChanged(object sender, DateChangedEventArgs e)
     {
         if (_suppress) return;
         RangeEnd = Combine(e.NewDate, EndTimePicker.Time);
+        MarkAsCustomRange();
     }
 
     void OnEndTimeChanged(object sender, PropertyChangedEventArgs e)
@@ -110,6 +134,7 @@ public partial class DateRangePickerView : ContentView
         if (_suppress) return;
         if (e.PropertyName != nameof(TimePicker.Time)) return;
         RangeEnd = Combine(EndDatePicker.Date, EndTimePicker.Time);
+        MarkAsCustomRange();
     }
 
     void ApplySingleDate(DateTime date)
@@ -171,6 +196,22 @@ public partial class DateRangePickerView : ContentView
 
             EndDatePicker.Date = end.Date;
             EndTimePicker.Time = end.TimeOfDay;
+        }
+        finally
+        {
+            _suppress = false;
+        }
+    }
+
+    void MarkAsCustomRange()
+    {
+        FollowsCurrentDay = false;
+
+        _suppress = true;
+        try
+        {
+            RangeModePicker.SelectedItem = "Custom";
+            SingleDateContainer.IsVisible = false;
         }
         finally
         {

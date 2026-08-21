@@ -12,7 +12,8 @@ namespace Points.Converters
 
             if (model == null) return Colors.Grey;
 
-            var active = model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd); //GetTimeSpan(values, 0, culture);
+            var range = GlobalVariables.GetCurrentRange();
+            var active = model.GetActiveTime(range.Start, range.End); //GetTimeSpan(values, 0, culture);
             var est = model.EstCompletionTime; //GetTimeSpan(values, 1, culture);
 
             if (!est.HasValue || est.Value <= TimeSpan.Zero)

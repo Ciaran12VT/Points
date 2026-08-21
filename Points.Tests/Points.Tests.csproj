@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <Compile Remove="Planner\PlannerCardModelStubs.cs" />
+    <Compile Include="..\Points\Global\CurrentDayRangeState.cs" Link="App\Global\CurrentDayRangeState.cs" />
     <Compile Include="..\Points\Global\SettingKeys.cs" Link="App\Global\SettingKeys.cs" />
     <Compile Include="..\Points\Evaluators\TimeValueAchievementEvaluator.cs" Link="App\Evaluators\TimeValueAchievementEvaluator.cs" />
     <Compile Include="..\Points\Models\ActivityModel.cs" Link="App\Models\ActivityModel.cs" />
@@ -118,6 +119,7 @@
     <Compile Include="..\Points\Services\Scheduling\CardScheduleOccurrenceCalculator.cs" Link="App\Scheduling\CardScheduleOccurrenceCalculator.cs" />
     <Compile Include="..\Points\Services\Scheduling\WallClockScheduleTime.cs" Link="App\Scheduling\WallClockScheduleTime.cs" />
     <Compile Include="..\Points\ViewModels\Home\HomeCardSaveRouter.cs" Link="App\ViewModels\Home\HomeCardSaveRouter.cs" />
+    <Compile Include="..\Points\ViewModels\Home\HomeLoadedRangeTracker.cs" Link="App\ViewModels\Home\HomeLoadedRangeTracker.cs" />
     <Compile Include="..\Points\ViewModels\Home\DashboardCellModel.cs" Link="App\ViewModels\Home\DashboardCellModel.cs" />
     <Compile Include="..\Points\ViewModels\Home\HomePageModel.cs" Link="App\ViewModels\Home\HomePageModel.cs" />
     <Compile Include="..\Points\ViewModels\Home\HomePageStateCoordinator.cs" Link="App\ViewModels\Home\HomePageStateCoordinator.cs" />

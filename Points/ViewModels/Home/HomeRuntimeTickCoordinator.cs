@@ -18,6 +18,7 @@ namespace Points.ViewModels.Home
         private readonly Func<DateTime> _getRangeStart;
         private readonly Func<DateTime> _getRangeEnd;
         private readonly Action<DateTime> _setNow;
+        private readonly Func<DateTime, Task> _ensureCurrentDateRangeAsync;
         private readonly Action<double> _setTopRightValue;
         private readonly Action _sortMissionCards;
         private readonly Action<string> _notifyPropertyChanged;
@@ -39,6 +40,7 @@ namespace Points.ViewModels.Home
             Func<DateTime> getRangeStart,
             Func<DateTime> getRangeEnd,
             Action<DateTime> setNow,
+            Func<DateTime, Task> ensureCurrentDateRangeAsync,
             Action<double> setTopRightValue,
             Action sortMissionCards,
             Action<string> notifyPropertyChanged,
@@ -52,6 +54,8 @@ namespace Points.ViewModels.Home
             _getRangeStart = getRangeStart;
             _getRangeEnd = getRangeEnd;
             _setNow = setNow;
+            _ensureCurrentDateRangeAsync = ensureCurrentDateRangeAsync
+                ?? throw new ArgumentNullException(nameof(ensureCurrentDateRangeAsync));
             _setTopRightValue = setTopRightValue;
             _sortMissionCards = sortMissionCards;
             _notifyPropertyChanged = notifyPropertyChanged;
@@ -134,6 +138,7 @@ namespace Points.ViewModels.Home
 
             try
             {
+                await _ensureCurrentDateRangeAsync(now);
                 _setNow(now);
 
                 foreach (var page in _pages)

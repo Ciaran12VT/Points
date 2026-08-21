@@ -55,6 +55,7 @@ namespace Points.ViewModels.Home
         private readonly HomeLoadCoordinator _homeLoader;
         private readonly HomeRefreshCoordinator _refreshes;
         private readonly HomeNavigationCoordinator _navigation;
+        private readonly HomeLoadedRangeTracker _loadedRanges = new();
 
         #region Commands
         public Command<IActiveCardModel> ActivateCardCommand { get; }
@@ -231,13 +232,13 @@ namespace Points.ViewModels.Home
         {
             get
             {
-                if(GlobalVariables.RangeStart.Date == GlobalVariables.RangeEnd.Date)
+                if (RangeStart.Date == RangeEnd.Date)
                 {
-                    return TimeDisplayFormatter.FormatLocal(GlobalVariables.RangeStart.Date, "MMM-dd-yyyy");
+                    return TimeDisplayFormatter.FormatLocal(RangeStart.Date, "MMM-dd-yyyy");
                 }
                 else
                 {
-                    return $"{TimeDisplayFormatter.FormatLocal(GlobalVariables.RangeStart.Date, "MMM-dd")} - {TimeDisplayFormatter.FormatLocal(GlobalVariables.RangeEnd.Date, "MMM-dd")}";
+                    return $"{TimeDisplayFormatter.FormatLocal(RangeStart.Date, "MMM-dd")} - {TimeDisplayFormatter.FormatLocal(RangeEnd.Date, "MMM-dd")}";
                 }
             }
         }
@@ -457,7 +458,7 @@ namespace Points.ViewModels.Home
         }
 
         //The start range, should probably be removed and the GlobalVariables.RangeStart used directly
-        private DateTime _rangeStart = GlobalVariables.RangeStart;
+        private DateTime _rangeStart;
         public DateTime RangeStart
         {
             get => _rangeStart;
@@ -470,7 +471,7 @@ namespace Points.ViewModels.Home
         }
 
         //The end range, should probably be removed and the GlobalVariables.RangeEnd used directly
-        private DateTime _rangeEnd = GlobalVariables.RangeEnd;
+        private DateTime _rangeEnd;
         public DateTime RangeEnd
         {
             get => _rangeEnd;
@@ -552,7 +553,10 @@ namespace Points.ViewModels.Home
             IActiveCardNotificationNavigationService activeCardNotificationNavigation,
             IClock clock)
         {
-            _clock = clock;
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            var initialRange = GlobalVariables.GetCurrentRange(_clock.LocalNow);
+            _rangeStart = initialRange.Start;
+            _rangeEnd = initialRange.End;
             _activity = activity ?? throw new ArgumentNullException(nameof(activity));
             _watchSnapshots = watchSnapshots ?? throw new ArgumentNullException(nameof(watchSnapshots));
             _activeCardChanges = activeCardChanges ?? throw new ArgumentNullException(nameof(activeCardChanges));
@@ -590,6 +594,7 @@ namespace Points.ViewModels.Home
                 () => RangeStart,
                 () => RangeEnd,
                 now => Now = now,
+                EnsureCurrentDateRangeAsync,
                 value => TopRightValue = value,
                 SortMissionCards,
                 propertyName => OnPropertyChanged(propertyName),
@@ -941,6 +946,42 @@ namespace Points.ViewModels.Home
             return RequestFullRefreshAsync(HomeFullRefreshReason.DateRangeChanged, rangeStart, rangeEnd);
         }
 
+        public Task EnsureCurrentDateAsync()
+        {
+            return EnsureCurrentDateRangeAsync(_clock.LocalNow);
+        }
+
+        private async Task EnsureCurrentDateRangeAsync(DateTime localNow)
+        {
+            var currentRange = GlobalVariables.GetCurrentRange(localNow);
+
+            if (RangeStart != currentRange.Start || RangeEnd != currentRange.End)
+            {
+                RangeStart = currentRange.Start;
+                RangeEnd = currentRange.End;
+
+                OnPropertyChanged(nameof(HeaderDate));
+                OnPropertyChanged(nameof(GlobalValueColor));
+                OnPropertyChanged(nameof(HasNegativeAvailableMission));
+            }
+
+            if (_loadedRanges.IsLoaded(currentRange.Start, currentRange.End))
+                return;
+
+            try
+            {
+                await RequestFullRefreshAsync(
+                    HomeFullRefreshReason.DateRangeChanged,
+                    currentRange.Start,
+                    currentRange.End);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Home date-range refresh failed and will be retried: {ex}");
+            }
+        }
+
         private async Task ExecuteFullRefreshAsync(
             HomeFullRefreshContext context,
             CancellationToken cancellationToken)
@@ -953,6 +994,8 @@ namespace Points.ViewModels.Home
 
             if (!committed || !context.IsCurrent)
                 return;
+
+            _loadedRanges.MarkLoaded(context.RangeStart, context.RangeEnd);
 
             try
             {

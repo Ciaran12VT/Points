@@ -127,6 +127,9 @@ namespace Points.ViewModels.Tat
             _locks = locks ?? throw new ArgumentNullException(nameof(locks));
             _activity = activity ?? throw new ArgumentNullException(nameof(activity));
             _udmd = udmd ?? throw new ArgumentNullException(nameof(udmd));
+            var currentRange = GlobalVariables.GetCurrentRange();
+            _rangeStart = currentRange.Start;
+            _rangeEnd = currentRange.End;
             _dependencyOptions = dependencyOptions ?? throw new ArgumentNullException(nameof(dependencyOptions));
             ToggleSignCommand = new Command(ToggleSign);
             SaveCommand = new Command(async () => await SaveAsync());
@@ -148,6 +151,7 @@ namespace Points.ViewModels.Tat
             _timer.Tick += (_, __) =>
             {
                 RaisePropertyChanged(nameof(ActiveTimeText));
+                RaisePropertyChanged(nameof(CurrentAccruedValueText));
             };
             _timer.Start();
 
@@ -183,7 +187,7 @@ namespace Points.ViewModels.Tat
         }
 
 
-        private DateTime _rangeStart = GlobalVariables.RangeStart;
+        private DateTime _rangeStart;
         public DateTime RangeStart
         {
             get => _rangeStart;
@@ -195,7 +199,7 @@ namespace Points.ViewModels.Tat
             }
         }
 
-        private DateTime _rangeEnd = GlobalVariables.RangeEnd;
+        private DateTime _rangeEnd;
         public DateTime RangeEnd
         {
             get => _rangeEnd;
@@ -239,10 +243,22 @@ namespace Points.ViewModels.Tat
         public string Status => _model.Status;
 
         public string ActiveTimeText
-            => _model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString(@"hh\:mm\:ss");
+        {
+            get
+            {
+                var range = GlobalVariables.GetCurrentRange();
+                return _model.GetActiveTime(range.Start, range.End).ToString(@"hh\:mm\:ss");
+            }
+        }
 
         public string CurrentAccruedValueText
-            => MultiplierValueCalculator.GetValue(_model, GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString("F2");
+        {
+            get
+            {
+                var range = GlobalVariables.GetCurrentRange();
+                return MultiplierValueCalculator.GetValue(_model, range.Start, range.End).ToString("F2");
+            }
+        }
 
         public string ScheduleSummaryText => FormatCount(_model.Schedules.Count, "schedule");
 

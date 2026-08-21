@@ -9,12 +9,12 @@ public partial class DateRangePickerPage : ContentPage
     private readonly IAppNavigationService _navigation;
     private readonly IAppDialogService _dialogs;
     private readonly IClock _clock;
-    private readonly Func<DateTime, DateTime, Task>? _onSaved;
+    private readonly Func<DateTime, DateTime, bool, Task>? _onSaved;
 
     public Command SaveCommand { get; }
 
     public DateRangePickerPage(
-        Func<DateTime, DateTime, Task>? onSaved,
+        Func<DateTime, DateTime, bool, Task>? onSaved,
         IClock clock,
         IAppNavigationService navigation,
         IAppDialogService dialogs)
@@ -27,13 +27,28 @@ public partial class DateRangePickerPage : ContentPage
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _onSaved = onSaved;
 
-        RangePicker.CurrentLocalNow = _clock.LocalNow;
-        RangePicker.RangeStart = GlobalVariables.RangeStart;
-        RangePicker.RangeEnd = GlobalVariables.RangeEnd;
+        var now = _clock.LocalNow;
+        var currentRange = GlobalVariables.GetCurrentRange(now);
+        RangePicker.CurrentLocalNow = now;
+        RangePicker.InitializeRange(
+            currentRange.Start,
+            currentRange.End,
+            currentRange.FollowsCurrentDay);
 	}
 
     private async Task SaveAsync()
     {
+        var localNow = TimeDisplayFormatter.ToLocalInstant(_clock.LocalNow);
+        RangePicker.CurrentLocalNow = localNow;
+
+        if (RangePicker.FollowsCurrentDay)
+        {
+            RangePicker.InitializeRange(
+                localNow.Date,
+                localNow.Date.AddDays(1).AddTicks(-1),
+                followsCurrentDay: true);
+        }
+
         var rangeStart = RangePicker.RangeStart;
         var rangeEnd = RangePicker.RangeEnd;
 
@@ -43,11 +58,18 @@ public partial class DateRangePickerPage : ContentPage
             return;
         }
 
-        GlobalVariables.RangeStart = rangeStart;
-        GlobalVariables.RangeEnd = rangeEnd;
-
         if (_onSaved != null)
-            await _onSaved(GlobalVariables.RangeStart, GlobalVariables.RangeEnd);
+        {
+            await _onSaved(rangeStart, rangeEnd, RangePicker.FollowsCurrentDay);
+        }
+        else
+        {
+            GlobalVariables.SetRange(
+                rangeStart,
+                rangeEnd,
+                localNow,
+                RangePicker.FollowsCurrentDay);
+        }
 
         await _navigation.PopAsync();
     }

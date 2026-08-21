@@ -103,7 +103,7 @@ When the subscription service reports non-premium status and the banner should b
 
 Latent commands also support positive/negative filtering, tag filtering, clearing filters, and sorting active cards by last-active time, although their home buttons are commented out in the current XAML.
 
-The latent Date Range command opens a shared range picker. It has start date/time and end date/time controls plus quick Daily, Weekly, and Monthly range selection, Cancel, and Apply. Apply rejects an end before start, updates the process-wide range, header text, card values, goals, and global value. The default range is the current local daily range. Although the toolbar button is commented out, this behavior should remain available to preserve feature parity.
+The latent Date Range command opens a shared range picker. It has start date/time and end date/time controls plus quick Daily, Weekly, and Monthly range selection, Cancel, and Apply. Apply rejects an end before start, updates the process-wide range, header text, card values, goals, and global value. The default Today range follows the current local calendar day, rolling at midnight while the app is active and reconciling immediately when a retained app resumes; a cold launch derives it from the current local date. Explicit Date and Custom ranges remain fixed. Although the toolbar button is commented out, this behavior should remain available to preserve feature parity.
 
 ## 5. Shared card behavior
 

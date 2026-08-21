@@ -1,4 +1,4 @@
-using Points.ViewModels.Shared;
+ï»¿using Points.ViewModels.Shared;
 
 using Points.Global;
 using Points.Models;
@@ -43,6 +43,8 @@ namespace Points.ViewModels.Sc
         public void StopTimer() => _timer?.Stop();
 
         private double initalTotalValue = 0;
+        private DateTime _achievementRangeStart;
+        private DateTime _achievementRangeEnd;
 
         public ScDetailsViewModel(
             ScCardModel model,
@@ -60,6 +62,9 @@ namespace Points.ViewModels.Sc
         {
             _achievements = achievements;
             _clock = clock;
+            var initialRange = GlobalVariables.GetCurrentRange(_clock.LocalNow);
+            _rangeStart = initialRange.Start;
+            _rangeEnd = initialRange.End;
             _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
             _detailsInteractions = new ActiveCardDetailsInteractionCoordinator(_navigation, _dialogs, timeZoneService, _clock);
@@ -85,7 +90,10 @@ namespace Points.ViewModels.Sc
             _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += (_, __) =>
             {
+                EnsureAchievementBaseline(GlobalVariables.GetCurrentRange(_clock.LocalNow));
                 RaisePropertyChanged(nameof(ActiveTimeText));
+                RaisePropertyChanged(nameof(CurrentAccruedValueText));
+                RaisePropertyChanged(nameof(CurrentAccruedValueColor));
             };
             _timer.Start();
 
@@ -118,12 +126,10 @@ namespace Points.ViewModels.Sc
 
             RaiseComputed();
 
-            var sum = Steps.Sum(s => s.StepValue * s.Count(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
-            var signed = (_isNegative ? -1 : 1) * sum;
-            initalTotalValue = signed;
+            SetAchievementBaseline(GlobalVariables.GetCurrentRange(_clock.LocalNow));
         }
 
-        private DateTime _rangeStart = GlobalVariables.RangeStart;
+        private DateTime _rangeStart;
         public DateTime RangeStart
         {
             get => _rangeStart;
@@ -135,7 +141,7 @@ namespace Points.ViewModels.Sc
             }
         }
 
-        private DateTime _rangeEnd = GlobalVariables.RangeEnd;
+        private DateTime _rangeEnd;
         public DateTime RangeEnd
         {
             get => _rangeEnd;
@@ -193,14 +199,20 @@ namespace Points.ViewModels.Sc
         public string Status => _model.Status;
 
         public string ActiveTimeText
-            => _model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString(@"hh\:mm\:ss");
+        {
+            get
+            {
+                var range = GlobalVariables.GetCurrentRange(_clock.LocalNow);
+                return _model.GetActiveTime(range.Start, range.End).ToString(@"hh\:mm\:ss");
+            }
+        }
 
         public string CurrentAccruedValueText
         {
             get
             {
-                var sum = Steps.Sum(s => s.StepValue * s.Count(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
-                var signed = (_isNegative ? -1 : 1) * sum;
+                var range = GlobalVariables.GetCurrentRange(_clock.LocalNow);
+                var signed = CalculateSignedValue(range);
                 return MultiplierValueCalculator.ApplyToCard(_model, signed).ToString("F2", CultureInfo.InvariantCulture);
             }
         }
@@ -309,6 +321,27 @@ namespace Points.ViewModels.Sc
             RaisePropertyChanged(nameof(ActiveTimeText));
         }
 
+        private double CalculateSignedValue(CurrentDayRangeSnapshot range)
+        {
+            var sum = Steps.Sum(s => s.StepValue * s.Count(range.Start, range.End));
+            return (_isNegative ? -1 : 1) * sum;
+        }
+
+        private void SetAchievementBaseline(CurrentDayRangeSnapshot range)
+        {
+            _achievementRangeStart = range.Start;
+            _achievementRangeEnd = range.End;
+            initalTotalValue = CalculateSignedValue(range);
+        }
+
+        private void EnsureAchievementBaseline(CurrentDayRangeSnapshot range)
+        {
+            if (_achievementRangeStart == range.Start && _achievementRangeEnd == range.End)
+                return;
+
+            SetAchievementBaseline(range);
+        }
+
         private void HookStep(ScStepModel step)
         {
             step.PropertyChanged += (_, __) => RaiseComputed();
@@ -385,8 +418,9 @@ namespace Points.ViewModels.Sc
         private async Task EvaluateAchievements(ScCardModel model)
         {
             // Compute the delta since the page was opened
-            var sum = Steps.Sum(s => s.StepValue * s.Count(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
-            var signed = (_isNegative ? -1 : 1) * sum;
+            var range = GlobalVariables.GetCurrentRange(_clock.LocalNow);
+            EnsureAchievementBaseline(range);
+            var signed = CalculateSignedValue(range);
             var amountToAdd = MultiplierValueCalculator.ApplyToCard(_model, signed - initalTotalValue);
 
             // If user reduced value or made no change, don't evaluate earns.
@@ -420,7 +454,7 @@ namespace Points.ViewModels.Sc
             // Prefer one dialog rather than N dialogs
             var msg = earned.Count == 1
                 ? $"You earned: {earned[0].Title}"
-                : "You earned:\n• " + string.Join("\n• ", earned.Select(a => a.Title));
+                : "You earned:\nâ€¢ " + string.Join("\nâ€¢ ", earned.Select(a => a.Title));
 
             await MainThread.InvokeOnMainThreadAsync(async () =>
             {

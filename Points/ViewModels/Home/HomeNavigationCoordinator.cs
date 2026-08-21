@@ -270,19 +270,25 @@ namespace Points.ViewModels.Home
             await _cardWorkflow.OpenDetailsForModelAsync(page, model);
         }
 
-        private async Task ApplyGlobalDateRangeAsync(DateTime rangeStart, DateTime rangeEnd)
+        private async Task ApplyGlobalDateRangeAsync(
+            DateTime rangeStart,
+            DateTime rangeEnd,
+            bool followsCurrentDay)
         {
-            GlobalVariables.RangeStart = rangeStart;
-            GlobalVariables.RangeEnd = rangeEnd;
+            var savedRange = GlobalVariables.SetRange(
+                rangeStart,
+                rangeEnd,
+                _clock.LocalNow,
+                followsCurrentDay);
 
-            _setRangeStart(GlobalVariables.RangeStart);
-            _setRangeEnd(GlobalVariables.RangeEnd);
+            _setRangeStart(savedRange.Start);
+            _setRangeEnd(savedRange.End);
 
             _notifyPropertyChanged(nameof(HomeViewModel.HeaderDate));
             _notifyPropertyChanged(nameof(HomeViewModel.GlobalValueColor));
             _notifyPropertyChanged(nameof(HomeViewModel.HasNegativeAvailableMission));
 
-            await _refreshHomeAsync(rangeStart, rangeEnd);
+            await _refreshHomeAsync(savedRange.Start, savedRange.End);
         }
     }
 }

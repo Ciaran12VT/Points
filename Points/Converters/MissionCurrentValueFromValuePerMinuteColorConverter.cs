@@ -25,9 +25,10 @@ namespace Points.Converters
             if (cardObj is not MissionCardModel mission) return Colors.Green;
             if (nowObj is not DateTime now) return Colors.Green;
 
+            var range = GlobalVariables.GetCurrentRange();
             var v = MultiplierValueCalculator.ApplyToCard(
                 mission,
-                mission.GetValueFromValuePerMinute(GlobalVariables.RangeStart, GlobalVariables.RangeEnd));
+                mission.GetValueFromValuePerMinute(range.Start, range.End));
             return v < 0 ? Colors.Red : Colors.Green;
         }
 

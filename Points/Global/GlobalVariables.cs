@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Points.Services.Time;
 
 namespace Points.Global
@@ -10,31 +6,29 @@ namespace Points.Global
     public static class GlobalVariables
     {
         private static readonly IClock Clock = new SystemClock();
-        private static DateTime _rangeStart = AsLocalWallClock(Clock.LocalNow.Date);
-        private static DateTime _rangeEnd = AsLocalWallClock(Clock.LocalNow.Date.AddDays(1).AddTicks(-1));
+        private static readonly CurrentDayRangeState RangeState = new(Clock.LocalNow);
 
-        public static DateTime RangeStart
+        public static DateTime RangeStart => GetCurrentRange().Start;
+
+        public static DateTime RangeEnd => GetCurrentRange().End;
+
+        internal static CurrentDayRangeSnapshot GetCurrentRange(DateTime localNow)
         {
-            get => _rangeStart;
-            set => _rangeStart = AsLocalWallClock(value);
+            return RangeState.EnsureCurrentDay(localNow);
         }
 
-        public static DateTime RangeEnd
+        internal static CurrentDayRangeSnapshot SetRange(
+            DateTime start,
+            DateTime end,
+            DateTime localNow,
+            bool followsCurrentDay)
         {
-            get => _rangeEnd;
-            set => _rangeEnd = AsLocalWallClock(value);
+            return RangeState.SetRange(start, end, localNow, followsCurrentDay);
         }
 
-        private static DateTime AsLocalWallClock(DateTime value)
+        internal static CurrentDayRangeSnapshot GetCurrentRange()
         {
-            if (value == DateTime.MinValue || value == DateTime.MaxValue)
-                return DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
-
-            var local = value.Kind == DateTimeKind.Utc
-                ? value.ToLocalTime()
-                : value;
-
-            return DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+            return GetCurrentRange(Clock.LocalNow);
         }
     }
 }

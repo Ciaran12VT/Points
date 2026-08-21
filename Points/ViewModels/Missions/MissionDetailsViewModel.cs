@@ -51,7 +51,14 @@ namespace Points.ViewModels.Missions
         public bool IsReadOnly => _model.IsComplete;     // complete => read-only
         public bool CanEdit => !_model.IsComplete;       // convenience
         public bool CanShare => _model.CardID > 0;
-        public string ActiveTimeText => _model.GetActiveTime(GlobalVariables.RangeStart, GlobalVariables.RangeEnd).ToString(@"hh\:mm\:ss");
+        public string ActiveTimeText
+        {
+            get
+            {
+                var range = GlobalVariables.GetCurrentRange();
+                return _model.GetActiveTime(range.Start, range.End).ToString(@"hh\:mm\:ss");
+            }
+        }
 
         private readonly IDispatcherTimer _timer;
         public void StopTimer() => _timer?.Stop();

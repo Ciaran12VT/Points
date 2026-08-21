@@ -24,8 +24,10 @@ public partial class HomePage : ContentPage
     private IDisposable? _cardsScrollSuppressionHandle;
     private CancellationTokenSource? _carouselScrollSettleCts;
     private IDisposable? _carouselScrollSuppressionHandle;
+    private Window? _lifecycleWindow;
     private bool _wasParented;
     private int _disposeStarted;
+    private int _appearanceGeneration;
 
 
     public HomePage(HomeViewModel vm, IAudioFeedback audio, IScheduledBackupRunner scheduledBackupRunner)
@@ -300,8 +302,9 @@ public partial class HomePage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        var appearanceGeneration = Interlocked.Increment(ref _appearanceGeneration);
+        AttachWindowLifecycleHandlers();
 
-        var isFirstAppearance = !_hasAppearedOnce;
         var homeViewModel = BindingContext as HomeViewModel;
 
         if (homeViewModel != null)
@@ -318,8 +321,16 @@ public partial class HomePage : ContentPage
                 }
             }
 
+            await homeViewModel.EnsureCurrentDateAsync();
+
+            if (!IsCurrentAppearance(appearanceGeneration))
+                return;
+
             homeViewModel.ProcessPendingActiveCardNotificationNavigation();
         }
+
+        if (!IsCurrentAppearance(appearanceGeneration))
+            return;
 
         StartTicker();
         StartScheduledBackupChecks();
@@ -328,12 +339,16 @@ public partial class HomePage : ContentPage
         if (homeViewModel != null)
             await homeViewModel.RefreshMissedNotificationBadgeAsync();
 
-        if (isFirstAppearance && homeViewModel != null)
+        if (!IsCurrentAppearance(appearanceGeneration))
+            return;
+
+        if (homeViewModel != null)
             await homeViewModel.HandleHomeOpenedForPremiumPromptAsync();
     }
 
     protected override void OnDisappearing()
     {
+        Interlocked.Increment(ref _appearanceGeneration);
         StopTicker();
         StopScheduledBackupChecks();
         ReleaseCardsScrollInteraction();
@@ -351,6 +366,8 @@ public partial class HomePage : ContentPage
             return;
         }
 
+        Interlocked.Increment(ref _appearanceGeneration);
+
         if (!_wasParented || Interlocked.Exchange(ref _disposeStarted, 1) == 1)
             return;
 
@@ -358,10 +375,15 @@ public partial class HomePage : ContentPage
         StopScheduledBackupChecks();
         ReleaseCardsScrollInteraction();
         ReleaseCarouselInteraction();
+        DetachWindowLifecycleHandlers();
 
         if (BindingContext is HomeViewModel vm)
             TaskSupervisor.Forget(vm.DisposeAsync().AsTask(), "Dispose removed Home page");
     }
+
+    private bool IsCurrentAppearance(int appearanceGeneration)
+        => Volatile.Read(ref _appearanceGeneration) == appearanceGeneration
+           && Volatile.Read(ref _disposeStarted) == 0;
 
     private void StartTicker()
     {
@@ -392,6 +414,52 @@ public partial class HomePage : ContentPage
 
         _timer?.Dispose();
         _timer = null;
+    }
+
+    private void AttachWindowLifecycleHandlers()
+    {
+        var window = Window;
+        if (ReferenceEquals(_lifecycleWindow, window))
+            return;
+
+        DetachWindowLifecycleHandlers();
+        _lifecycleWindow = window;
+
+        if (_lifecycleWindow == null)
+            return;
+
+        _lifecycleWindow.Resumed += Window_Resumed;
+        _lifecycleWindow.Activated += Window_Activated;
+    }
+
+    private void DetachWindowLifecycleHandlers()
+    {
+        if (_lifecycleWindow == null)
+            return;
+
+        _lifecycleWindow.Resumed -= Window_Resumed;
+        _lifecycleWindow.Activated -= Window_Activated;
+        _lifecycleWindow = null;
+    }
+
+    private void Window_Resumed(object? sender, EventArgs e)
+    {
+        QueueCurrentDateReconciliation("Home date reconciliation after resume");
+    }
+
+    private void Window_Activated(object? sender, EventArgs e)
+    {
+        QueueCurrentDateReconciliation("Home date reconciliation after activation");
+    }
+
+    private void QueueCurrentDateReconciliation(string operation)
+    {
+        if (BindingContext is not HomeViewModel vm)
+            return;
+
+        TaskSupervisor.Forget(
+            MainThread.InvokeOnMainThreadAsync(vm.EnsureCurrentDateAsync),
+            operation);
     }
 
     private void StartScheduledBackupChecks()

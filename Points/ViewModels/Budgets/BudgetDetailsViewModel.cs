@@ -63,6 +63,9 @@ namespace Points.ViewModels.Budgets
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _timeZoneService = timeZoneService ?? throw new ArgumentNullException(nameof(timeZoneService));
+            var currentRange = GlobalVariables.GetCurrentRange();
+            _rangeStart = currentRange.Start;
+            _rangeEnd = currentRange.End;
             AvailableTagList = availableTagsList;
 
             // Tick every second
@@ -118,7 +121,7 @@ namespace Points.ViewModels.Budgets
         }
 
 
-        private DateTime _rangeStart = GlobalVariables.RangeStart;
+        private DateTime _rangeStart;
         public DateTime RangeStart
         {
             get => _rangeStart;
@@ -130,7 +133,7 @@ namespace Points.ViewModels.Budgets
             }
         }
 
-        private DateTime _rangeEnd = GlobalVariables.RangeEnd;
+        private DateTime _rangeEnd;
         public DateTime RangeEnd
         {
             get => _rangeEnd;

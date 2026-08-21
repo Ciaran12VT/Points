@@ -45,6 +45,7 @@ public sealed class WatchSnapshotBuilder : IWatchSnapshotBuilder
         var nowUtc = _clock.UtcNow;
         var todayStart = LocalDayStart(nowLocal);
         var todayEnd = todayStart.AddDays(1).AddTicks(-1);
+        var globalRange = GlobalVariables.GetCurrentRange(nowLocal);
 
         var selectedIds = (await _watchShortcuts.GetCandidatesAsync(ct))
             .Where(candidate => candidate.IsSelected)
@@ -54,7 +55,7 @@ public sealed class WatchSnapshotBuilder : IWatchSnapshotBuilder
 
         var shortcutIcons = await GetShortcutIconsByCardIdAsync();
         var dailySeed = await _cards.GetHomeSeedDataAsync(todayStart, todayEnd);
-        var globalSeed = await _cards.GetHomeSeedDataAsync(GlobalVariables.RangeStart, GlobalVariables.RangeEnd);
+        var globalSeed = await _cards.GetHomeSeedDataAsync(globalRange.Start, globalRange.End);
         var openActivity = await _activity.GetCurrentActiveActivityAsync();
 
         var activeCardsForLocks = dailySeed.MainQuestCards
@@ -104,7 +105,11 @@ public sealed class WatchSnapshotBuilder : IWatchSnapshotBuilder
                 nowLocal))
             .ToList();
 
-        var globalScore = await CalculateGlobalScoreAsync(globalSeed, nowUtc);
+        var globalScore = await CalculateGlobalScoreAsync(
+            globalSeed,
+            globalRange.Start,
+            globalRange.End,
+            nowUtc);
         var radialIds = selectedIds
             .Select(WatchConstants.ToWatchCardId)
             .Where(id => cards.Any(c => c.CardId == id) || budgets.Any(b => b.CardId == id))
@@ -290,11 +295,12 @@ public sealed class WatchSnapshotBuilder : IWatchSnapshotBuilder
         };
     }
 
-    private async Task<double> CalculateGlobalScoreAsync(HomeSeedData seed, DateTime utcNow)
+    private async Task<double> CalculateGlobalScoreAsync(
+        HomeSeedData seed,
+        DateTime rangeStart,
+        DateTime rangeEnd,
+        DateTime utcNow)
     {
-        var rangeStart = GlobalVariables.RangeStart;
-        var rangeEnd = GlobalVariables.RangeEnd;
-
         var total = seed.MainQuestCards
             .Cast<ICardModel>()
             .Concat(seed.MissionCards)
